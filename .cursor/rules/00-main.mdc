@@ -51,4 +51,4 @@ Build Deployer PHP: Composer package and CLI tool simplifying server provisionin
 
 Don't run or create or update tests UNLESS explicitly instructed to do so.
 
-Test are something we need focus on separately from building features.
+Test are something we need to focus on separately from building features.
