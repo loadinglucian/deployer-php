@@ -51,6 +51,7 @@ class DigitalOceanKeyService
         $publicKey = trim($publicKey);
 
         // Validate key format (should start with ssh-rsa, ssh-ed25519, ecdsa-sha2-nistp256, etc.)
+        // except 'ssh-dss' which is effectively obsolete:
         $validPrefixes = ['ssh-rsa', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-dss'];
         $isValid = false;
         foreach ($validPrefixes as $prefix) {
