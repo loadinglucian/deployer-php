@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Bigpixelrocket\DeployerPHP\Services\DigitalOcean;
 
-use DigitalOceanV2\Client;
 use DigitalOceanV2\Entity\Droplet as DropletEntity;
 
 /**
@@ -12,18 +11,8 @@ use DigitalOceanV2\Entity\Droplet as DropletEntity;
  *
  * Handles creating, destroying, and monitoring droplets.
  */
-class DigitalOceanDropletService
+class DigitalOceanDropletService extends BaseDigitalOceanService
 {
-    private ?Client $api = null;
-
-    /**
-     * Set the DigitalOcean API client.
-     */
-    public function setAPI(Client $api): void
-    {
-        $this->api = $api;
-    }
-
     /**
      * Create a new droplet with the specified configuration.
      *
@@ -193,19 +182,5 @@ class DigitalOceanDropletService
             // Other errors - throw
             throw new \RuntimeException("Failed to destroy droplet: {$e->getMessage()}", 0, $e);
         }
-    }
-
-    /**
-     * Get the configured DigitalOcean API client.
-     *
-     * @throws \RuntimeException If client not configured
-     */
-    private function getAPI(): Client
-    {
-        if ($this->api === null) {
-            throw new \RuntimeException('DigitalOcean API client not configured. Call setAPI() first.');
-        }
-
-        return $this->api;
     }
 }

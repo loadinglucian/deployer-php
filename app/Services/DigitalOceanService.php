@@ -31,11 +31,13 @@ class DigitalOceanService
     }
 
     //
-    // API
+    // API Initialization
     // -------------------------------------------------------------------------------
 
     /**
-     * Initialize the DigitalOcean API with the given token.
+     * Single function to initialize the DigitalOcean API and verify authentication.
+     *
+     * Must be called before making any API calls.
      *
      * @param string $token The DigitalOcean API token
      *
@@ -49,11 +51,9 @@ class DigitalOceanService
     }
 
     /**
-     * Set the DigitalOcean API token.
-     *
-     * Must be called before making any API calls.
+     * Set a DigitalOcean API token.
      */
-    public function setToken(string $token): void
+    private function setToken(string $token): void
     {
         $this->token = $token;
 
@@ -62,16 +62,44 @@ class DigitalOceanService
     }
 
     /**
-     * Verify API token authentication by making a lightweight API call.
+     * Initialize and return the DigitalOcean API client.
+     *
+     * @throws \RuntimeException If API token is not configured
+     */
+    private function initializeAPI(): Client
+    {
+        if ($this->api !== null) {
+            return $this->api;
+        }
+
+        if ($this->token === null || $this->token === '') {
+            throw new \RuntimeException(
+                'DigitalOcean API token not set. '.
+                'Set API token before making API requests.'
+            );
+        }
+
+        $this->api = new Client();
+        $this->api->authenticate($this->token);
+
+        $this->account->setAPI($this->api);
+        $this->key->setAPI($this->api);
+        $this->droplet->setAPI($this->api);
+
+        return $this->api;
+    }
+
+    /**
+     * Verify DigitalOcean API authentication.
      *
      * @throws \RuntimeException If authentication fails or API is unreachable
      */
-    public function verifyAuthentication(): void
+    private function verifyAuthentication(): void
     {
         $api = $this->initializeAPI();
 
         try {
-            // Use account endpoint - lightweight and verifies token validity
+            // Use account endpoint to verify token validity
             $api->account()->getUserInformation();
         } catch (\Throwable $e) {
             throw new \RuntimeException('Failed to authenticate with DigitalOcean API: ' . $e->getMessage(), 0, $e);
@@ -112,37 +140,5 @@ class DigitalOceanService
     public function clearCache(string $key): void
     {
         unset($this->cache[$key]);
-    }
-
-    //
-    // Client access
-    // -------------------------------------------------------------------------------
-
-    /**
-     * Get or initialize the DigitalOcean API client.
-     *
-     * @throws \RuntimeException If API token is not configured
-     */
-    private function initializeAPI(): Client
-    {
-        if ($this->api !== null) {
-            return $this->api;
-        }
-
-        if ($this->token === null || $this->token === '') {
-            throw new \RuntimeException(
-                'DigitalOcean API token not set. '.
-                'Set API token before making API requests.'
-            );
-        }
-
-        $this->api = new Client();
-        $this->api->authenticate($this->token);
-
-        $this->account->setAPI($this->api);
-        $this->key->setAPI($this->api);
-        $this->droplet->setAPI($this->api);
-
-        return $this->api;
     }
 }

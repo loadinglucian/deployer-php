@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Bigpixelrocket\DeployerPHP\Services\DigitalOcean;
 
-use DigitalOceanV2\Client;
 use DigitalOceanV2\Entity\Image as ImageEntity;
 use DigitalOceanV2\Entity\Region as RegionEntity;
 use DigitalOceanV2\Entity\Size as SizeEntity;
@@ -14,20 +13,14 @@ use DigitalOceanV2\Entity\Size as SizeEntity;
  *
  * Handles fetching account-level resources: regions, sizes, images, VPCs, SSH keys.
  */
-class DigitalOceanAccountService
+class DigitalOceanAccountService extends BaseDigitalOceanService
 {
-    private ?Client $api = null;
+    //
+    // Account data retrieval
+    // -------------------------------------------------------------------------------
 
     /**
-     * Set the DigitalOcean API client.
-     */
-    public function setAPI(Client $api): void
-    {
-        $this->api = $api;
-    }
-
-    /**
-     * Get available DigitalOcean regions.
+     * Get available regions.
      *
      * @return array<string, string> Array of region slug => description
      */
@@ -123,7 +116,7 @@ class DigitalOceanAccountService
     }
 
     /**
-     * Get user's VPCs for a specific region.
+     * Get available VPCs for a specific region.
      *
      * @return array<string, string> Array of VPC UUID => name
      */
@@ -149,7 +142,7 @@ class DigitalOceanAccountService
     }
 
     /**
-     * Get user's SSH keys.
+     * Get available SSH keys.
      *
      * @return array<int, string> Array of key ID => description
      */
@@ -171,19 +164,5 @@ class DigitalOceanAccountService
         } catch (\Throwable $e) {
             throw new \RuntimeException('Failed to fetch SSH keys: ' . $e->getMessage(), 0, $e);
         }
-    }
-
-    /**
-     * Get the configured DigitalOcean API client.
-     *
-     * @throws \RuntimeException If client not configured
-     */
-    private function getAPI(): Client
-    {
-        if ($this->api === null) {
-            throw new \RuntimeException('DigitalOcean API client not configured. Call setAPI() first.');
-        }
-
-        return $this->api;
     }
 }

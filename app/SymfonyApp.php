@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Bigpixelrocket\DeployerPHP;
 
 use Bigpixelrocket\DeployerPHP\Console\HelloCommand;
+use Bigpixelrocket\DeployerPHP\Console\Key\KeyAddDigitalOceanCommand;
+use Bigpixelrocket\DeployerPHP\Console\Key\KeyDeleteDigitalOceanCommand;
+use Bigpixelrocket\DeployerPHP\Console\Key\KeyListDigitalOceanCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerAddCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerDeleteCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerListCommand;
@@ -120,6 +123,9 @@ final class SymfonyApp extends SymfonyApplication
     {
         $commands = [
             HelloCommand::class,
+            KeyAddDigitalOceanCommand::class,
+            KeyDeleteDigitalOceanCommand::class,
+            KeyListDigitalOceanCommand::class,
             ServerAddCommand::class,
             ServerDeleteCommand::class,
             ServerListCommand::class,
