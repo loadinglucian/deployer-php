@@ -52,7 +52,7 @@ abstract class BaseCommand extends Command
         protected readonly SiteRepository $sites,
         protected readonly SSHService $ssh,
 
-        // Providers
+        // Hosting providers
         protected readonly DigitalOceanService $digitalOcean,
     ) {
         parent::__construct();
