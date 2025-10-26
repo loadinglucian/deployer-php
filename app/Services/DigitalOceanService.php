@@ -94,7 +94,7 @@ class DigitalOceanService
      *
      * @throws \RuntimeException If authentication fails or API is unreachable
      */
-    public function verifyAuthentication(): void
+    private function verifyAuthentication(): void
     {
         $api = $this->initializeAPI();
 
