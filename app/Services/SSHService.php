@@ -14,33 +14,32 @@ use phpseclib3\Net\SSH2;
  *
  * Provides connectivity testing, command execution, and file transfer capabilities.
  * All operations are stateless - connections are created and destroyed per operation.
+ * Expects absolute paths to SSH keys (path resolution handled by callers).
  *
  * @example
- * // Test SSH connectivity
- * $ssh->assertCanConnect('example.com', 22, 'deployer');
- * $ssh->assertCanConnect('example.com', 22, 'deployer', '~/.ssh/custom_key');
+ * // Test SSH connectivity (commands resolve key paths before calling)
+ * $ssh->assertCanConnect('example.com', 22, 'deployer', '/home/user/.ssh/id_ed25519');
  *
  * // Execute single commands
- * $result = $ssh->executeCommand('example.com', 22, 'deployer', 'uptime');
+ * $result = $ssh->executeCommand('example.com', 22, 'deployer', 'uptime', '/home/user/.ssh/id_ed25519');
  * echo $result['output'];     // "15:30:01 up 42 days, 3:14, 1 user..."
  * echo $result['exit_code'];  // 0
  *
  * // Execute bash scripts
- * $result = $ssh->executeScript('example.com', 22, 'deployer', './scripts/deploy.sh');
+ * $result = $ssh->executeScript('example.com', 22, 'deployer', './scripts/deploy.sh', '/home/user/.ssh/id_ed25519');
  * if ($result['exit_code'] === 0) {
  *     echo "Deployment successful";
  * }
  *
  * // Upload files to remote server
- * $ssh->uploadFile('example.com', 22, 'deployer', './local.txt', '/remote/path/file.txt');
+ * $ssh->uploadFile('example.com', 22, 'deployer', './local.txt', '/remote/path/file.txt', '/home/user/.ssh/id_ed25519');
  *
  * // Download files from remote server
- * $ssh->downloadFile('example.com', 22, 'deployer', '/remote/config.yml', './local-config.yml');
+ * $ssh->downloadFile('example.com', 22, 'deployer', '/remote/config.yml', './local-config.yml', '/home/user/.ssh/id_ed25519');
  */
 class SSHService
 {
     public function __construct(
-        private readonly EnvService $envService,
         private readonly FilesystemService $fs,
     ) {
     }
@@ -54,7 +53,7 @@ class SSHService
      *
      * @throws \RuntimeException When connection or authentication fails
      */
-    public function assertCanConnect(string $host, int $port, string $username, ?string $privateKeyPath = null): void
+    public function assertCanConnect(string $host, int $port, string $username, string $privateKeyPath): void
     {
         $ssh = $this->createConnection($host, $port, $username, $privateKeyPath);
         $this->disconnect($ssh);
@@ -67,7 +66,7 @@ class SSHService
      *
      * @throws \RuntimeException When connection, authentication, or command execution fails
      */
-    public function executeCommand(string $host, int $port, string $username, string $command, ?string $privateKeyPath = null): array
+    public function executeCommand(string $host, int $port, string $username, string $command, string $privateKeyPath): array
     {
         $ssh = $this->createConnection($host, $port, $username, $privateKeyPath);
 
@@ -93,7 +92,7 @@ class SSHService
      *
      * @throws \RuntimeException When script file cannot be read or execution fails
      */
-    public function executeScript(string $host, int $port, string $username, string $scriptPath, ?string $privateKeyPath = null): array
+    public function executeScript(string $host, int $port, string $username, string $scriptPath, string $privateKeyPath): array
     {
         if (!$this->fs->exists($scriptPath)) {
             throw new \RuntimeException("Script file does not exist: {$scriptPath}");
@@ -125,7 +124,7 @@ class SSHService
      *
      * @throws \RuntimeException When file operations fail
      */
-    public function uploadFile(string $host, int $port, string $username, string $localPath, string $remotePath, ?string $privateKeyPath = null): void
+    public function uploadFile(string $host, int $port, string $username, string $localPath, string $remotePath, string $privateKeyPath): void
     {
         if (!$this->fs->exists($localPath)) {
             throw new \RuntimeException("Local file does not exist: {$localPath}");
@@ -152,7 +151,7 @@ class SSHService
      *
      * @throws \RuntimeException When file operations fail
      */
-    public function downloadFile(string $host, int $port, string $username, string $remotePath, string $localPath, ?string $privateKeyPath = null): void
+    public function downloadFile(string $host, int $port, string $username, string $remotePath, string $localPath, string $privateKeyPath): void
     {
         $sftp = $this->createSFTPConnection($host, $port, $username, $privateKeyPath);
 
@@ -179,7 +178,7 @@ class SSHService
      *
      * @throws \RuntimeException When connection or authentication fails
      */
-    private function createConnection(string $host, int $port, string $username, ?string $privateKeyPath): SSH2
+    private function createConnection(string $host, int $port, string $username, string $privateKeyPath): SSH2
     {
         $key = $this->loadPrivateKey($privateKeyPath);
 
@@ -202,7 +201,7 @@ class SSHService
      *
      * @throws \RuntimeException When connection or authentication fails
      */
-    private function createSFTPConnection(string $host, int $port, string $username, ?string $privateKeyPath): SFTP
+    private function createSFTPConnection(string $host, int $port, string $username, string $privateKeyPath): SFTP
     {
         $key = $this->loadPrivateKey($privateKeyPath);
 
@@ -246,82 +245,24 @@ class SSHService
      *
      * @throws \RuntimeException When key cannot be found, read, or parsed
      */
-    private function loadPrivateKey(?string $privateKeyPath): PrivateKey
+    private function loadPrivateKey(string $privateKeyPath): PrivateKey
     {
-        $resolvedKeyPath = $this->resolvePrivateKeyPath($privateKeyPath);
-
-        if ($resolvedKeyPath === null) {
-            throw new \RuntimeException('No SSH private key found. Provide a key path or place a key at ~/.ssh/id_ed25519 or ~/.ssh/id_rsa');
+        if (!$this->fs->exists($privateKeyPath)) {
+            throw new \RuntimeException("SSH key does not exist: {$privateKeyPath}");
         }
 
-        if (!$this->fs->exists($resolvedKeyPath)) {
-            throw new \RuntimeException("SSH key does not exist: {$resolvedKeyPath}");
-        }
-
-        $keyContents = $this->fs->readFile($resolvedKeyPath);
+        $keyContents = $this->fs->readFile($privateKeyPath);
 
         try {
             $key = PublicKeyLoader::load($keyContents);
         } catch (\Throwable $e) {
-            throw new \RuntimeException("Error parsing SSH private key at {$resolvedKeyPath}: " . $e->getMessage());
+            throw new \RuntimeException("Error parsing SSH private key at {$privateKeyPath}: " . $e->getMessage());
         }
 
         if (!$key instanceof PrivateKey) {
-            throw new \RuntimeException("File at {$resolvedKeyPath} is not a valid private key");
+            throw new \RuntimeException("File at {$privateKeyPath} is not a valid private key");
         }
 
         return $key;
-    }
-
-    /**
-     * Resolve a usable private key path.
-     *
-     * Priority order:
-     * 1. Provided path (with ~ expansion)
-     * 2. ~/.ssh/id_ed25519
-     * 3. ~/.ssh/id_rsa
-     */
-    private function resolvePrivateKeyPath(?string $path): ?string
-    {
-        $candidates = [];
-
-        // User-provided path takes priority
-        if (is_string($path) && $path !== '') {
-            $candidates[] = $this->expandHomePath($path);
-        }
-
-        // Default SSH key locations
-        $home = $this->envService->get('HOME', required: false);
-        if ($home !== null && $home !== '') {
-            $home = rtrim($home, '/');
-            $candidates[] = $home.'/.ssh/id_ed25519';
-            $candidates[] = $home.'/.ssh/id_rsa';
-        }
-
-        // Return first existing candidate
-        foreach ($candidates as $candidate) {
-            if ($this->fs->exists($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Expand leading tilde (~) to user's home directory.
-     */
-    private function expandHomePath(string $path): string
-    {
-        if ($path === '' || $path[0] !== '~') {
-            return $path;
-        }
-
-        $home = $this->envService->get('HOME', required: false);
-        if ($home === null || $home === '') {
-            return $path;
-        }
-
-        return $home.substr($path, 1);
     }
 }

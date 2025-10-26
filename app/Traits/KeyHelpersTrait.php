@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 namespace Bigpixelrocket\DeployerPHP\Traits;
 
-use Bigpixelrocket\DeployerPHP\Services\IOService;
 use Symfony\Component\Console\Command\Command;
 
 /**
- * Reusable SSH key-related helpers for commands.
- *
- * Requires the using class to extend BaseCommand and have:
- * - protected IOService $io
- * - protected EnvService $env
+ * Common SSH key helpers trait for commands.
  */
 trait KeyHelpersTrait
 {
@@ -34,22 +29,59 @@ trait KeyHelpersTrait
     }
 
     /**
-     * Expand tilde (~) in file path to absolute home directory path.
+     * Resolve a usable private key path.
      *
-     * @throws \RuntimeException If HOME environment variable not found when needed
+     * Priority order:
+     * 1. Provided path (with ~ expansion)
+     * 2. ~/.ssh/id_ed25519
+     * 3. ~/.ssh/id_rsa
      */
-    protected function expandKeyPath(string $path): string
+    protected function resolvePrivateKeyPath(?string $path): ?string
     {
-        if (!str_starts_with($path, '~')) {
-            return $path;
+        return $this->resolveKeyWithFallback($path, [
+            '~/.ssh/id_ed25519',
+            '~/.ssh/id_rsa',
+        ]);
+    }
+
+    /**
+     * Resolve a usable public key path.
+     *
+     * Priority order:
+     * 1. Provided path (with ~ expansion)
+     * 2. ~/.ssh/id_ed25519.pub
+     * 3. ~/.ssh/id_rsa.pub
+     */
+    protected function resolvePublicKeyPath(?string $path): ?string
+    {
+        return $this->resolveKeyWithFallback($path, [
+            '~/.ssh/id_ed25519.pub',
+            '~/.ssh/id_rsa.pub',
+        ]);
+    }
+
+    /**
+     * Resolve a key path with fallback to default locations.
+     *
+     * Priority order:
+     * 1. Provided path (with ~ expansion)
+     * 2. Fallback paths
+     *
+     * @param string|null $path The path to resolve
+     * @param array<int, string> $fallback The fallback paths
+     * @return string|null The resolved path, or null if not found
+     */
+    protected function resolveKeyWithFallback(?string $path, array $fallback): ?string
+    {
+        $candidates = [];
+
+        if (is_string($path) && $path !== '') {
+            $candidates[] = $path;
         }
 
-        $home = $this->env->get('HOME', required: false);
-        if ($home === null) {
-            throw new \RuntimeException('Could not determine home directory');
-        }
+        $candidates = array_merge($candidates, $fallback);
 
-        return $home . substr($path, 1);
+        return $this->fs->getFirstExisting($candidates);
     }
 
     /**

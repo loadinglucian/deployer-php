@@ -103,4 +103,42 @@ final readonly class FilesystemService
 
         return dirname($path, $levels);
     }
+
+    /**
+     * Expand leading tilde (~) to user's home directory.
+     *
+     * @throws \RuntimeException If HOME environment variable not found when needed
+     */
+    public function expandPath(string $path): string
+    {
+        if ($path === '' || $path[0] !== '~') {
+            return $path;
+        }
+
+        $home = getenv('HOME');
+        if ($home === false || $home === '') {
+            throw new \RuntimeException('Could not determine home directory (HOME environment variable not set)');
+        }
+
+        return $home . substr($path, 1);
+    }
+
+    /**
+     * Get first existing path from array of candidates.
+     * Automatically expands tilde paths before checking existence.
+     *
+     * @param array<int, string> $paths Array of file paths to check
+     * @return string|null First existing path (expanded), or null if none exist
+     */
+    public function getFirstExisting(array $paths): ?string
+    {
+        foreach ($paths as $path) {
+            $expandedPath = $this->expandPath($path);
+            if ($this->exists($expandedPath)) {
+                return $expandedPath;
+            }
+        }
+
+        return null;
+    }
 }

@@ -59,24 +59,27 @@ class KeyAddDigitalOceanCommand extends BaseCommand
         //
         // Gather key details
 
-        /** @var string|null $keyPath */
-        $keyPath = $this->io->getValidatedOptionOrPrompt(
+        /** @var string|null $publicKeyPathRaw */
+        $publicKeyPathRaw = $this->io->getValidatedOptionOrPrompt(
             'public-key-path',
             fn ($validate) => $this->io->promptText(
-                label: 'Path to SSH public key:',
-                placeholder: '~/.ssh/id_ed25519.pub',
-                required: true,
+                label: 'Path to SSH public key (leave empty for default ~/.ssh/id_ed25519.pub or ~/.ssh/id_rsa.pub):',
+                default: '',
+                required: false,
+                hint: 'Used when provisioning a server',
                 validate: $validate
             ),
             fn ($value) => $this->validateKeyPathInput($value)
         );
 
-        if ($keyPath === null) {
+        /** @var ?string $publicKeyPath */
+        $publicKeyPath = $this->resolvePublicKeyPath($publicKeyPathRaw);
+
+        if ($publicKeyPath === null) {
+            $this->io->error('SSH public key not found.');
+
             return Command::FAILURE;
         }
-
-        // Expand tilde to home directory
-        $keyPath = $this->expandKeyPath($keyPath);
 
         $defaultName = 'deployer-key';
 
@@ -102,14 +105,14 @@ class KeyAddDigitalOceanCommand extends BaseCommand
 
         try {
             $keyId = $this->io->promptSpin(
-                fn () => $this->digitalOcean->key->uploadKey($keyPath, $keyName),
+                fn () => $this->digitalOcean->key->uploadKey($publicKeyPath, $keyName),
                 'Uploading SSH key...'
             );
 
             $this->io->success("SSH key uploaded successfully (ID: {$keyId})");
             $this->io->writeln('');
         } catch (\RuntimeException $e) {
-            $this->io->error('Failed to upload SSH key: ' . $e->getMessage());
+            $this->io->error($e->getMessage());
             $this->io->writeln('');
 
             return Command::FAILURE;
@@ -119,7 +122,7 @@ class KeyAddDigitalOceanCommand extends BaseCommand
         // Show command hint
 
         $this->io->showCommandHint('key:add:digitalocean', [
-            'public-key-path' => $keyPath,
+            'public-key-path' => $publicKeyPath,
             'name' => $keyName,
         ]);
 
