@@ -50,9 +50,20 @@ trait KeyValidationTrait
             $publicKey = $this->fs->readFile($expandedPath);
             $publicKey = trim((string) $publicKey);
 
-            // Validate key format (should start with ssh-rsa, ssh-ed25519, etc.)
-            // except 'ssh-dss' which is effectively obsolete:
-            $validPrefixes = ['ssh-rsa', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-dss'];
+            // Validate key format (should start with supported SSH key types)
+            $validPrefixes = [
+                'ssh-ed25519',
+                'ecdsa-sha2-nistp256',
+                'ecdsa-sha2-nistp384',
+                'ecdsa-sha2-nistp521',
+                'ssh-rsa',
+                // Modern FIDO2/U2F security key types:
+                'sk-ssh-ed25519@openssh.com',
+                'sk-ecdsa-sha2-nistp256@openssh.com',
+                // Obsolete and insecure:
+                // 'ssh-dss',
+            ];
+
             $isValid = false;
             foreach ($validPrefixes as $prefix) {
                 if (str_starts_with($publicKey, $prefix)) {
@@ -62,6 +73,11 @@ trait KeyValidationTrait
             }
 
             if (!$isValid) {
+                // Explicit error for obsolete DSA keys
+                if (str_starts_with($publicKey, 'ssh-dss')) {
+                    return 'DSA (ssh-dss) keys are obsolete and insecure';
+                }
+
                 return 'Invalid SSH public key format';
             }
         } catch (\Throwable) {
