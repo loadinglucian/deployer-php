@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bigpixelrocket\DeployerPHP\Services;
 
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Filesystem\Path;
 
 /**
  * Thin wrapper around Symfony Filesystem with gap-filling methods.
@@ -115,12 +116,30 @@ final readonly class FilesystemService
             return $path;
         }
 
-        $home = getenv('HOME');
-        if ($home === false || $home === '') {
-            throw new \RuntimeException('Could not determine home directory (HOME environment variable not set)');
+        // Determine home directory (POSIX first, then Windows fallbacks)
+        $home = getenv('HOME') ?: '';
+        if ($home === '') {
+            $home = getenv('USERPROFILE') ?: '';
+            if ($home === '') {
+                $drive = getenv('HOMEDRIVE') ?: '';
+                $hpath = getenv('HOMEPATH') ?: '';
+                if ($drive !== '' && $hpath !== '') {
+                    $home = $drive . $hpath;
+                }
+            }
+        }
+        if ($home === '') {
+            throw new \RuntimeException('Could not determine home directory (HOME/USERPROFILE not set)');
         }
 
-        return $home . substr($path, 1);
+        // Only expand "~" and "~/" (or "~\"); leave "~user" untouched
+        if ($path === '~') {
+            return Path::canonicalize($home);
+        }
+        if (str_starts_with($path, '~/') || str_starts_with($path, '~\\')) {
+            return Path::canonicalize($home . substr($path, 1));
+        }
+        return $path;
     }
 
     /**
