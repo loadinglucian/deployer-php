@@ -133,9 +133,14 @@ final readonly class FilesystemService
     public function getFirstExisting(array $paths): ?string
     {
         foreach ($paths as $path) {
-            $expandedPath = $this->expandPath($path);
-            if ($this->exists($expandedPath)) {
-                return $expandedPath;
+            try {
+                $expandedPath = $this->expandPath($path);
+                if ($this->exists($expandedPath)) {
+                    return $expandedPath;
+                }
+            } catch (\RuntimeException) {
+                // Skip paths that cannot be expanded (e.g., ~ paths when HOME not set)
+                continue;
             }
         }
 
