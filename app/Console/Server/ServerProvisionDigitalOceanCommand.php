@@ -45,7 +45,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             ->addOption('image', null, InputOption::VALUE_REQUIRED, 'OS image (e.g., ubuntu-22-04-x64)')
             ->addOption('private-key-path', null, InputOption::VALUE_REQUIRED, 'SSH private key path')
             ->addOption('size', null, InputOption::VALUE_REQUIRED, 'Droplet size (e.g., s-1vcpu-1gb)')
-            ->addOption('ssh-key', null, InputOption::VALUE_REQUIRED, 'SSH key ID')
+            ->addOption('ssh-key-id', null, InputOption::VALUE_REQUIRED, 'SSH key ID')
             ->addOption('vpc-uuid', null, InputOption::VALUE_REQUIRED, 'VPC UUID (default: use default VPC)')
             ->addOption('backups', null, InputOption::VALUE_NONE, 'Enable backups')
             ->addOption('ipv6', null, InputOption::VALUE_NONE, 'Enable IPv6')
@@ -69,7 +69,6 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
 
         //
         // Retrieve DigitalOcean data
-        // -------------------------------------------------------------------------------
 
         $accountData = $this->io->promptSpin(
             fn () => [
@@ -95,7 +94,6 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
 
         //
         // Gather droplet configuration
-        // -------------------------------------------------------------------------------
 
         /** @var string|null $name */
         $name = $this->io->getValidatedOptionOrPrompt(
@@ -160,11 +158,10 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
 
         //
         // Select SSH key
-        // -------------------------------------------------------------------------------
 
         /** @var int|string|null $selectedKey */
         $selectedKey = $this->io->getValidatedOptionOrPrompt(
-            'ssh-key',
+            'ssh-key-id',
             fn ($validate) => $this->io->promptSelect(
                 label: 'Select SSH key for droplet access:',
                 options: $accountData['keys'],
@@ -186,7 +183,6 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
 
         //
         // Prompt for local private key path
-        // -------------------------------------------------------------------------------
 
         /** @var string $privateKeyPathRaw */
         $privateKeyPathRaw = $this->io->getOptionOrPrompt(
@@ -204,13 +200,13 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
 
         if ($privateKeyPath === null) {
             $this->io->error('SSH private key not found.');
+            $this->io->writeln('');
 
             return Command::FAILURE;
         }
 
         //
         // Gather optional parameters
-        // -------------------------------------------------------------------------------
 
         /** @var bool $backups */
         $backups = $this->io->getOptionOrPrompt(
@@ -264,7 +260,6 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
 
         //
         // Display provisioning summary
-        // -------------------------------------------------------------------------------
 
         $this->io->hr();
 
@@ -283,7 +278,6 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
 
         //
         // Create droplet
-        // -------------------------------------------------------------------------------
 
         try {
             $dropletData = $this->io->promptSpin(
@@ -311,7 +305,6 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
 
         //
         // Wait for droplet to become active
-        // -------------------------------------------------------------------------------
 
         $this->io->writeln('');
 
@@ -324,13 +317,13 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             $this->io->success('Droplet is now active');
         } catch (\RuntimeException $e) {
             $this->io->error($e->getMessage());
+            $this->rollbackDroplet($dropletId);
 
             return Command::FAILURE;
         }
 
         //
         // Get droplet IP address
-        // -------------------------------------------------------------------------------
 
         try {
             $ipAddress = $this->digitalOcean->droplet->getDropletIp($dropletId);
@@ -338,13 +331,13 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             $this->io->writeln("  Public IP: <fg=gray>{$ipAddress}</>");
         } catch (\RuntimeException $e) {
             $this->io->error('Failed to retrieve IP address: ' . $e->getMessage());
+            $this->rollbackDroplet($dropletId);
 
             return Command::FAILURE;
         }
 
         //
         // Add to inventory
-        // -------------------------------------------------------------------------------
 
         $server = new ServerDTO(
             name: $name,
@@ -360,6 +353,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             $this->servers->create($server);
         } catch (\RuntimeException $e) {
             $this->io->error('Failed to add server to inventory: ' . $e->getMessage());
+            $this->rollbackDroplet($dropletId);
 
             return Command::FAILURE;
         }
@@ -383,7 +377,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             'region' => $region,
             'size' => $size,
             'image' => $image,
-            'ssh-key' => $sshKeyId,
+            'ssh-key-id' => $sshKeyId,
             'backups' => $backups,
             'monitoring' => $monitoring,
             'ipv6' => $ipv6,
@@ -391,5 +385,29 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
         ]);
 
         return Command::SUCCESS;
+    }
+
+    //
+    // Rollback
+    // -------------------------------------------------------------------------------
+
+    /**
+     * Destroy a droplet after failed provisioning.
+     *
+     * @param int $dropletId The droplet ID to destroy
+     */
+    private function rollbackDroplet(int $dropletId): void
+    {
+        try {
+            $this->io->writeln('');
+            $this->io->promptSpin(
+                fn () => $this->digitalOcean->droplet->destroyDroplet($dropletId),
+                'Destroying droplet...'
+            );
+
+            $this->io->warning('Rolled back provisioning of droplet.');
+        } catch (\Throwable $cleanupError) {
+            $this->io->warning($cleanupError->getMessage());
+        }
     }
 }
