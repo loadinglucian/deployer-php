@@ -202,7 +202,7 @@ final class SiteRepository
             domain: is_string($domain) ? $domain : '',
             repo: is_string($repo) ? $repo : null,
             branch: is_string($branch) ? $branch : null,
-            servers: is_array($servers) ? array_values(array_filter($servers, 'is_string')) : [],
+            servers: is_array($servers) ? array_values(array_filter($servers, is_string(...))) : [],
         );
     }
 }

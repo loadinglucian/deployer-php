@@ -104,7 +104,7 @@ trait SiteHelpersTrait
 
         if (is_string($serversInput)) {
             // Parse comma-separated server names from CLI option
-            $selectedServers = array_map('trim', explode(',', $serversInput));
+            $selectedServers = array_map(trim(...), explode(',', $serversInput));
 
             // Validate servers exist
             foreach ($selectedServers as $serverName) {
@@ -118,7 +118,7 @@ trait SiteHelpersTrait
         }
 
         // Ensure array values are strings with sequential integer keys
-        return array_values(array_filter(array_map('strval', $selectedServers)));
+        return array_values(array_filter(array_map(strval(...), $selectedServers)));
     }
 
     /**

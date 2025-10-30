@@ -150,7 +150,7 @@ trait DigitalOceanValidationTrait
         }
 
         // Split and validate each key ID
-        $keyArray = array_map('trim', explode(',', $keys));
+        $keyArray = array_map(trim(...), explode(',', $keys));
         foreach ($keyArray as $key) {
             if ($key === '') {
                 return 'SSH key IDs cannot be empty (remove extra commas)';
