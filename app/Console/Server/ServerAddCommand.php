@@ -130,6 +130,7 @@ class ServerAddCommand extends BaseCommand
 
         if ($privateKeyPath === null) {
             $this->io->error('SSH private key not found.');
+            $this->io->writeln('');
 
             return Command::FAILURE;
         }
