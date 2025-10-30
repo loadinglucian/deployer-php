@@ -6,6 +6,8 @@ namespace Bigpixelrocket\DeployerPHP\Console\Server;
 
 use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
 use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
+use Bigpixelrocket\DeployerPHP\Traits\KeyHelpersTrait;
+use Bigpixelrocket\DeployerPHP\Traits\KeyValidationTrait;
 use Bigpixelrocket\DeployerPHP\Traits\ServerHelpersTrait;
 use Bigpixelrocket\DeployerPHP\Traits\ServerValidationTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -14,14 +16,11 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-/**
- * Add and register a new server to the inventory.
- *
- * Prompts for server details and saves to inventory.
- */
 #[AsCommand(name: 'server:add', description: 'Add a new server to the inventory')]
 class ServerAddCommand extends BaseCommand
 {
+    use KeyHelpersTrait;
+    use KeyValidationTrait;
     use ServerHelpersTrait;
     use ServerValidationTrait;
 
@@ -37,8 +36,8 @@ class ServerAddCommand extends BaseCommand
             ->addOption('name', null, InputOption::VALUE_REQUIRED, 'Server name')
             ->addOption('host', null, InputOption::VALUE_REQUIRED, 'Host/IP address')
             ->addOption('port', null, InputOption::VALUE_REQUIRED, 'SSH port (default: 22)')
-            ->addOption('username', null, InputOption::VALUE_REQUIRED, 'SSH username (default: root)')
-            ->addOption('private-key-path', null, InputOption::VALUE_REQUIRED, 'SSH private key path');
+            ->addOption('private-key-path', null, InputOption::VALUE_REQUIRED, 'SSH private key path')
+            ->addOption('username', null, InputOption::VALUE_REQUIRED, 'SSH username (default: root)');
     }
 
     //
@@ -50,7 +49,6 @@ class ServerAddCommand extends BaseCommand
         parent::execute($input, $output);
 
         $this->io->hr();
-
         $this->io->h1('Add New Server');
 
         //
@@ -120,14 +118,21 @@ class ServerAddCommand extends BaseCommand
         $privateKeyPathRaw = $this->io->getOptionOrPrompt(
             'private-key-path',
             fn (): string => $this->io->promptText(
-                label: 'SSH private key path (leave empty for default ~/.ssh/id_ed25519 or ~/.ssh/id_rsa):',
+                label: 'Path to SSH private key (leave empty for default ~/.ssh/id_ed25519 or ~/.ssh/id_rsa):',
                 default: '',
-                required: false
+                required: false,
+                hint: 'Used to connect to the server'
             )
         );
 
         /** @var ?string $privateKeyPath */
-        $privateKeyPath = $privateKeyPathRaw !== '' ? $privateKeyPathRaw : null;
+        $privateKeyPath = $this->resolvePrivateKeyPath($privateKeyPathRaw);
+
+        if ($privateKeyPath === null) {
+            $this->io->error('SSH private key not found.');
+
+            return Command::FAILURE;
+        }
 
         //
         // Create DTO and display server info

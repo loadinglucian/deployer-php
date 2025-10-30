@@ -12,6 +12,8 @@ readonly class ServerDTO
         public int $port = 22,
         public string $username = 'root',
         public ?string $privateKeyPath = null,
+        public ?string $provider = null,
+        public ?int $dropletId = null, // DigitalOcean droplet ID
     ) {
     }
 }

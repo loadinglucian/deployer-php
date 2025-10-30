@@ -12,11 +12,11 @@ use Symfony\Component\Console\Command\Command;
 /**
  * Common DigitalOcean actions trait for commands.
  *
- * Requires classes using this trait to have EnvService, IOService, and DigitalOceanService properties.
+ * Requires classes using this trait to have DigitalOceanService, EnvService, and IOService properties.
  *
+ * @property DigitalOceanService $digitalOcean
  * @property EnvService $env
  * @property IOService $io
- * @property DigitalOceanService $digitalOcean
  */
 trait DigitalOceanCommandTrait
 {

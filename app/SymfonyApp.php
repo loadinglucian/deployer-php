@@ -11,6 +11,7 @@ use Bigpixelrocket\DeployerPHP\Console\Key\KeyListDigitalOceanCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerAddCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerDeleteCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerListCommand;
+use Bigpixelrocket\DeployerPHP\Console\Server\ServerProvisionDigitalOceanCommand;
 use Bigpixelrocket\DeployerPHP\Console\Site\SiteAddCommand;
 use Bigpixelrocket\DeployerPHP\Console\Site\SiteDeleteCommand;
 use Bigpixelrocket\DeployerPHP\Console\Site\SiteListCommand;
@@ -123,12 +124,27 @@ final class SymfonyApp extends SymfonyApplication
     {
         $commands = [
             HelloCommand::class,
+
+            //
+            // Key management
+
             KeyAddDigitalOceanCommand::class,
             KeyDeleteDigitalOceanCommand::class,
             KeyListDigitalOceanCommand::class,
+
+            //
+            // Server management
+
             ServerAddCommand::class,
             ServerDeleteCommand::class,
             ServerListCommand::class,
+
+            // Providers
+            ServerProvisionDigitalOceanCommand::class,
+
+            //
+            // Site management
+
             SiteAddCommand::class,
             SiteDeleteCommand::class,
             SiteListCommand::class,

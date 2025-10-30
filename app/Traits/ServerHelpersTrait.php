@@ -6,39 +6,58 @@ namespace Bigpixelrocket\DeployerPHP\Traits;
 
 use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
 use Bigpixelrocket\DeployerPHP\Repositories\ServerRepository;
-use Bigpixelrocket\DeployerPHP\Services\SSHService;
+use Bigpixelrocket\DeployerPHP\Services\IOService;
 use Symfony\Component\Console\Command\Command;
 
 /**
  * Reusable server-related helpers for commands.
  *
- * Requires the using class to have:
- * - protected IOService $io
- * - protected ServerRepository $servers
- * - protected SSHService $ssh
+ * Requires classes using this trait to have IOService and ServerRepository properties.
+ *
+ * @property IOService $io
+ * @property ServerRepository $servers
  */
 trait ServerHelpersTrait
 {
     /**
+     * Display a warning to add a server if no servers are available. Otherwise, return all servers.
+     *
+     * @return array<int, ServerDTO>|int Returns array of servers or Command::SUCCESS if no servers available
+     */
+    protected function ensureServersAvailable(): array|int
+    {
+        // Get all servers
+        $allServers = $this->servers->all();
+
+        // Check if no servers are available
+        if (count($allServers) === 0) {
+            $this->io->warning('No servers available');
+            $this->io->writeln([
+                '',
+                'Run <fg=cyan>server:provision</> to provision your first server,',
+                'or run <fg=cyan>server:add</> to add an existing server.',
+                '',
+            ]);
+
+            return Command::SUCCESS;
+        }
+
+        return $allServers;
+    }
+
+    /**
      * Select a server from inventory by name option or interactive prompt.
      *
-     * @return array{server: ServerDTO|null, exit_code: int} Server DTO and exit code (SUCCESS if empty inventory, FAILURE if not found)
+     * @return ServerDTO|int Returns ServerDTO on success, or Command::SUCCESS if empty inventory, or Command::FAILURE if not found
      */
-    protected function selectServer(string $optionName = 'server', string $promptLabel = 'Select server:'): array
+    protected function selectServer(string $optionName = 'server', string $promptLabel = 'Select server:'): ServerDTO|int
     {
         //
         // Get all servers
 
-        $allServers = $this->servers->all();
-        if (count($allServers) === 0) {
-            $this->io->warning('No servers found in inventory');
-            $this->io->writeln([
-                '',
-                'Use <fg=cyan>server:add</> to add a server',
-                '',
-            ]);
-
-            return ['server' => null, 'exit_code' => Command::SUCCESS];
+        $allServers = $this->ensureServersAvailable();
+        if (is_int($allServers)) {
+            return $allServers;
         }
 
         //
@@ -62,16 +81,18 @@ trait ServerHelpersTrait
         if ($server === null) {
             $this->io->error("Server '{$name}' not found in inventory");
 
-            return ['server' => null, 'exit_code' => Command::FAILURE];
+            return Command::FAILURE;
         }
 
-        return ['server' => $server, 'exit_code' => Command::SUCCESS];
+        return $server;
     }
 
     /**
-     * Display server details.
+     * Display server details including optional sites.
+     *
+     * @param array<int, \Bigpixelrocket\DeployerPHP\DTOs\SiteDTO> $sites
      */
-    protected function displayServerDeets(ServerDTO $server): void
+    protected function displayServerDeets(ServerDTO $server, array $sites = []): void
     {
         $this->io->writeln([
             "  Name: <fg=gray>{$server->name}</>",
@@ -79,8 +100,23 @@ trait ServerHelpersTrait
             "  Port: <fg=gray>{$server->port}</>",
             "  User: <fg=gray>{$server->username}</>",
             '  Key:  <fg=gray>'.($server->privateKeyPath ?? 'default (~/.ssh/id_ed25519 or ~/.ssh/id_rsa)').'</>',
-            ' '
         ]);
+
+        if (count($sites) > 0) {
+            $this->io->writeln(['  Sites:']);
+            foreach ($sites as $site) {
+                $this->io->writeln(["    • <fg=gray>{$site->domain}</>"]);
+            }
+        }
+
+        $this->io->writeln('');
     }
 
+    /**
+     * Check if a server is provisioned on DigitalOcean.
+     */
+    protected function isDigitalOceanServer(ServerDTO $server): bool
+    {
+        return $server->provider === 'digitalocean' && $server->dropletId !== null;
+    }
 }

@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Bigpixelrocket\DeployerPHP\Traits;
 
+use Bigpixelrocket\DeployerPHP\Repositories\ServerRepository;
+
 /**
  * Validation helpers for server configuration.
+ *
+ * Requires classes using this trait to have a ServerRepository property.
+ *
+ * @property ServerRepository $servers
  */
 trait ServerValidationTrait
 {

@@ -12,10 +12,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-/**
- * List all servers in the inventory.
- */
-#[AsCommand(name: 'server:list', description: 'List all servers in the inventory')]
+#[AsCommand(name: 'server:list', description: 'List servers in the inventory')]
 class ServerListCommand extends BaseCommand
 {
     use ServerHelpersTrait;
@@ -30,40 +27,24 @@ class ServerListCommand extends BaseCommand
         parent::execute($input, $output);
 
         $this->io->hr();
+        $this->io->h1('List Servers');
 
         //
         // Get all servers
 
-        $allServers = $this->servers->all();
-        if (count($allServers) === 0) {
-            $this->io->warning('No servers found in inventory');
-            $this->io->writeln([
-                '',
-                'Use <fg=cyan>server:add</> to add a server',
-                '',
-            ]);
+        $allServers = $this->ensureServersAvailable();
 
-            return Command::SUCCESS;
+        if (is_int($allServers)) {
+            return $allServers;
         }
 
         //
         // Display servers with their sites
 
-        $this->io->h1('All Servers');
-
         foreach ($allServers as $count => $server) {
-            $this->displayServerDeets($server);
-
-            // Get sites for this server
+            // Display server with sites
             $serverSites = $this->sites->findByServer($server->name);
-
-            if (count($serverSites) > 0) {
-                $this->io->writeln(['  Sites:']);
-                foreach ($serverSites as $site) {
-                    $this->io->writeln(["    • <fg=gray>{$site->domain}</>"]);
-                }
-                $this->io->writeln('');
-            }
+            $this->displayServerDeets($server, $serverSites);
 
             if ($count < count($allServers) - 1) {
                 $this->io->writeln([

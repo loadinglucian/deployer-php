@@ -11,10 +11,10 @@ use Symfony\Component\Console\Command\Command;
 /**
  * Common SSH key helpers trait for commands.
  *
- * Requires classes using this trait to have IOService and FilesystemService properties.
+ * Requires classes using this trait to have FilesystemService and IOService properties.
  *
- * @property IOService $io
  * @property FilesystemService $fs
+ * @property IOService $io
  */
 trait KeyHelpersTrait
 {

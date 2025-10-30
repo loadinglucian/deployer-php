@@ -162,6 +162,8 @@ final class ServerRepository
             'port' => $server->port,
             'username' => $server->username,
             'privateKeyPath' => $server->privateKeyPath,
+            'provider' => $server->provider,
+            'dropletId' => $server->dropletId,
         ];
     }
 
@@ -177,6 +179,8 @@ final class ServerRepository
         $port = $data['port'] ?? 22;
         $username = $data['username'] ?? 'root';
         $privateKeyPath = $data['privateKeyPath'] ?? null;
+        $provider = $data['provider'] ?? null;
+        $dropletId = $data['dropletId'] ?? null;
 
         return new ServerDTO(
             name: is_string($name) ? $name : '',
@@ -184,6 +188,8 @@ final class ServerRepository
             port: is_int($port) ? $port : 22,
             username: is_string($username) ? $username : 'root',
             privateKeyPath: is_string($privateKeyPath) ? $privateKeyPath : null,
+            provider: is_string($provider) ? $provider : null,
+            dropletId: is_int($dropletId) ? $dropletId : null,
         );
     }
 }
