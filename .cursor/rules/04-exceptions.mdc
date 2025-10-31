@@ -1,0 +1,215 @@
+---
+alwaysApply: true
+---
+## Exception Handling & Error Display
+
+All rules MANDATORY.
+
+### Core Principle
+
+Services throw complete, user-facing exceptions. Command layer (Commands + Traits) displays them directly without adding prefixes.
+
+### Services & Repositories
+
+Throw `\RuntimeException` with complete, actionable messages:
+
+```php
+// ✅ CORRECT - Complete message with context
+throw new \RuntimeException("SSH key does not exist: {$privateKeyPath}");
+throw new \RuntimeException("Server '{$name}' already exists");
+
+// ✅ CORRECT - Preserve exception chain when wrapping
+} catch (\Throwable $e) {
+    throw new \RuntimeException(
+        "SSH authentication failed for {$username}@{$host}. Check username and key permissions",
+        previous: $e
+    );
+}
+
+// ❌ WRONG - Fragment requiring concatenation
+throw new \RuntimeException("does not exist");
+
+// ❌ WRONG - Generic prefix causing concatenation
+} catch (\Throwable $e) {
+    throw new \RuntimeException("Failed to execute: " . $e->getMessage());
+}
+```
+
+**Rules:**
+- Messages must be user-facing and complete (not fragments)
+- Include relevant context (paths, names, IDs, hosts)
+- Use `previous: $e` to preserve exception chains for debugging
+- Never catch and re-throw with generic prefixes like "Failed to..."
+- Wrap when lower exception is technical; let bubble when already user-facing
+
+### Validation Traits
+
+Two distinct patterns:
+
+**Pattern A: Input Validation (for prompts/CLI options)**
+
+Returns `?string` - error message or null:
+
+```php
+protected function validateNameInput(mixed $name): ?string
+{
+    if (!is_string($name)) {
+        return 'Server name must be a string';
+    }
+
+    if (trim($name) === '') {
+        return 'Server name cannot be empty';
+    }
+
+    if ($this->servers->findByName($name) !== null) {
+        return "Server '{$name}' already exists";
+    }
+
+    return null;
+}
+```
+
+**Pattern B: Heavy I/O Validation**
+
+Throws `\RuntimeException`:
+
+```php
+protected function validateGitRepo(string $repo): void
+{
+    try {
+        $process = $this->proc->run(['git', 'ls-remote', '--exit-code', $repo], $cwd, 10.0);
+
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException(
+                "Cannot access git repository '{$repo}'. Check the URL and your network connection."
+            );
+        }
+    } catch (\Exception $e) {
+        throw new \RuntimeException(
+            "Failed to validate git repository '{$repo}': " . $e->getMessage(),
+            previous: $e
+        );
+    }
+}
+```
+
+**Naming Convention:**
+- `validate*Input()` - Returns `?string` (for prompts)
+- `validate*()` - Throws exceptions (for I/O)
+
+### Orchestration Traits (Command Layer)
+
+Traits mixed into Commands ARE Command layer. Display errors directly without redundant prefixes:
+
+```php
+// ✅ CORRECT - Display exception directly, no prefix
+protected function getServerInfo(ServerDTO $server): array|int
+{
+    try {
+        $result = $this->executePlaybook($server, 'server-info', 'Gathering...');
+    } catch (\RuntimeException $e) {
+        $this->io->error($e->getMessage());  // No "Failed to..." prefix
+        return Command::FAILURE;
+    }
+
+    if ($result['exit_code'] !== 0) {
+        $this->io->error('Failed to gather server information');
+        return Command::FAILURE;
+    }
+
+    // Parse and return
+}
+
+// ❌ WRONG - Adding redundant prefix
+} catch (\RuntimeException $e) {
+    $this->io->error('Failed to gather server information: ' . $e->getMessage());
+    // Results in: "Failed to gather server information: SSH authentication failed..."
+}
+```
+
+**When to add context:**
+- Displaying raw output for debugging
+- Adding actionable troubleshooting steps
+- Exception message is too technical/generic
+
+```php
+// ✅ CORRECT - Adding helpful context, not redundant prefix
+} catch (\RuntimeException $e) {
+    $this->io->error($e->getMessage());
+    $this->io->writeln([
+        '',
+        '<fg=yellow>Troubleshooting:</>',
+        '  • Ensure server is online',
+        '  • Check SSH credentials',
+        '',
+    ]);
+    return Command::FAILURE;
+}
+```
+
+### Commands
+
+Catch exceptions, display directly, return status:
+
+```php
+// ✅ CORRECT - Display exception message directly
+try {
+    $this->servers->create($server);
+} catch (\RuntimeException $e) {
+    $this->io->error($e->getMessage());  // Already complete: "Server 'web1' already exists"
+    return Command::FAILURE;
+}
+
+// ❌ WRONG - Adding redundant prefix
+} catch (\RuntimeException $e) {
+    $this->io->error('Failed to add server: ' . $e->getMessage());
+    // Results in: "Failed to add server: Server 'web1' already exists"
+}
+```
+
+### Silent Failures
+
+Return `null`/`false` only for optional operations:
+
+```php
+// ✅ CORRECT - Optional detection
+public function detectRemoteUrl(?string $workingDir = null): ?string
+{
+    try {
+        $process = $this->proc->run(['git', 'config', '--get', 'remote.origin.url'], $workingDir);
+        return $process->isSuccessful() ? trim($process->getOutput()) : null;
+    } catch (\Exception) {
+        return null;  // Not in git repo, that's okay
+    }
+}
+
+// ❌ WRONG - Required operation returning null
+public function executeCommand(string $host, ...): ?array
+{
+    try {
+        return $ssh->exec($command);
+    } catch (\Throwable) {
+        return null;  // Caller doesn't know WHY it failed
+    }
+}
+```
+
+### Exception Message Quality
+
+Every exception message must be:
+- Complete (not: "does not exist", but: "SSH key does not exist: /path/to/key")
+- User-facing (not: "PDO error 2002", but: "Cannot connect to database. Check host and port.")
+- Actionable with context (paths, names, IDs, hosts)
+- Free of redundant prefixes (not: "Failed to execute: Failed to connect: Connection refused")
+
+Exception chains preserved via `previous: $e` for debugging.
+
+### Layer Responsibility Summary
+
+| Layer | Display Errors? | Pattern |
+|-------|----------------|---------|
+| Services | ❌ No | Throw complete exceptions |
+| Repositories | ❌ No | Throw complete exceptions |
+| Validation Traits | ❌ No | Return `?string` or throw |
+| Orchestration Traits | ✅ Yes | Catch & display without prefix |
+| Commands | ✅ Yes | Catch & display without prefix |
