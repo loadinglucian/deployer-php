@@ -60,8 +60,6 @@ class SiteAddCommand extends BaseCommand
         $server = $this->selectServer();
 
         if (is_int($server)) {
-            $this->io->warning('You must add at least one server before adding a site.');
-            $this->io->writeln('');
             return $server;
         }
 
