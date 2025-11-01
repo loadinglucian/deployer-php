@@ -6,6 +6,7 @@ namespace Bigpixelrocket\DeployerPHP\Console\Site;
 
 use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
 use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
+use Bigpixelrocket\DeployerPHP\Traits\ServerHelpersTrait;
 use Bigpixelrocket\DeployerPHP\Traits\SiteHelpersTrait;
 use Bigpixelrocket\DeployerPHP\Traits\SiteValidationTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -22,6 +23,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'site:add', description: 'Add a new site to the inventory')]
 class SiteAddCommand extends BaseCommand
 {
+    use ServerHelpersTrait;
     use SiteHelpersTrait;
     use SiteValidationTrait;
 
@@ -35,10 +37,10 @@ class SiteAddCommand extends BaseCommand
 
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Domain name')
-            ->addOption('type', null, InputOption::VALUE_REQUIRED, 'Site type: git or local')
+            ->addOption('source', null, InputOption::VALUE_REQUIRED, 'Site source: git or local')
             ->addOption('repo', null, InputOption::VALUE_REQUIRED, 'Git repository URL (for git sites)')
             ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'Git branch name (for git sites)')
-            ->addOption('servers', null, InputOption::VALUE_REQUIRED, 'Comma-separated server names');
+            ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
     }
 
     //
@@ -50,23 +52,15 @@ class SiteAddCommand extends BaseCommand
         parent::execute($input, $output);
 
         $this->io->hr();
-
         $this->io->h1('Add New Site');
 
         //
-        // Check if there are any servers
+        // Select server
 
-        if (count($this->servers->all()) === 0) {
-            $this->io->warning('No servers available');
-            $this->io->writeln([
-                '',
-                'You must add at least one server before adding a site.',
-                'Run <fg=cyan>server:provision</> to provision your first server,',
-                'or run <fg=cyan>server:add</> to add an existing server.',
-                '',
-            ]);
+        $server = $this->selectServer();
 
-            return Command::FAILURE;
+        if (is_int($server)) {
+            return $server;
         }
 
         //
@@ -89,11 +83,11 @@ class SiteAddCommand extends BaseCommand
         }
 
         //
-        // Select site type
+        // Select site source
 
-        /** @var string $siteType */
-        $siteType = $this->io->getOptionOrPrompt(
-            'type',
+        /** @var string $siteSource */
+        $siteSource = $this->io->getOptionOrPrompt(
+            'source',
             fn (): string => (string) $this->io->promptSelect(
                 label: 'Deploy from:',
                 options: ['git' => 'Git Repository', 'local' => 'Local files'],
@@ -101,7 +95,7 @@ class SiteAddCommand extends BaseCommand
             )
         );
 
-        $isLocal = $siteType === 'local';
+        $isLocal = $siteSource === 'local';
 
         //
         // Gather git-specific details
@@ -150,35 +144,13 @@ class SiteAddCommand extends BaseCommand
         }
 
         //
-        // Select servers
-
-        try {
-            $selectedServers = $this->selectServers();
-        } catch (\RuntimeException $e) {
-            $this->io->error($e->getMessage());
-
-            return Command::FAILURE;
-        }
-
-        //
-        // Validate selections
-
-        try {
-            $this->validateServers($selectedServers);
-        } catch (\RuntimeException $e) {
-            $this->io->error($e->getMessage());
-
-            return Command::FAILURE;
-        }
-
-        //
         // Create DTO and display site info
 
         $site = new SiteDTO(
             domain: $domain,
             repo: $repo,
             branch: $branch,
-            servers: $selectedServers
+            servers: [$server->name]
         );
 
         $this->io->hr();
@@ -204,8 +176,8 @@ class SiteAddCommand extends BaseCommand
 
         $hintOptions = [
             'domain' => $domain,
-            'type' => $siteType,
-            'servers' => implode(',', $selectedServers),
+            'source' => $siteSource,
+            'server' => $server->name,
         ];
 
         if (!$isLocal) {

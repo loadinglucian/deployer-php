@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bigpixelrocket\DeployerPHP\Traits;
 
 use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
+use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
 use Bigpixelrocket\DeployerPHP\Repositories\ServerRepository;
 use Bigpixelrocket\DeployerPHP\Services\IOService;
 use Symfony\Component\Console\Command\Command;
@@ -56,6 +57,7 @@ trait ServerHelpersTrait
         // Get all servers
 
         $allServers = $this->ensureServersAvailable();
+
         if (is_int($allServers)) {
             return $allServers;
         }
@@ -94,21 +96,21 @@ trait ServerHelpersTrait
      */
     protected function displayServerDeets(ServerDTO $server, array $sites = []): void
     {
-        $this->io->writeln([
-            "  Name: <fg=gray>{$server->name}</>",
-            "  Host: <fg=gray>{$server->host}</>",
-            "  Port: <fg=gray>{$server->port}</>",
-            "  User: <fg=gray>{$server->username}</>",
-            '  Key:  <fg=gray>'.($server->privateKeyPath ?? 'default (~/.ssh/id_ed25519 or ~/.ssh/id_rsa)').'</>',
-        ]);
+        $deets = [
+            'Name' => $server->name,
+            'Host' => $server->host,
+            'Port' => $server->port,
+            'User' => $server->username,
+            'Key' => $server->privateKeyPath ?? 'default (~/.ssh/id_ed25519 or ~/.ssh/id_rsa)',
+        ];
 
-        if (count($sites) > 0) {
-            $this->io->writeln(['  Sites:']);
-            foreach ($sites as $site) {
-                $this->io->writeln(["    • <fg=gray>{$site->domain}</>"]);
-            }
+        if (count($sites) > 1) {
+            $deets['Sites'] = array_map(fn (SiteDTO $site) => $site->domain, $sites);
+        } elseif (count($sites) === 1) {
+            $deets['Site'] = $sites[0]->domain;
         }
 
+        $this->io->displayDeets($deets);
         $this->io->writeln('');
     }
 

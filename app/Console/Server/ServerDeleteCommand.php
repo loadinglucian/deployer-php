@@ -62,6 +62,7 @@ class ServerDeleteCommand extends BaseCommand
         $this->io->hr();
 
         $this->displayServerDeets($server, $serverSites);
+        $this->io->writeln('');
 
         if (count($serverSites) > 0) {
             $this->io->error("Cannot delete server '{$server->name}' because it has one or more sites.");

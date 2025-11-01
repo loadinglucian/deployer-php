@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Bigpixelrocket\DeployerPHP\Traits;
 
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
 use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
 use Bigpixelrocket\DeployerPHP\Repositories\ServerRepository;
 use Bigpixelrocket\DeployerPHP\Repositories\SiteRepository;
@@ -14,24 +13,25 @@ use Symfony\Component\Console\Command\Command;
 /**
  * Reusable site-related helpers for commands.
  *
- * Requires the using class to extend BaseCommand and have:
- * - protected ServerRepository $servers
- * - protected SiteRepository $sites
- * - protected IOService $io
+ * Requires classes using this trait to have IOService, ServerRepository, and SiteRepository properties.
+ *
+ * @property IOService $io
+ * @property ServerRepository $servers
+ * @property SiteRepository $sites
  */
 trait SiteHelpersTrait
 {
     /**
-     * Select a site from inventory by domain option or interactive prompt.
+     * Display a warning to add a site if no sites are available. Otherwise, return all sites.
      *
-     * @return array{site: SiteDTO|null, exit_code: int} Site DTO and exit code (SUCCESS if empty inventory, FAILURE if not found)
+     * @return array<int, SiteDTO>|int Returns array of sites or Command::SUCCESS if no sites available
      */
-    protected function selectSite(string $optionName = 'site', string $promptLabel = 'Select site:'): array
+    protected function ensureSitesAvailable(): array|int
     {
-        //
         // Get all sites
-
         $allSites = $this->sites->all();
+
+        // Check if no sites are available
         if (count($allSites) === 0) {
             $this->io->warning('No sites found in inventory');
             $this->io->writeln([
@@ -40,7 +40,26 @@ trait SiteHelpersTrait
                 '',
             ]);
 
-            return ['site' => null, 'exit_code' => Command::SUCCESS];
+            return Command::SUCCESS;
+        }
+
+        return $allSites;
+    }
+
+    /**
+     * Select a site from inventory by domain option or interactive prompt.
+     *
+     * @return SiteDTO|int Returns SiteDTO on success, or Command::SUCCESS if empty inventory, or Command::FAILURE if not found
+     */
+    protected function selectSite(string $optionName = 'site', string $promptLabel = 'Select site:'): SiteDTO|int
+    {
+        //
+        // Get all sites
+
+        $allSites = $this->ensureSitesAvailable();
+
+        if (is_int($allSites)) {
+            return $allSites;
         }
 
         //
@@ -64,61 +83,10 @@ trait SiteHelpersTrait
         if ($site === null) {
             $this->io->error("Site '{$domain}' not found in inventory");
 
-            return ['site' => null, 'exit_code' => Command::FAILURE];
+            return Command::FAILURE;
         }
 
-        return ['site' => $site, 'exit_code' => Command::SUCCESS];
-    }
-
-    /**
-     * Multi-select servers from inventory.
-     *
-     * Supports both CLI option (comma-separated server names) and interactive multiselect prompt.
-     *
-     * @param string $optionName Option name to check for pre-provided values
-     * @return array<int, string> Selected server names
-     */
-    protected function selectServers(string $optionName = 'servers'): array
-    {
-        //
-        // Get all servers and extract names
-
-        $allServers = $this->servers->all();
-        $serverNames = array_map(fn (ServerDTO $server): string => $server->name, $allServers);
-
-        //
-        // Get servers via option or prompt
-
-        /** @var string|array<int, string> $serversInput */
-        $serversInput = $this->io->getOptionOrPrompt(
-            $optionName,
-            fn (): array => $this->io->promptMultiselect(
-                label: 'Select servers:',
-                options: $serverNames,
-                required: true
-            )
-        );
-
-        //
-        // Parse input into array of server names
-
-        if (is_string($serversInput)) {
-            // Parse comma-separated server names from CLI option
-            $selectedServers = array_map(trim(...), explode(',', $serversInput));
-
-            // Validate servers exist
-            foreach ($selectedServers as $serverName) {
-                if ($this->servers->findByName($serverName) === null) {
-                    throw new \RuntimeException("Server '{$serverName}' not found in inventory");
-                }
-            }
-        } else {
-            // Already an array from interactive prompt
-            $selectedServers = $serversInput;
-        }
-
-        // Ensure array values are strings with sequential integer keys
-        return array_values(array_filter(array_map(strval(...), $selectedServers)));
+        return $site;
     }
 
     /**
@@ -126,19 +94,26 @@ trait SiteHelpersTrait
      */
     protected function displaySiteDeets(SiteDTO $site): void
     {
-        $lines = ["  Domain:  <fg=gray>{$site->domain}</>"];
+        $details = ['Domain' => $site->domain];
 
         if ($site->isLocal()) {
-            $lines[] = "  Type:    <fg=gray>Local</>";
+            $details['Source'] = 'Local';
         } else {
-            $lines[] = "  Type:    <fg=gray>Git</>";
-            $lines[] = "  Repo:    <fg=gray>{$site->repo}</>";
-            $lines[] = "  Branch:  <fg=gray>{$site->branch}</>";
+            $details = [
+                ...$details,
+                'Source' => 'Git',
+                'Repo' => $site->repo,
+                'Branch' => $site->branch,
+            ];
         }
 
-        $lines[] = "  Servers: <fg=gray>".implode(', ', $site->servers).'</>';
-        $lines[] = ' ';
+        if (count($site->servers) > 1) {
+            $details['Servers'] = $site->servers;
+        } elseif (count($site->servers) === 1) {
+            $details['Server'] = $site->servers[0];
+        }
 
-        $this->io->writeln($lines);
+        $this->io->displayDeets($details);
+        $this->io->writeln('');
     }
 }

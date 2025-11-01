@@ -4,10 +4,18 @@ declare(strict_types=1);
 
 namespace Bigpixelrocket\DeployerPHP\Traits;
 
+use Bigpixelrocket\DeployerPHP\Repositories\ServerRepository;
+use Bigpixelrocket\DeployerPHP\Repositories\SiteRepository;
+use Bigpixelrocket\DeployerPHP\Services\ProcessService;
+
 /**
  * Validation helpers for site configuration.
  *
- * Requires the using class to extend BaseCommand.
+ * Requires classes using this trait to have ProcessService, ServerRepository, and SiteRepository properties.
+ *
+ * @property ProcessService $proc
+ * @property ServerRepository $servers
+ * @property SiteRepository $sites
  */
 trait SiteValidationTrait
 {

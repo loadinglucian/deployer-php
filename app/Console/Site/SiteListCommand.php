@@ -14,7 +14,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * List all sites in the inventory.
  */
-#[AsCommand(name: 'site:list', description: 'List all sites in the inventory')]
+#[AsCommand(name: 'site:list', description: 'List sites in the inventory')]
 class SiteListCommand extends BaseCommand
 {
     use SiteHelpersTrait;
@@ -28,26 +28,29 @@ class SiteListCommand extends BaseCommand
         parent::execute($input, $output);
 
         $this->io->hr();
+        $this->io->h1('List Sites');
 
         //
         // Get all sites
 
-        $allSites = $this->sites->all();
-        if (count($allSites) === 0) {
-            $this->io->warning('No sites found in inventory');
-            $this->io->writeln([
-                '',
-                'Use <fg=cyan>site:add</> to add a site',
-                '',
-            ]);
+        $allSites = $this->ensureSitesAvailable();
 
-            return Command::SUCCESS;
+        if (is_int($allSites)) {
+            return $allSites;
         }
 
-        $this->io->h1('All Sites');
+        //
+        // Display sites
 
-        foreach ($allSites as $site) {
+        foreach ($allSites as $count => $site) {
             $this->displaySiteDeets($site);
+
+            if ($count < count($allSites) - 1) {
+                $this->io->writeln([
+                        '  ───',
+                        '',
+                    ]);
+            }
         }
 
         return Command::SUCCESS;

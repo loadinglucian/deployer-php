@@ -30,6 +30,7 @@ class SiteDeleteCommand extends BaseCommand
 
         $this
             ->addOption('site', null, InputOption::VALUE_REQUIRED, 'Site domain')
+            ->addOption('force', null, InputOption::VALUE_NONE, 'Skip typing site domain (use with caution)')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip confirmation prompt');
     }
 
@@ -42,32 +43,48 @@ class SiteDeleteCommand extends BaseCommand
         parent::execute($input, $output);
 
         $this->io->hr();
-
         $this->io->h1('Delete Site');
 
         //
         // Select site
 
-        $selection = $this->selectSite();
+        $site = $this->selectSite();
 
-        if ($selection['site'] === null) {
-            return $selection['exit_code'];
+        if (!$site instanceof \Bigpixelrocket\DeployerPHP\DTOs\SiteDTO) {
+            return $site;
         }
 
-        $site = $selection['site'];
+        $this->io->hr();
+
         $this->displaySiteDeets($site);
+        $this->io->writeln('');
 
         //
-        // Confirm deletion
+        // Confirm deletion with extra safety
 
-        $this->io->writeln('');
+        /** @var bool $forceSkip */
+        $forceSkip = $input->getOption('force') ?? false;
+
+        if (!$forceSkip) {
+            $typedDomain = $this->io->promptText(
+                label: "Type the site domain '{$site->domain}' to confirm deletion:",
+                required: true
+            );
+
+            if ($typedDomain !== $site->domain) {
+                $this->io->error('Site domain does not match. Deletion cancelled.');
+                $this->io->writeln('');
+
+                return Command::FAILURE;
+            }
+        }
 
         /** @var bool $confirmed */
         $confirmed = $this->io->getOptionOrPrompt(
             'yes',
             fn (): bool => $this->io->promptConfirm(
-                label: 'Are you sure you want to delete this site?',
-                default: true
+                label: 'Are you absolutely sure?',
+                default: false
             )
         );
 
@@ -92,6 +109,7 @@ class SiteDeleteCommand extends BaseCommand
         $this->io->showCommandHint('site:delete', [
             'site' => $site->domain,
             'yes' => $confirmed,
+            'force' => true,
         ]);
 
         return Command::SUCCESS;

@@ -523,6 +523,49 @@ class IOService
     }
 
     /**
+     * Display key-value details with aligned formatting.
+     *
+     * Formats key-value pairs with proper alignment and gray styling for values.
+     *
+     * @param array<string, string|int|float|bool|null|array<int, string>> $details Key-value pairs to display
+     *
+     * @example
+     * $this->io->displayDeets([
+     *     'Name' => 'production-web-01',
+     *     'Host' => '192.168.1.100',
+     *     'Port' => 22,
+     * ]);
+     * // Output:
+     * //   Name: production-web-01
+     * //   Host: 192.168.1.100
+     * //   Port: 22
+     */
+    public function displayDeets(array $details): void
+    {
+        if (empty($details)) {
+            return;
+        }
+
+        // Find longest key for alignment
+        $maxLength = max(array_map(strlen(...), array_keys($details)));
+
+        $lines = [];
+        foreach ($details as $key => $value) {
+            $paddedKey = str_pad($key.':', $maxLength + 1);
+            if (is_array($value)) {
+                $lines[] = "  {$paddedKey}";
+                foreach ($value as $item) {
+                    $lines[] = "    <fg=gray>• {$item}</>";
+                }
+            } else {
+                $lines[] = "  {$paddedKey} <fg=gray>{$value}</>";
+            }
+        }
+
+        $this->writeln($lines);
+    }
+
+    /**
      * Display a command replay hint showing how to run non-interactively.
      *
      * @param array<string, mixed> $options Array of option name => value pairs
