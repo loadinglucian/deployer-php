@@ -1,5 +1,9 @@
 {
   "dependencies": {
     "prettier": "^3.6.2"
+  },
+  "scripts": {
+    "format:bash": "shfmt -i 0 -bn -ci -sr -w playbooks/*.sh",
+    "check:bash": "shfmt -i 0 -bn -ci -sr -d playbooks/*.sh"
   }
 }

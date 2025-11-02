@@ -61,6 +61,12 @@
         ],
         "rect": [
             "vendor/bin/rector process"
+        ],
+        "bash": [
+            "shfmt -i 0 -bn -ci -sr -w playbooks/*.sh"
+        ],
+        "bash:check": [
+            "shfmt -i 0 -bn -ci -sr -d playbooks/*.sh"
         ]
     },
     "config": {

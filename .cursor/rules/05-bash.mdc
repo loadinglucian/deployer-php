@@ -114,3 +114,15 @@ for f in $(ls); do ...     # ❌ WRONG - unsafe
 - Semicolons only in control statements (`if true; then`)
 - Max 1 blank line between sections
 - Shebang: `#!/usr/bin/env bash`
+
+### Quality Gates
+
+ALWAYS run before completing task, fix all issues:
+
+```bash
+# Format all bash scripts
+composer bash
+
+# Check formatting without modifying
+composer bash:check
+```
