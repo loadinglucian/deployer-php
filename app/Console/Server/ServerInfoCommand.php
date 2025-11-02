@@ -69,6 +69,7 @@ class ServerInfoCommand extends BaseCommand
             return $info;
         }
 
+        $this->io->writeln('');
         $this->displayServerInfo($info);
 
         //

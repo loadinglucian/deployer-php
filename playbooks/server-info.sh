@@ -1,15 +1,31 @@
 #!/usr/bin/env bash
-
-set -o pipefail
-
 #
 # Gather Server Information
-# -------------------------------------------------------------------------------
+# ----
+# This playbook detects distribution, permissions, and listening services.
+#
+# Required Environment Variables:
+#   DEPLOYER_OUTPUT_FILE - Output file path (provided automatically)
+#
+# Returns YAML with:
+#   - distro: debian|redhat|amazon|unknown
+#   - permissions: root|sudo|none
+#   - ports: map of port numbers to process names
+
+set -o pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+# Validation
+if [[ -z $DEPLOYER_OUTPUT_FILE ]]; then
+	echo "Error: DEPLOYER_OUTPUT_FILE environment variable is required"
+	exit 1
+fi
 
 #
 # Detect Linux Distribution
-#
+# ----
 # Returns: debian|redhat|amazon|unknown
+
 detect_distro() {
 	local distro='unknown'
 
@@ -32,8 +48,9 @@ detect_distro() {
 
 #
 # Check User Permissions
-#
+# ----
 # Returns: root|sudo|none
+
 check_permissions() {
 	if [[ $EUID -eq 0 ]]; then
 		echo 'root'
@@ -46,14 +63,16 @@ check_permissions() {
 
 #
 # Execute Command with Appropriate Permissions
-#
+# ----
+
 run_cmd() {
 	[[ $DEPLOYER_PERMS == 'root' ]] && "$@" || sudo "$@"
 }
 
 #
 # Ensure Required Tools are Installed
-#
+# ----
+
 ensure_tools() {
 	local distro=$1 perms=$2
 	export DEPLOYER_PERMS=$perms
@@ -76,9 +95,10 @@ ensure_tools() {
 }
 
 #
-# Get All Listening Ports
-#
-get_listening_ports() {
+# Get All Listening Services
+# ----
+
+get_listening_services() {
 	local cmd port process
 
 	if command -v ss > /dev/null 2>&1; then
@@ -137,27 +157,44 @@ get_listening_ports() {
 main() {
 	local distro permissions
 
+	#
 	# Gather basic info
+
+	echo "✓ Detecting distribution..."
 	distro=$(detect_distro)
+
+	echo "✓ Checking permissions..."
 	permissions=$(check_permissions)
+
+	echo "✓ Cataloging services..."
 	ensure_tools "$distro" "$permissions"
 
-	# Output YAML
-	cat <<- EOF
+	#
+	# Output YAML to file
+
+	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 		distro: $distro
 		permissions: $permissions
 		ports:
 	EOF
+		echo "Error: Failed to write $DEPLOYER_OUTPUT_FILE" >&2
+		exit 1
+	fi
 
-	# Inline ports formatting
 	local port process has_ports=false
 	while IFS=: read -r port process; do
-		echo "  ${port}: ${process}"
+		if ! echo "  ${port}: ${process}" >> "$DEPLOYER_OUTPUT_FILE"; then
+			echo "Error: Failed to write services list to $DEPLOYER_OUTPUT_FILE" >&2
+			exit 1
+		fi
 		has_ports=true
-	done < <(get_listening_ports)
+	done < <(get_listening_services)
 
 	if [[ $has_ports == false ]]; then
-		echo "  {}"
+		if ! echo "  {}" >> "$DEPLOYER_OUTPUT_FILE"; then
+			echo "Error: Failed to write empty services lists to $DEPLOYER_OUTPUT_FILE" >&2
+			exit 1
+		fi
 	fi
 }
 

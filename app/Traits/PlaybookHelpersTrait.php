@@ -30,6 +30,7 @@ trait PlaybookHelpersTrait
      * Execute a playbook on a server.
      *
      * Handles SSH execution, error display, and YAML parsing.
+     * Playbooks write YAML output to a temp file (DEPLOYER_OUTPUT_FILE).
      * Displays errors via IOService and returns Command::FAILURE on any error.
      *
      * @param string $playbookName Playbook name without .sh extension (e.g., 'server-info', 'install-php', etc)
@@ -46,8 +47,11 @@ trait PlaybookHelpersTrait
         $playbookPath = $projectRoot . '/playbooks/' . $playbookName . '.sh';
         $scriptContents = $this->fs->readFile($playbookPath);
 
-        // Build variable prefix
-        $varsPrefix = '';
+        // Generate unique output filename
+        $outputFile = sprintf('/tmp/deployer-output-%d-%s.yml', time(), bin2hex(random_bytes(8)));
+
+        // Build variable prefix with DEPLOYER_OUTPUT_FILE
+        $varsPrefix = sprintf('DEPLOYER_OUTPUT_FILE=%s ', escapeshellarg($outputFile));
         foreach ($playbookVars as $key => $value) {
             $varsPrefix .= sprintf('%s=%s ', $key, escapeshellarg((string) $value));
         }
@@ -84,35 +88,58 @@ trait PlaybookHelpersTrait
             return Command::FAILURE;
         }
 
+        // Display all output as progress messages
+        $output = trim((string) $result['output']);
+        if (!empty($output)) {
+            $this->io->writeln(explode("\n", $output));
+        }
+
         // Check exit code
         if ($result['exit_code'] !== 0) {
-            $this->io->error('Playbook execution failed:');
-            $this->io->writeln([
-                '',
-                '<fg=red>'.$result['output'].'</>',
-                '',
-            ]);
+            $this->io->error('Playbook execution failed');
 
             return Command::FAILURE;
         }
 
-        // Parse YAML output
+        // Read YAML output from file and clean up
         try {
-            $parsed = Yaml::parse($result['output']);
+            $yamlResult = $this->io->promptSpin(
+                callback: fn () => $this->ssh->executeCommand(
+                    $server->host,
+                    $server->port,
+                    $server->username,
+                    sprintf('cat %s 2>/dev/null && rm -f %s', escapeshellarg($outputFile), escapeshellarg($outputFile)),
+                    $privateKeyPath
+                ),
+                message: $spinnerMessage
+            );
+
+            $yamlContent = trim((string) $yamlResult['output']);
+
+            if (empty($yamlContent)) {
+                throw new \RuntimeException('Something went wrong while trying to read ' . $outputFile);
+            }
+        } catch (\RuntimeException $e) {
+            $this->io->error($e->getMessage());
+
+            return Command::FAILURE;
+        }
+
+        // Parse YAML
+        try {
+            $parsed = Yaml::parse($yamlContent);
 
             if (!is_array($parsed)) {
-                throw new \RuntimeException('Expected playbook output to be YAML array');
+                throw new \RuntimeException('Unexpected format');
             }
 
             /** @var array<string, mixed> $parsed */
             return $parsed;
         } catch (\Throwable $e) {
-            $this->io->error('Failed to parse YAML output: ' . $e->getMessage());
+            $this->io->error($e->getMessage());
             $this->io->writeln([
                 '',
-                '<fg=yellow>Raw output:</>',
-                '',
-                $result['output'],
+                '<fg=red>'.$yamlContent.'</>',
                 '',
             ]);
 
