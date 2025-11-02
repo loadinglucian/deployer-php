@@ -156,6 +156,7 @@ class SiteAddCommand extends BaseCommand
         $this->io->hr();
 
         $this->displaySiteDeets($site);
+        $this->io->writeln('');
 
         //
         // Save to repository

@@ -149,6 +149,7 @@ class ServerAddCommand extends BaseCommand
         $this->io->hr();
 
         $this->displayServerDeets($server);
+        $this->io->writeln('');
 
         //
         // Save to repository
