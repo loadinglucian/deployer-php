@@ -81,13 +81,12 @@ ensure_tools() {
 	local distro=$1 perms=$2
 	export DEPLOYER_PERMS=$perms
 
-	[[ $perms == 'none' ]] && return 0
+	# If the command is already installed, return
 	command -v ss > /dev/null 2>&1 && return 0
 	command -v netstat > /dev/null 2>&1 && return 0
 
 	case $distro in
 		debian)
-			export DEBIAN_FRONTEND=noninteractive
 			run_cmd apt-get update -q 2> /dev/null
 			run_cmd apt-get install -y -q iproute2 2> /dev/null
 			;;
@@ -103,17 +102,9 @@ ensure_tools() {
 # ----
 
 get_listening_services() {
-	local cmd port process
+	local port process
 
 	if command -v ss > /dev/null 2>&1; then
-		if [[ $DEPLOYER_PERMS == 'root' ]]; then
-			cmd='ss'
-		elif [[ $DEPLOYER_PERMS == 'sudo' ]]; then
-			cmd='sudo ss'
-		else
-			cmd='ss'
-		fi
-
 		while read -r line; do
 			[[ $line =~ ^State ]] && continue
 			[[ ! $line =~ LISTEN ]] && continue
@@ -127,17 +118,9 @@ get_listening_services() {
 				fi
 				echo "${port}:${process}"
 			fi
-		done < <($cmd -tlnp 2> /dev/null) | sort -t: -k1 -n | uniq
+		done < <(run_cmd ss -tlnp 2> /dev/null) | sort -t: -k1 -n | uniq
 
 	elif command -v netstat > /dev/null 2>&1; then
-		if [[ $DEPLOYER_PERMS == 'root' ]]; then
-			cmd='netstat'
-		elif [[ $DEPLOYER_PERMS == 'sudo' ]]; then
-			cmd='sudo netstat'
-		else
-			cmd='netstat'
-		fi
-
 		while read -r proto recvq sendq local foreign state program; do
 			[[ $state != "LISTEN" ]] && continue
 
@@ -150,7 +133,7 @@ get_listening_services() {
 				fi
 				echo "${port}:${process}"
 			fi
-		done < <($cmd -tlnp 2> /dev/null | tail -n +3) | sort -t: -k1 -n | uniq
+		done < <(run_cmd netstat -tlnp 2> /dev/null | tail -n +3) | sort -t: -k1 -n | uniq
 	fi
 }
 
