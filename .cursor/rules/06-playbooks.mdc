@@ -15,50 +15,115 @@ Playbooks are idempotent, non-interactive bash scripts that:
 - Receive context via environment variables
 - Never prompt for user input
 - Run completely unattended
-- Return parsable YAML output (empty array `[]` if no data)
+- Return parsable YAML output
 
-### Non-Interactive Operation
+### Structure
 
-All playbooks MUST run without user interaction:
-
-- Set `DEBIAN_FRONTEND=noninteractive` for Debian/Ubuntu
-- Use `-y` flag for package managers (apt-get, yum)
-- Use `-q` flag to suppress unnecessary output
-- Use `--batch --yes` for GPG operations
-- Use `--quiet` for systemctl where appropriate
-- Never use `read`, confirm dialogs, or interactive prompts
-
-### Environment Variables
-
-Use `DEPLOYER_` prefix for all context variables:
+Standard playbook structure using `main()` function:
 
 ```bash
 #!/usr/bin/env bash
-#
-# Install Package
-# -------------------------------------------------------------------------------
-# Required Environment Variables:
-#   DEPLOYER_DISTRO - Distribution (debian|redhat|amazon)
-#   DEPLOYER_PERMS  - Permission level (root|sudo)
-
 set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
-# Validation - errors go to stdout (not YAML = error detected)
-if [[ -z $DEPLOYER_DISTRO ]]; then
-    echo "Error: DEPLOYER_DISTRO environment variable is required"
-    exit 1
-fi
+# Validation
+[[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
+
+#
+# Helper Functions
+# ----
+# (see "Helper Functions" section below for run_cmd implementation)
+
+#
+# Main Execution
+# ----
+
+main() {
+    echo "✓ Starting..."
+
+    # Tasks go here
+
+    if ! cat > "$DEPLOYER_OUTPUT_FILE" <<EOF; then
+status: success
+EOF
+        echo "Error: Failed to write output file" >&2
+        exit 1
+    fi
+}
+
+main "$@"
 ```
+
+**Pattern Requirements:**
+
+- Shebang: `#!/usr/bin/env bash`
+- Always set `set -o pipefail` (NOT `set -e`)
+- Export `DEBIAN_FRONTEND=noninteractive`
+- Validate `$DEPLOYER_OUTPUT_FILE` before any work
+- Use `main()` function with `main "$@"` at bottom
+- Group related functions with comment headers
+- Check errors on YAML writes
+
+### Environment Variables
+
+Use `DEPLOYER_` prefix. Standard variables:
+
+- `DEPLOYER_OUTPUT_FILE` - YAML output path (provided automatically)
+- `DEPLOYER_DISTRO` - Distribution: `debian|redhat|amazon` (if needed)
+- `DEPLOYER_PERMS` - Permissions: `root|sudo|none` (if needed)
+
+**Validation:**
+
+Detection playbooks only validate `DEPLOYER_OUTPUT_FILE`. Provisioning playbooks additionally validate `DEPLOYER_DISTRO` and `DEPLOYER_PERMS`, then export `DEPLOYER_PERMS` for subshell availability. See Complete Example section for full pattern.
+
+### Distribution Support
+
+Support Debian, RedHat, Amazon Linux. Use `case` statements for package operations:
+
+```bash
+# ✅ CORRECT - case statement for package managers
+case $DEPLOYER_DISTRO in
+    debian)
+        run_cmd apt-get update -q
+        run_cmd apt-get install -y -q "$package"
+        ;;
+    redhat|amazon)
+        run_cmd yum install -y -q "$package"
+        ;;
+esac
+
+# ❌ WRONG - Unnecessary branching for universal operations
+case $DEPLOYER_DISTRO in
+    debian|redhat|amazon)
+        run_cmd systemctl start service  # Same everywhere!
+        ;;
+esac
+```
+
+**Universal operations (no branching needed):**
+
+```bash
+run_cmd systemctl start caddy
+run_cmd systemctl enable caddy
+run_cmd mkdir -p /var/www/app
+```
+
+### Non-Interactive Operation
+
+Never prompt for input. Use non-interactive flags:
+
+- `export DEBIAN_FRONTEND=noninteractive` (always set at top)
+- Package managers: `-y -q` flags
+- GPG operations: `--batch --yes`
+- systemctl: `--quiet` (where appropriate)
+- Never use `read`, confirm dialogs, or interactive prompts
 
 ### Idempotency
 
-ALL playbooks MUST be idempotent - safe to run multiple times without side effects.
-
-Check before acting - don't fail if resource exists:
+Check before acting. Don't fail if resource already exists:
 
 ```bash
-# ✅ CORRECT - Idempotent
+# ✅ CORRECT - Idempotent patterns
 if ! command -v caddy >/dev/null 2>&1; then
     run_cmd apt-get install -y -q caddy
 fi
@@ -67,85 +132,97 @@ if [[ ! -d /var/www/app ]]; then
     run_cmd mkdir -p /var/www/app
 fi
 
-# ❌ WRONG - Not idempotent (fails on second run)
-run_cmd useradd deployer
+if ! systemctl is-enabled --quiet caddy; then
+    run_cmd systemctl enable --quiet caddy
+fi
 
-# ❌ WRONG - Not idempotent (duplicates each run)
-echo "export PATH=\$PATH:/usr/local/bin" >> ~/.bashrc
+# ❌ WRONG - Not idempotent
+run_cmd useradd deployer  # Fails second time
+echo "export PATH=\$PATH:/usr/local/bin" >> ~/.bashrc  # Duplicates each run
 ```
-
-Enables recovery, resumption, drift correction.
 
 ### Error Handling
 
-Fail fast with clear error messages to stdout. Errors are NOT YAML, so parsing will fail and the error message will be displayed.
+Use `set -o pipefail` but NOT `set -e`. Check exit codes explicitly:
 
 ```bash
-set -o pipefail  # Fail on pipe errors
+# Validation errors (before any work) → stdout
+[[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
 
-# Validation errors - output plain text (not YAML)
-if [[ -z $DEPLOYER_DISTRO ]]; then
-    echo "Error: DEPLOYER_DISTRO environment variable is required"
+# Runtime errors (during execution) → stderr
+if ! mkdir -p /var/www/app 2>&1; then
+    echo "Error: Failed to create directory" >&2
     exit 1
 fi
 
-# Runtime errors - output plain text (not YAML)
-if ! command -v required_tool >/dev/null 2>&1; then
-    echo "Error: required_tool is not installed"
+# Silent checks (expected to sometimes fail)
+if ! command -v nginx >/dev/null 2>&1; then
+    echo "✓ Installing nginx..."
+    run_cmd apt-get install -y -q nginx
+fi
+
+# Check YAML writes
+if ! cat > "$DEPLOYER_OUTPUT_FILE" <<EOF; then
+status: success
+EOF
+    echo "Error: Failed to write output file" >&2
     exit 1
 fi
 ```
 
-**Key Principle:** Error messages are plain text to stdout. Success results are YAML to stdout. This makes error detection automatic - if YAML parsing fails, it's an error.
+**Error Detection:**
+
+If playbook exits before creating `$DEPLOYER_OUTPUT_FILE`, framework treats all output as error message.
 
 ### Helper Functions
 
+Standard helper for permission-aware command execution:
+
 ```bash
-# Execute with appropriate permissions
 run_cmd() {
     if [[ $DEPLOYER_PERMS == 'root' ]]; then
         "$@"
     else
-        sudo "$@"
+        sudo -n "$@"
     fi
 }
-
-# Usage
-run_cmd apt-get install -y -q package-name
 ```
+
+The `-n` flag ensures sudo fails fast without prompting for a password, maintaining non-interactive operation.
 
 ### Output
 
-**ALL playbooks MUST return parsable YAML as their final output.**
+Write YAML to `$DEPLOYER_OUTPUT_FILE`. Progress messages to stdout/stderr.
 
-This is critical for error detection: if YAML parsing fails, we know the playbook encountered an error and can display the raw output as an error message.
-
-**Rules:**
-
-- Final output to stdout MUST be valid YAML
-- If no data to return, output empty YAML array: `[]` or empty object: `{}`
-- Progress messages during execution go to stderr (use `>&2`)
-- YAML output should be the last thing printed to stdout
-- Use `✓` for success, `✗` for failure in progress messages
-
-**Example Pattern:**
+**Pattern:**
 
 ```bash
-# Progress messages to stderr
-echo "✓ Processing..." >&2
-echo "✓ Task complete" >&2
+# Progress messages (stdout)
+echo "✓ Processing..."
+echo "✓ Task complete"
 
-# Final YAML output to stdout
-cat <<EOF
-distro: debian
+# YAML output to file (check for errors)
+if ! cat > "$DEPLOYER_OUTPUT_FILE" <<EOF; then
 status: success
+distro: $DEPLOYER_DISTRO
 result: []
 EOF
+    echo "Error: Failed to write output file" >&2
+    exit 1
+fi
+
+# Error messages (stderr)
+if ! some_command; then
+    echo "Error: Command failed" >&2
+    exit 1
+fi
 ```
 
-**Error Detection Pattern:**
+**Progress indicators:**
 
-Commands parse playbook output as YAML. If parsing fails, the raw output is an error message to display to the user. This eliminates the need for explicit error codes or special error handling.
+- `✓` for success messages
+- `✗` for failure messages (before exit)
+- Never write progress to output file
 
 ### Complete Example
 
@@ -155,46 +232,70 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 # Validation
+[[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
 [[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
+[[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
+export DEPLOYER_PERMS
 
-# Helpers
-run_cmd() { [[ $DEPLOYER_PERMS == 'root' ]] && "$@" || sudo "$@"; }
+#
+# Helper Functions
+# ----
 
-# Task 1: Install package (idempotent)
-if ! command -v nginx >/dev/null 2>&1; then
-    run_cmd apt-get install -y -q nginx
-    echo "✓ Nginx installed" >&2
-else
-    echo "✓ Nginx already installed" >&2
-fi
+run_cmd() {
+	if [[ $DEPLOYER_PERMS == 'root' ]]; then
+		"$@"
+	else
+		sudo -n "$@"
+	fi
+}
 
-# Task 2: Create directory (idempotent)
-if [[ ! -d /var/www/app ]]; then
-    run_cmd mkdir -p /var/www/app
-    echo "✓ Directory created" >&2
-else
-    echo "✓ Directory already exists" >&2
-fi
+#
+# Main Execution
+# ----
 
-# Task 3: Configure service (idempotent)
-if ! systemctl is-enabled --quiet nginx; then
-    run_cmd systemctl enable --quiet nginx
-    echo "✓ Nginx enabled" >&2
-else
-    echo "✓ Nginx already enabled" >&2
-fi
+main() {
+    local caddy_version
 
-echo "✓ Setup complete" >&2
+    echo "✓ Installing Caddy..."
+    if ! command -v caddy >/dev/null 2>&1; then
+        case $DEPLOYER_DISTRO in
+            debian)
+                run_cmd apt-get update -q
+                run_cmd apt-get install -y -q caddy
+                ;;
+            redhat|amazon)
+                run_cmd yum install -y -q caddy
+                ;;
+        esac
+    fi
 
-# Output YAML result
-cat <<EOF
+    echo "✓ Creating directory..."
+    if [[ ! -d /var/www/app ]]; then
+        run_cmd mkdir -p /var/www/app
+    fi
+
+    echo "✓ Enabling service..."
+    if ! systemctl is-enabled --quiet caddy; then
+        run_cmd systemctl enable --quiet caddy
+    fi
+
+    caddy_version=$(caddy version 2>&1 | cut -d' ' -f1)
+
+    if ! cat > "$DEPLOYER_OUTPUT_FILE" <<EOF; then
 status: success
-nginx_version: $(nginx -v 2>&1 | cut -d/ -f2)
+distro: $DEPLOYER_DISTRO
+caddy_version: $caddy_version
 tasks_completed:
-  - install_nginx
+  - install_caddy
   - create_directory
   - enable_service
 EOF
+        echo "Error: Failed to write output file" >&2
+        exit 1
+    fi
+}
+
+main "$@"
 ```
 
-See: server-info.sh
+See: `playbooks/server-info.sh`
