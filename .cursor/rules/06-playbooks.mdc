@@ -15,6 +15,7 @@ Playbooks are idempotent, non-interactive bash scripts that:
 - Receive context via environment variables
 - Never prompt for user input
 - Run completely unattended
+- Return parsable YAML output (empty array `[]` if no data)
 
 ### Non-Interactive Operation
 
@@ -43,7 +44,7 @@ Use `DEPLOYER_` prefix for all context variables:
 set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
-# Validation
+# Validation - errors go to stdout (not YAML = error detected)
 if [[ -z $DEPLOYER_DISTRO ]]; then
     echo "Error: DEPLOYER_DISTRO environment variable is required"
     exit 1
@@ -77,16 +78,25 @@ Enables recovery, resumption, drift correction.
 
 ### Error Handling
 
-Fail fast with clear messages:
+Fail fast with clear error messages to stdout. Errors are NOT YAML, so parsing will fail and the error message will be displayed.
 
 ```bash
 set -o pipefail  # Fail on pipe errors
 
+# Validation errors - output plain text (not YAML)
 if [[ -z $DEPLOYER_DISTRO ]]; then
     echo "Error: DEPLOYER_DISTRO environment variable is required"
     exit 1
 fi
+
+# Runtime errors - output plain text (not YAML)
+if ! command -v required_tool >/dev/null 2>&1; then
+    echo "Error: required_tool is not installed"
+    exit 1
+fi
 ```
+
+**Key Principle:** Error messages are plain text to stdout. Success results are YAML to stdout. This makes error detection automatic - if YAML parsing fails, it's an error.
 
 ### Helper Functions
 
@@ -106,10 +116,36 @@ run_cmd apt-get install -y -q package-name
 
 ### Output
 
-- Use YAML for structured data output
-- Echo progress messages for logs
-- Use `✓` for success, `✗` for failure
-- Keep output clean and scannable
+**ALL playbooks MUST return parsable YAML as their final output.**
+
+This is critical for error detection: if YAML parsing fails, we know the playbook encountered an error and can display the raw output as an error message.
+
+**Rules:**
+
+- Final output to stdout MUST be valid YAML
+- If no data to return, output empty YAML array: `[]` or empty object: `{}`
+- Progress messages during execution go to stderr (use `>&2`)
+- YAML output should be the last thing printed to stdout
+- Use `✓` for success, `✗` for failure in progress messages
+
+**Example Pattern:**
+
+```bash
+# Progress messages to stderr
+echo "✓ Processing..." >&2
+echo "✓ Task complete" >&2
+
+# Final YAML output to stdout
+cat <<EOF
+distro: debian
+status: success
+result: []
+EOF
+```
+
+**Error Detection Pattern:**
+
+Commands parse playbook output as YAML. If parsing fails, the raw output is an error message to display to the user. This eliminates the need for explicit error codes or special error handling.
 
 ### Complete Example
 
@@ -127,28 +163,38 @@ run_cmd() { [[ $DEPLOYER_PERMS == 'root' ]] && "$@" || sudo "$@"; }
 # Task 1: Install package (idempotent)
 if ! command -v nginx >/dev/null 2>&1; then
     run_cmd apt-get install -y -q nginx
-    echo "✓ Nginx installed"
+    echo "✓ Nginx installed" >&2
 else
-    echo "✓ Nginx already installed"
+    echo "✓ Nginx already installed" >&2
 fi
 
 # Task 2: Create directory (idempotent)
 if [[ ! -d /var/www/app ]]; then
     run_cmd mkdir -p /var/www/app
-    echo "✓ Directory created"
+    echo "✓ Directory created" >&2
 else
-    echo "✓ Directory already exists"
+    echo "✓ Directory already exists" >&2
 fi
 
 # Task 3: Configure service (idempotent)
 if ! systemctl is-enabled --quiet nginx; then
     run_cmd systemctl enable --quiet nginx
-    echo "✓ Nginx enabled"
+    echo "✓ Nginx enabled" >&2
 else
-    echo "✓ Nginx already enabled"
+    echo "✓ Nginx already enabled" >&2
 fi
 
-echo "✓ Setup complete"
+echo "✓ Setup complete" >&2
+
+# Output YAML result
+cat <<EOF
+status: success
+nginx_version: $(nginx -v 2>&1 | cut -d/ -f2)
+tasks_completed:
+  - install_nginx
+  - create_directory
+  - enable_service
+EOF
 ```
 
 See: server-info.sh
