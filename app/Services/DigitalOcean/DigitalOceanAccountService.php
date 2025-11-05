@@ -146,7 +146,7 @@ class DigitalOceanAccountService extends BaseDigitalOceanService
      *
      * @return array<int, string> Array of key ID => description
      */
-    public function getUserSshKeys(): array
+    public function getPublicKeys(): array
     {
         $client = $this->getAPI();
 

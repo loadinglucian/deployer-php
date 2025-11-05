@@ -28,7 +28,7 @@ class DigitalOceanKeyService extends BaseDigitalOceanService
      *
      * @throws \RuntimeException If upload fails
      */
-    public function uploadKey(string $publicKeyPath, string $keyName): int
+    public function uploadPublicKey(string $publicKeyPath, string $keyName): int
     {
         $publicKey = $this->fs->readFile($publicKeyPath);
         $publicKey = trim($publicKey);
@@ -54,7 +54,7 @@ class DigitalOceanKeyService extends BaseDigitalOceanService
      *
      * @throws \RuntimeException If deletion fails (non-404 errors)
      */
-    public function deleteKey(int $keyId): void
+    public function deletePublicKey(int $keyId): void
     {
         $client = $this->getAPI();
 

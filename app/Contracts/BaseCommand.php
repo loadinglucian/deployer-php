@@ -58,8 +58,10 @@ abstract class BaseCommand extends Command
         parent::__construct();
     }
 
+    // -------------------------------------------------------------------------------
     //
     // Configuration
+    //
     // -------------------------------------------------------------------------------
 
     /**
@@ -126,8 +128,10 @@ abstract class BaseCommand extends Command
         $this->sites->loadInventory($this->inventory);
     }
 
+    // -------------------------------------------------------------------------------
     //
     // Execution
+    //
     // -------------------------------------------------------------------------------
 
     /**
@@ -154,5 +158,78 @@ abstract class BaseCommand extends Command
         ]);
 
         return Command::SUCCESS;
+    }
+
+    // -------------------------------------------------------------------------------
+    //
+    // Helper Methods
+    //
+    // -------------------------------------------------------------------------------
+
+    /**
+     * Display a heading with a horizontal rule and title.
+     */
+    protected function heading(string $text): void
+    {
+        $this->io->hr();
+        $this->io->h1($text);
+    }
+
+    /**
+     * Display a success message.
+     */
+    protected function yay(string $message): void
+    {
+        $this->io->success($message);
+        $this->io->writeln('');
+    }
+
+    /**
+     * Display an error message.
+     */
+    protected function nay(string $message): void
+    {
+        $this->io->error($message);
+        $this->io->writeln('');
+    }
+
+    /**
+     * Display a command replay hint showing how to run non-interactively.
+     *
+     * @param array<string, mixed> $options Array of option name => value pairs
+     */
+    protected function showCommandReplay(string $commandName, array $options): void
+    {
+        //
+        // Build command options
+
+        $parts = [];
+        foreach ($options as $optionName => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            // Format the option
+            $optionFlag = '--'.$optionName;
+            if (is_bool($value)) {
+                if ($value) {
+                    $parts[] = $optionFlag;
+                }
+            } else {
+                $stringValue = is_scalar($value) ? (string) $value : '';
+                $escapedValue = escapeshellarg($stringValue);
+                $parts[] = "{$optionFlag}={$escapedValue}";
+            }
+        }
+
+        //
+        // Display command hint
+
+        $this->io->writeln("<fg=gray>\$ vendor/bin/deployer {$commandName} \\ </>");
+
+        foreach ($parts as $index => $part) {
+            $last = $index === count($parts) - 1;
+            $this->io->writeln("  <fg=gray>  {$part}</>".($last ? '' : '<fg=gray> \\ </>'));
+        }
     }
 }

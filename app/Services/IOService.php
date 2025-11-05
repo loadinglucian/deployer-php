@@ -205,8 +205,6 @@ class IOService
         mixed $validate = null,
         string $hint = ''
     ): string {
-        $this->suppressPromptSpacing();
-
         return text(
             label: $label,
             placeholder: $placeholder,
@@ -235,8 +233,6 @@ class IOService
         mixed $validate = null,
         string $hint = ''
     ): string {
-        $this->suppressPromptSpacing();
-
         return password(
             label: $label,
             placeholder: $placeholder,
@@ -264,8 +260,6 @@ class IOService
         string $no = 'No',
         string $hint = ''
     ): bool {
-        $this->suppressPromptSpacing();
-
         return confirm(
             label: $label,
             default: $default,
@@ -284,8 +278,6 @@ class IOService
      */
     public function promptPause(string $message = 'Press enter to continue...'): bool
     {
-        $this->suppressPromptSpacing();
-
         return pause($message);
     }
 
@@ -309,8 +301,6 @@ class IOService
         mixed $validate = null,
         string $hint = ''
     ): int|string {
-        $this->suppressPromptSpacing();
-
         return select(
             label: $label,
             options: $options,
@@ -343,8 +333,6 @@ class IOService
         mixed $validate = null,
         string $hint = ''
     ): array {
-        $this->suppressPromptSpacing();
-
         return multiselect(
             label: $label,
             options: $options,
@@ -380,8 +368,6 @@ class IOService
         mixed $validate = null,
         string $hint = ''
     ): string {
-        $this->suppressPromptSpacing();
-
         return suggest(
             label: $label,
             options: $options,
@@ -414,8 +400,6 @@ class IOService
         mixed $validate = null,
         string $hint = ''
     ): int|string {
-        $this->suppressPromptSpacing();
-
         return search(
             label: $label,
             options: $options,
@@ -454,6 +438,17 @@ class IOService
     //
     // Output Methods
     // -------------------------------------------------------------------------------
+
+    /**
+     * Write output without newline.
+     *
+     * Used for streaming output where content arrives in chunks.
+     * For complete lines, use writeln() instead.
+     */
+    public function write(string $text): void
+    {
+        $this->io->write($text);
+    }
 
     /**
      * Write-out multiple lines.
@@ -565,62 +560,4 @@ class IOService
         $this->writeln($lines);
     }
 
-    /**
-     * Display a command replay hint showing how to run non-interactively.
-     *
-     * @param array<string, mixed> $options Array of option name => value pairs
-     */
-    public function showCommandHint(string $commandName, array $options): void
-    {
-        $this->writeln('<fg=cyan>◆ Run non-interactively:</>');
-        $this->writeln('');
-
-        //
-        // Build command options
-
-        $parts = [];
-        foreach ($options as $optionName => $value) {
-            if ($value === null || $value === '') {
-                continue;
-            }
-
-            // Format the option
-            $optionFlag = '--'.$optionName;
-            if (is_bool($value)) {
-                if ($value) {
-                    $parts[] = $optionFlag;
-                }
-            } else {
-                $stringValue = is_scalar($value) ? (string) $value : '';
-                $escapedValue = escapeshellarg($stringValue);
-                $parts[] = "{$optionFlag}={$escapedValue}";
-            }
-        }
-
-        //
-        // Display command hint
-
-        $this->writeln("  <fg=gray>vendor/bin/deployer {$commandName} \\ </>");
-
-        foreach ($parts as $index => $part) {
-            $last = $index === count($parts) - 1;
-            $this->writeln("  <fg=gray>  {$part}</>".($last ? '' : '<fg=gray> \\ </>'));
-        }
-    }
-
-    //
-    // Private Helpers
-    // -------------------------------------------------------------------------------
-
-    /**
-     * Remove the annoying newline that Laravel Prompts adds before each prompt.
-     *
-     * Uses ANSI escape sequence to move cursor up one line and clear it.
-     */
-    private function suppressPromptSpacing(): void
-    {
-        // Move cursor up one line and clear it
-        // This compensates for the newline Laravel Prompts adds
-        echo "\033[1A\033[2K";
-    }
 }

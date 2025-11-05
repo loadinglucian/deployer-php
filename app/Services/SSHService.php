@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bigpixelrocket\DeployerPHP\Services;
 
+use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
+use Bigpixelrocket\DeployerPHP\Exceptions\SSHTimeoutException;
 use phpseclib3\Crypt\Common\PrivateKey;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Net\SFTP;
@@ -14,28 +16,23 @@ use phpseclib3\Net\SSH2;
  *
  * Provides connectivity testing, command execution, and file transfer capabilities.
  * All operations are stateless - connections are created and destroyed per operation.
- * Expects absolute paths to SSH keys (path resolution handled by callers).
+ * Expects absolute paths to SSH keys in ServerDTO (path resolution handled by callers).
  *
  * @example
- * // Test SSH connectivity (commands resolve key paths before calling)
- * $ssh->assertCanConnect('example.com', 22, 'deployer', '/home/user/.ssh/id_ed25519');
+ * // Test SSH connectivity
+ * $server = new ServerDTO(name: 'web1', host: 'example.com', port: 22, username: 'deployer', privateKeyPath: '/home/user/.ssh/id_ed25519');
+ * $ssh->assertCanConnect($server);
  *
- * // Execute single commands
- * $result = $ssh->executeCommand('example.com', 22, 'deployer', 'uptime', '/home/user/.ssh/id_ed25519');
+ * // Execute commands
+ * $result = $ssh->executeCommand($server, 'uptime');
  * echo $result['output'];     // "15:30:01 up 42 days, 3:14, 1 user..."
  * echo $result['exit_code'];  // 0
  *
- * // Execute bash scripts
- * $result = $ssh->executeScript('example.com', 22, 'deployer', './scripts/deploy.sh', '/home/user/.ssh/id_ed25519');
- * if ($result['exit_code'] === 0) {
- *     echo "Deployment successful";
- * }
- *
  * // Upload files to remote server
- * $ssh->uploadFile('example.com', 22, 'deployer', './local.txt', '/remote/path/file.txt', '/home/user/.ssh/id_ed25519');
+ * $ssh->uploadFile($server, './local.txt', '/remote/path/file.txt');
  *
  * // Download files from remote server
- * $ssh->downloadFile('example.com', 22, 'deployer', '/remote/config.yml', './local-config.yml', '/home/user/.ssh/id_ed25519');
+ * $ssh->downloadFile($server, '/remote/config.yml', './local-config.yml');
  */
 class SSHService
 {
@@ -53,67 +50,52 @@ class SSHService
      *
      * @throws \RuntimeException When connection or authentication fails
      */
-    public function assertCanConnect(string $host, int $port, string $username, string $privateKeyPath): void
+    public function assertCanConnect(ServerDTO $server): void
     {
-        $ssh = $this->createConnection($host, $port, $username, $privateKeyPath);
+        $ssh = $this->createConnection($server);
         $this->disconnect($ssh);
     }
 
     /**
      * Execute a command on the remote server and return its output.
      *
+     * @param callable|null $outputCallback Optional callback for streaming output (receives string chunks)
+     * @param int $timeout Timeout in seconds (default: 300 = 5 minutes)
      * @return array{output: string, exit_code: int}
      *
+     * @throws SSHTimeoutException When command execution times out
      * @throws \RuntimeException When connection, authentication, or command execution fails
      */
-    public function executeCommand(string $host, int $port, string $username, string $command, string $privateKeyPath): array
-    {
-        $ssh = $this->createConnection($host, $port, $username, $privateKeyPath);
+    public function executeCommand(
+        ServerDTO $server,
+        string $command,
+        ?callable $outputCallback = null,
+        int $timeout = 300
+    ): array {
+        $ssh = $this->createConnection($server);
 
         try {
-            $output = $ssh->exec($command);
+            // Always set a timeout to prevent infinite hangs
+            $ssh->setTimeout($timeout);
+
+            $output = $ssh->exec($command, $outputCallback);
             $exitCode = (int) $ssh->getExitStatus();
+
+            // Check if command timed out (phpseclib returns false on timeout)
+            if ($output === false) {
+                throw new SSHTimeoutException(
+                    "Command execution timed out after {$timeout} seconds on {$server->host}"
+                );
+            }
 
             return [
                 'output' => is_string($output) ? $output : '',
                 'exit_code' => $exitCode,
             ];
+        } catch (SSHTimeoutException $e) {
+            throw $e;
         } catch (\Throwable $e) {
-            throw new \RuntimeException("Error executing command on {$host}: " . $e->getMessage(), previous: $e);
-        } finally {
-            $this->disconnect($ssh);
-        }
-    }
-
-    /**
-     * Execute a local bash script file on the remote server.
-     *
-     * @return array{output: string, exit_code: int}
-     *
-     * @throws \RuntimeException When script file cannot be read or execution fails
-     */
-    public function executeScript(string $host, int $port, string $username, string $scriptPath, string $privateKeyPath): array
-    {
-        if (!$this->fs->exists($scriptPath)) {
-            throw new \RuntimeException("Script file does not exist: {$scriptPath}");
-        }
-
-        $scriptContents = $this->fs->readFile($scriptPath);
-
-        $ssh = $this->createConnection($host, $port, $username, $privateKeyPath);
-
-        try {
-            // Execute script contents through bash using heredoc
-            $command = "bash <<'DEPLOYER_SCRIPT_EOF'\n{$scriptContents}\nDEPLOYER_SCRIPT_EOF";
-            $output = $ssh->exec($command);
-            $exitCode = (int) $ssh->getExitStatus();
-
-            return [
-                'output' => is_string($output) ? $output : '',
-                'exit_code' => $exitCode,
-            ];
-        } catch (\Throwable $e) {
-            throw new \RuntimeException("Error executing script {$scriptPath} on {$host}: " . $e->getMessage(), previous: $e);
+            throw new \RuntimeException("Error executing command on {$server->host}: " . $e->getMessage(), previous: $e);
         } finally {
             $this->disconnect($ssh);
         }
@@ -124,23 +106,26 @@ class SSHService
      *
      * @throws \RuntimeException When file operations fail
      */
-    public function uploadFile(string $host, int $port, string $username, string $localPath, string $remotePath, string $privateKeyPath): void
-    {
+    public function uploadFile(
+        ServerDTO $server,
+        string $localPath,
+        string $remotePath
+    ): void {
         if (!$this->fs->exists($localPath)) {
             throw new \RuntimeException("Local file does not exist: {$localPath}");
         }
 
-        $sftp = $this->createSFTPConnection($host, $port, $username, $privateKeyPath);
+        $sftp = $this->createSFTPConnection($server);
 
         try {
             $contents = $this->fs->readFile($localPath);
 
             $uploaded = $sftp->put($remotePath, $contents);
             if (!$uploaded) {
-                throw new \RuntimeException("Error uploading file to {$remotePath} on {$host}");
+                throw new \RuntimeException("Error uploading file to {$remotePath} on {$server->host}");
             }
         } catch (\Throwable $e) {
-            throw new \RuntimeException("Error uploading file to {$remotePath} on {$host}: " . $e->getMessage(), previous: $e);
+            throw new \RuntimeException("Error uploading file to {$remotePath} on {$server->host}: " . $e->getMessage(), previous: $e);
         } finally {
             $this->disconnect($sftp);
         }
@@ -151,19 +136,22 @@ class SSHService
      *
      * @throws \RuntimeException When file operations fail
      */
-    public function downloadFile(string $host, int $port, string $username, string $remotePath, string $localPath, string $privateKeyPath): void
-    {
-        $sftp = $this->createSFTPConnection($host, $port, $username, $privateKeyPath);
+    public function downloadFile(
+        ServerDTO $server,
+        string $remotePath,
+        string $localPath
+    ): void {
+        $sftp = $this->createSFTPConnection($server);
 
         try {
             $contents = $sftp->get($remotePath);
             if ($contents === false) {
-                throw new \RuntimeException("Error downloading file from {$remotePath} on {$host}");
+                throw new \RuntimeException("Error downloading file from {$remotePath} on {$server->host}");
             }
 
             $this->fs->dumpFile($localPath, is_string($contents) ? $contents : '');
         } catch (\Throwable $e) {
-            throw new \RuntimeException("Error downloading file from {$remotePath} on {$host}: " . $e->getMessage());
+            throw new \RuntimeException("Error downloading file from {$remotePath} on {$server->host}: " . $e->getMessage());
         } finally {
             $this->disconnect($sftp);
         }
@@ -174,54 +162,131 @@ class SSHService
     // -------------------------------------------------------------------------------
 
     /**
-     * Create and authenticate an SSH connection.
+     * Execute an operation with retry logic and exponential backoff.
      *
-     * @throws \RuntimeException When connection or authentication fails
+     * @template T
+     * @param callable(): T $attemptCallback Callback that attempts operation and returns on success or throws on failure
+     * @param string $operationDescription Description for error messages (e.g., "connect to host")
+     * @param int $retryAttempts Number of attempts (default: 5)
+     * @param int $retryDelaySeconds Initial delay between attempts in seconds (default: 2, doubles each retry)
+     *
+     * @return T The successful operation result
+     * @throws \RuntimeException When all attempts fail
      */
-    private function createConnection(string $host, int $port, string $username, string $privateKeyPath): SSH2
-    {
-        $key = $this->loadPrivateKey($privateKeyPath);
+    private function withRetry(
+        callable $attemptCallback,
+        string $operationDescription,
+        int $retryAttempts = 5,
+        int $retryDelaySeconds = 2
+    ): mixed {
+        $attempt = 0;
+        $delay = $retryDelaySeconds;
+        $lastException = null;
 
-        try {
-            $ssh = new SSH2($host, $port);
-            $loggedIn = $ssh->login($username, $key);
-        } catch (\Throwable $e) {
-            throw new \RuntimeException($e->getMessage());
+        while ($attempt < $retryAttempts) {
+            $attempt++;
+
+            try {
+                return $attemptCallback();
+            } catch (\RuntimeException $e) {
+                $lastException = $e;
+            }
+
+            // Don't sleep after the last failed attempt
+            if ($attempt < $retryAttempts) {
+                sleep($delay);
+                $delay *= 2; // Exponential backoff
+            }
         }
 
-        if ($loggedIn !== true) {
-            throw new \RuntimeException("SSH authentication failed for {$username}@{$host}. Check username and key permissions");
+        // All attempts failed - loop guarantees $lastException is set (retryAttempts >= 1)
+        /** @var \RuntimeException $lastException */
+        if ($retryAttempts > 1) {
+            throw new \RuntimeException(
+                "Failed to {$operationDescription} after {$retryAttempts} attempts",
+                previous: $lastException
+            );
         }
 
-        return $ssh;
+        throw $lastException;
     }
 
     /**
-     * Create and authenticate an SFTP connection.
+     * Create and authenticate an SSH connection with retry logic.
      *
-     * @throws \RuntimeException When connection or authentication fails
+     * @throws \RuntimeException When connection or authentication fails after all retries
      */
-    private function createSFTPConnection(string $host, int $port, string $username, string $privateKeyPath): SFTP
+    private function createConnection(ServerDTO $server): SSH2
     {
-        $key = $this->loadPrivateKey($privateKeyPath);
-
-        try {
-            $sftp = new SFTP($host, $port);
-        } catch (\Throwable $e) {
-            throw new \RuntimeException("Error initiating SFTP connection to {$host}:{$port}: " . $e->getMessage());
+        if ($server->privateKeyPath === null) {
+            throw new \RuntimeException("Server '{$server->name}' has no private SSH key configured");
         }
 
-        try {
-            $loggedIn = $sftp->login($username, $key);
-        } catch (\Throwable $e) {
-            throw new \RuntimeException("Error authenticating SFTP for {$username}@{$host}: " . $e->getMessage());
+        $key = $this->loadPrivateKey($server->privateKeyPath);
+
+        return $this->withRetry(
+            attemptCallback: function () use ($server, $key) {
+                try {
+                    $ssh = new SSH2($server->host, $server->port);
+                    $loggedIn = $ssh->login($server->username, $key);
+
+                    if ($loggedIn === true) {
+                        return $ssh;
+                    }
+
+                    throw new \RuntimeException(
+                        "SSH authentication failed for {$server->username}@{$server->host}. Check username and key permissions"
+                    );
+                } catch (\RuntimeException $e) {
+                    throw $e;
+                } catch (\Throwable $e) {
+                    throw new \RuntimeException(
+                        "Failed to connect to {$server->host}:{$server->port}",
+                        previous: $e
+                    );
+                }
+            },
+            operationDescription: "connect to {$server->host}"
+        );
+    }
+
+    /**
+     * Create and authenticate an SFTP connection with retry logic.
+     *
+     * @throws \RuntimeException When connection or authentication fails after all retries
+     */
+    private function createSFTPConnection(ServerDTO $server): SFTP
+    {
+        if ($server->privateKeyPath === null) {
+            throw new \RuntimeException("Server '{$server->name}' has no private SSH key configured");
         }
 
-        if ($loggedIn !== true) {
-            throw new \RuntimeException("SFTP authentication failed for {$username}@{$host}. Check username and key permissions");
-        }
+        $key = $this->loadPrivateKey($server->privateKeyPath);
 
-        return $sftp;
+        return $this->withRetry(
+            attemptCallback: function () use ($server, $key) {
+                try {
+                    $sftp = new SFTP($server->host, $server->port);
+                    $loggedIn = $sftp->login($server->username, $key);
+
+                    if ($loggedIn === true) {
+                        return $sftp;
+                    }
+
+                    throw new \RuntimeException(
+                        "SFTP authentication failed for {$server->username}@{$server->host}. Check username and key permissions"
+                    );
+                } catch (\RuntimeException $e) {
+                    throw $e;
+                } catch (\Throwable $e) {
+                    throw new \RuntimeException(
+                        "Failed to connect via SFTP to {$server->host}:{$server->port}",
+                        previous: $e
+                    );
+                }
+            },
+            operationDescription: "connect via SFTP to {$server->host}"
+        );
     }
 
     /**
@@ -248,7 +313,7 @@ class SSHService
     private function loadPrivateKey(string $privateKeyPath): PrivateKey
     {
         if (!$this->fs->exists($privateKeyPath)) {
-            throw new \RuntimeException("SSH key does not exist: {$privateKeyPath}");
+            throw new \RuntimeException("Private SSH key does not exist: {$privateKeyPath}");
         }
 
         $keyContents = $this->fs->readFile($privateKeyPath);
