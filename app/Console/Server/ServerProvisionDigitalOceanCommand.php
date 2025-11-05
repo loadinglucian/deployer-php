@@ -183,9 +183,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
         // Verify SSH connection & add to inventory
         // -------------------------------------------------------------------------------
 
-        if ($this->verifySSHConnection($server) === Command::FAILURE) {
-            return Command::FAILURE;
-        }
+        $this->verifySSHConnection($server); // SSH failure is not a blocker
 
         try {
             $this->servers->create($server);
