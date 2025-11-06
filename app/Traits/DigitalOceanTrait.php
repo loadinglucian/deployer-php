@@ -277,6 +277,11 @@ trait DigitalOceanTrait
             return 'SSH key ID must be a string or integer';
         }
 
+        // Validate numeric string
+        if (is_string($keyId) && !ctype_digit($keyId)) {
+            return 'SSH key ID must be numeric';
+        }
+
         // Convert to integer for validation
         $keyIdInt = is_int($keyId) ? $keyId : (int) $keyId;
 
