@@ -6,6 +6,7 @@ namespace Bigpixelrocket\DeployerPHP\Console\Server;
 
 use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
 use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
+use Bigpixelrocket\DeployerPHP\Enums\Distribution;
 use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
 use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -111,12 +112,10 @@ class ServerInfoCommand extends BaseCommand
      */
     protected function displayServerInfo(array $info): void
     {
-        $distroName = match ($info['distro'] ?? 'unknown') {
-            'debian' => 'Debian/Ubuntu',
-            'redhat' => 'RedHat/CentOS/Fedora',
-            'amazon' => 'Amazon Linux',
-            default => 'Unknown',
-        };
+        /** @var string $distroSlug */
+        $distroSlug = $info['distro'] ?? 'unknown';
+        $distribution = Distribution::tryFrom($distroSlug);
+        $distroName = $distribution?->displayName() ?? 'Unknown';
 
         $permissionsText = match ($info['permissions'] ?? 'none') {
             'root' => 'root',

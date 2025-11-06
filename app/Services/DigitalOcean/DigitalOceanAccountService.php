@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bigpixelrocket\DeployerPHP\Services\DigitalOcean;
 
+use Bigpixelrocket\DeployerPHP\Enums\Distribution;
 use DigitalOceanV2\Entity\Image as ImageEntity;
 use DigitalOceanV2\Entity\Region as RegionEntity;
 use DigitalOceanV2\Entity\Size as SizeEntity;
@@ -79,7 +80,7 @@ class DigitalOceanAccountService extends BaseDigitalOceanService
     }
 
     /**
-     * Get available OS images (filtered to Ubuntu and Debian only).
+     * Get available OS images (filtered to supported distributions).
      *
      * @return array<string, string> Array of image slug => description
      */
@@ -96,11 +97,11 @@ class DigitalOceanAccountService extends BaseDigitalOceanService
             $options = [];
             foreach ($images as $image) {
                 /** @var ImageEntity $image */
-                // Filter to only Ubuntu and Debian distributions
+                // Filter to supported distributions
                 if ($image->status === 'available' && $image->public === true) {
                     $distribution = strtolower($image->distribution ?? '');
 
-                    if (in_array($distribution, ['ubuntu', 'debian'], true)) {
+                    if (in_array($distribution, Distribution::slugs(), true)) {
                         $slug = $image->slug;
                         if ($slug !== null && $slug !== '') {
                             $options[$slug] = "{$image->distribution} {$image->name}";
@@ -108,6 +109,8 @@ class DigitalOceanAccountService extends BaseDigitalOceanService
                     }
                 }
             }
+
+            asort($options);
 
             return $options;
         } catch (\Throwable $e) {

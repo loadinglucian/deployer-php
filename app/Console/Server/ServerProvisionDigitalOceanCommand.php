@@ -281,7 +281,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             fn ($validate) => $this->io->promptSelect(
                 label: 'Select OS image:',
                 options: $accountData['images'],
-                hint: 'Ubuntu and Debian only'
+                hint: 'Supported Linux distributions'
             ),
             fn ($value) => $this->validateDigitalOceanDropletImage($value, $accountData['images'])
         );

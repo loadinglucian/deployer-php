@@ -32,6 +32,12 @@ trait PlaybooksTrait
      * Playbooks write YAML output to a temp file (DEPLOYER_OUTPUT_FILE).
      * Displays errors via IOService and returns Command::FAILURE on any error.
      *
+     * Standard playbook environment variables:
+     *   - DEPLOYER_OUTPUT_FILE: Output file path (provided automatically)
+     *   - DEPLOYER_DISTRO: Exact distribution - caller must provide via $playbookVars
+     *   - DEPLOYER_FAMILY: Distribution family - caller must provide via $playbookVars
+     *   - DEPLOYER_PERMS: User permissions (root|sudo|none) - caller must provide via $playbookVars
+     *
      * @param string $playbookName Playbook name without .sh extension (e.g., 'server-info', 'install-php', etc)
      * @param array<string, string> $playbookVars Playbook variables to pass to the playbook (don't pass sensitive data)
      * @param bool $streamOutput Stream output in real-time (true) or show spinner and display all at end (false)
@@ -44,7 +50,7 @@ trait PlaybooksTrait
         array $playbookVars = [],
         bool $streamOutput = false
     ): array|int {
-        $projectRoot = dirname(__DIR__, 3);
+        $projectRoot = dirname(__DIR__, 2);
         $playbookPath = $projectRoot . '/playbooks/' . $playbookName . '.sh';
         $scriptContents = $this->fs->readFile($playbookPath);
 
@@ -74,6 +80,11 @@ trait PlaybooksTrait
         try {
             if ($streamOutput) {
                 // Streaming output in real-time
+                $this->io->writeln([
+                    '<fg=cyan>'.$spinnerMessage.'</>',
+                    '',
+                ]);
+
                 $result = $this->ssh->executeCommand(
                     $server,
                     $scriptWithVars,

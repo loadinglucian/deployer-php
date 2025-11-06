@@ -2,13 +2,14 @@
 #
 # Gather Server Information
 # ----
-# This playbook detects distribution, permissions, and listening services.
+# This playbook detects distribution, family, permissions, and listening services.
 #
 # Required Environment Variables:
 #   DEPLOYER_OUTPUT_FILE - Output file path (provided automatically)
 #
 # Returns YAML with:
-#   - distro: debian|redhat|amazon|unknown
+#   - distro: ubuntu|debian|fedora|centos|rocky|alma|rhel|amazon|unknown
+#   - family: debian|fedora|redhat|amazon|unknown
 #   - permissions: root|sudo|none
 #   - ports: map of port numbers to process names
 
@@ -17,33 +18,73 @@ export DEBIAN_FRONTEND=noninteractive
 
 # Validation
 if [[ -z $DEPLOYER_OUTPUT_FILE ]]; then
-	echo "Error: DEPLOYER_OUTPUT_FILE environment variable is required"
+	echo "Error: DEPLOYER_OUTPUT_FILE required"
 	exit 1
 fi
 
 #
 # Detect Linux Distribution
 # ----
-# Returns: debian|redhat|amazon|unknown
+# Returns: exact distribution name (ubuntu|debian|fedora|centos|rocky|alma|rhel|amazon|unknown)
 
 detect_distro() {
 	local distro='unknown'
 
 	if [[ -f /etc/os-release ]]; then
-		if grep -qi 'amazon' /etc/os-release; then
-			distro='amazon'
-		elif grep -qi 'debian\|ubuntu' /etc/os-release; then
-			distro='debian'
-		elif grep -qi 'fedora\|centos\|rhel' /etc/os-release; then
-			distro='redhat'
+		# Try to get the ID field first for exact distro name
+		if grep -q '^ID=' /etc/os-release; then
+			distro=$(grep '^ID=' /etc/os-release | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+
+			# Normalize some common variations
+			case $distro in
+				almalinux) distro='alma' ;;
+				rocky | rockylinux) distro='rocky' ;;
+				rhel | redhat) distro='rhel' ;;
+				amzn) distro='amazon' ;;
+			esac
 		fi
 	elif [[ -f /etc/redhat-release ]]; then
-		distro='redhat'
+		# Fallback for older systems without /etc/os-release
+		if grep -qi 'centos' /etc/redhat-release; then
+			distro='centos'
+		elif grep -qi 'red hat' /etc/redhat-release; then
+			distro='rhel'
+		else
+			distro='unknown'
+		fi
 	elif [[ -f /etc/debian_version ]]; then
+		# Fallback for Debian systems
 		distro='debian'
 	fi
 
 	echo "$distro"
+}
+
+#
+# Detect Distribution Family
+# ----
+# Returns: debian|fedora|redhat|amazon|unknown
+
+detect_family() {
+	local distro=$1
+	local family='unknown'
+
+	case $distro in
+		ubuntu | debian)
+			family='debian'
+			;;
+		fedora)
+			family='fedora'
+			;;
+		centos | rocky | alma | rhel)
+			family='redhat'
+			;;
+		amazon)
+			family='amazon'
+			;;
+	esac
+
+	echo "$family"
 }
 
 #
@@ -78,19 +119,19 @@ run_cmd() {
 # ----
 
 ensure_tools() {
-	local distro=$1 perms=$2
+	local family=$1 perms=$2
 	export DEPLOYER_PERMS=$perms
 
 	# If the command is already installed, return
 	command -v ss > /dev/null 2>&1 && return 0
 	command -v netstat > /dev/null 2>&1 && return 0
 
-	case $distro in
+	case $family in
 		debian)
 			run_cmd apt-get update -q 2> /dev/null
 			run_cmd apt-get install -y -q iproute2 2> /dev/null
 			;;
-		redhat | amazon)
+		fedora | redhat | amazon)
 			run_cmd yum install -y -q iproute 2> /dev/null \
 				|| run_cmd dnf install -y -q iproute 2> /dev/null
 			;;
@@ -142,25 +183,27 @@ get_listening_services() {
 # ----
 
 main() {
-	local distro permissions
+	local distro family permissions
 
 	#
 	# Gather basic info
 
 	echo "✓ Detecting distribution..."
 	distro=$(detect_distro)
+	family=$(detect_family "$distro")
 
 	echo "✓ Checking permissions..."
 	permissions=$(check_permissions)
 
 	echo "✓ Cataloging services..."
-	ensure_tools "$distro" "$permissions"
+	ensure_tools "$family" "$permissions"
 
 	#
 	# Output YAML to file
 
 	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 		distro: $distro
+		family: $family
 		permissions: $permissions
 		ports:
 	EOF
