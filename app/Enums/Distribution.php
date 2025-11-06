@@ -38,19 +38,6 @@ enum Distribution: string
     }
 
     /**
-     * Get distribution family.
-     */
-    public function family(): DistributionFamily
-    {
-        return match ($this) {
-            self::UBUNTU, self::DEBIAN => DistributionFamily::DEBIAN,
-            self::FEDORA => DistributionFamily::FEDORA,
-            self::CENTOS, self::ROCKY, self::ALMA, self::RHEL => DistributionFamily::REDHAT,
-            self::AMAZON => DistributionFamily::AMAZON,
-        };
-    }
-
-    /**
      * Get all distribution slugs as array.
      *
      * @return array<string>

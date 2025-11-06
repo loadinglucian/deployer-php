@@ -16,21 +16,4 @@ enum DistributionFamily: string
     case REDHAT = 'redhat';
     case AMAZON = 'amazon';
 
-    /**
-     * Get playbook name for this family.
-     */
-    public function playbookName(): string
-    {
-        return "server-install-{$this->value}";
-    }
-
-    /**
-     * Get all family names as array.
-     *
-     * @return array<string>
-     */
-    public static function names(): array
-    {
-        return array_map(fn (self $family) => $family->value, self::cases());
-    }
 }
