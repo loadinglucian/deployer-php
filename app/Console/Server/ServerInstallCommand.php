@@ -100,6 +100,7 @@ class ServerInstallCommand extends BaseCommand
                 'DEPLOYER_DISTRO' => $distro,
                 'DEPLOYER_FAMILY' => $family,
                 'DEPLOYER_PERMS' => $permissions,
+                'DEPLOYER_SERVER_NAME' => $server->name,
             ],
             true
         );
@@ -111,6 +112,16 @@ class ServerInstallCommand extends BaseCommand
         }
 
         $this->yay('Server installed successfully');
+
+        // Display deploy public key
+        if (isset($result['deploy_public_key']) && is_string($result['deploy_public_key']) && $result['deploy_public_key'] !== 'unknown') {
+            $this->io->writeln('');
+            $this->io->writeln('<fg=cyan>Deploy Public Key:</>');
+            $this->io->writeln('Add this key to your Git provider (GitHub, GitLab, etc.) to enable deployments:');
+            $this->io->writeln('');
+            $this->io->writeln('<fg=green>' . $result['deploy_public_key'] . '</>');
+            $this->io->writeln('');
+        }
 
         //
         // Setup demo site
