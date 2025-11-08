@@ -12,8 +12,14 @@ namespace Bigpixelrocket\DeployerPHP\Enums;
 enum DistributionFamily: string
 {
     case DEBIAN = 'debian';
-    case FEDORA = 'fedora';
-    case REDHAT = 'redhat';
-    case AMAZON = 'amazon';
 
+    /**
+     * Get all family names as array.
+     *
+     * @return array<string>
+     */
+    public static function names(): array
+    {
+        return array_map(fn (self $family) => $family->value, self::cases());
+    }
 }

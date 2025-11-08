@@ -7,6 +7,7 @@ namespace Bigpixelrocket\DeployerPHP\Console\Server;
 use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
 use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
 use Bigpixelrocket\DeployerPHP\Traits\KeysTrait;
+use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
 use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,6 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class ServerAddCommand extends BaseCommand
 {
     use KeysTrait;
+    use PlaybooksTrait;
     use ServersTrait;
 
     // -------------------------------------------------------------------------------
@@ -86,15 +88,23 @@ class ServerAddCommand extends BaseCommand
         $this->displayServerDeets($server);
 
         //
-        // Verify SSH connection & add to inventory
+        // Get server info (verifies SSH connection and validates distribution)
         // -------------------------------------------------------------------------------
 
-        $this->verifySSHConnection($server); // SSH failure is not a blocker
+        $info = $this->getServerInfo($server);
+
+        if (is_int($info)) {
+            return $info;
+        }
+
+        //
+        // Add to inventory
+        // -------------------------------------------------------------------------------
 
         try {
             $this->servers->create($server);
         } catch (\RuntimeException $e) {
-            $this->nay('Failed to add server to inventory: ' . $e->getMessage());
+            $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }

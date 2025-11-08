@@ -97,11 +97,12 @@ class DigitalOceanAccountService extends BaseDigitalOceanService
             $options = [];
             foreach ($images as $image) {
                 /** @var ImageEntity $image */
-                // Filter to supported distributions
+                // Filter to supported distributions only (Debian/Ubuntu)
                 if ($image->status === 'available' && $image->public === true) {
                     $distribution = strtolower($image->distribution ?? '');
+                    $distEnum = Distribution::tryFrom($distribution);
 
-                    if (in_array($distribution, Distribution::slugs(), true)) {
+                    if ($distEnum !== null && $distEnum->isSupported()) {
                         $slug = $image->slug;
                         if ($slug !== null && $slug !== '') {
                             $options[$slug] = "{$image->distribution} {$image->name}";

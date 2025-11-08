@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Bigpixelrocket\DeployerPHP\Console\Server;
 
 use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Enums\Distribution;
 use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
 use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -62,7 +60,7 @@ class ServerInfoCommand extends BaseCommand
         $this->displayServerDeets($server);
 
         //
-        // Get and display server information
+        // Get server info (verifies SSH connection and validates distribution)
         // -------------------------------------------------------------------------------
 
         $info = $this->getServerInfo($server);
@@ -70,8 +68,6 @@ class ServerInfoCommand extends BaseCommand
         if (is_int($info)) {
             return $info;
         }
-
-        $this->displayServerInfo($info);
 
         //
         // Show command replay
@@ -82,72 +78,6 @@ class ServerInfoCommand extends BaseCommand
         ]);
 
         return Command::SUCCESS;
-    }
-
-    // -------------------------------------------------------------------------------
-    //
-    // Helpers
-    //
-    // -------------------------------------------------------------------------------
-
-    /**
-     * Get server information by executing server-info playbook.
-     *
-     * @param ServerDTO $server Server to get information for
-     * @return array<string, mixed>|int Returns parsed server info or failure code on failure
-     */
-    protected function getServerInfo(ServerDTO $server): array|int
-    {
-        return $this->executePlaybook(
-            $server,
-            'server-info',
-            'Retrieving server information...',
-        );
-    }
-
-    /**
-     * Display formatted server information.
-     *
-     * @param array<string, mixed> $info
-     */
-    protected function displayServerInfo(array $info): void
-    {
-        /** @var string $distroSlug */
-        $distroSlug = $info['distro'] ?? 'unknown';
-        $distribution = Distribution::tryFrom($distroSlug);
-        $distroName = $distribution?->displayName() ?? 'Unknown';
-
-        $permissionsText = match ($info['permissions'] ?? 'none') {
-            'root' => 'root',
-            'sudo' => 'sudo',
-            default => 'insufficient',
-        };
-
-        $deets = [
-            'Distro' => $distroName,
-            'User' => $permissionsText,
-        ];
-
-        $this->io->displayDeets($deets);
-        $this->io->writeln('');
-
-        $services = [];
-
-        // Add listening ports if any
-        if (isset($info['ports']) && is_array($info['ports']) && count($info['ports']) > 0) {
-            $portsList = [];
-            foreach ($info['ports'] as $port => $process) {
-                if (is_numeric($port) && is_string($process)) {
-                    $portsList[] = "Port {$port}: {$process}";
-                }
-            }
-            if (count($portsList) > 0) {
-                $services = $portsList;
-            }
-        }
-
-        $this->io->displayDeets(['Services' => $services]);
-        $this->io->writeln('');
     }
 
 }

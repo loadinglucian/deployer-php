@@ -150,6 +150,8 @@ class ServerDeleteCommand extends BaseCommand
         // Destroy cloud provider resources
         // -------------------------------------------------------------------------------
 
+        $destroyed = false;
+
         if ($isDigitalOceanServer && $server->dropletId !== null) {
             try {
                 $this->io->promptSpin(
@@ -158,6 +160,7 @@ class ServerDeleteCommand extends BaseCommand
                 );
 
                 $this->yay('Droplet destroyed (ID: ' . $server->dropletId . ')');
+                $destroyed = true;
             } catch (\RuntimeException $e) {
                 $this->nay($e->getMessage());
                 $this->io->writeln('');
@@ -179,7 +182,16 @@ class ServerDeleteCommand extends BaseCommand
 
         $this->servers->delete($server->name);
 
-        $this->yay("Server '{$server->name}' deleted successfully");
+        $this->yay("Server '{$server->name}' deleted from inventory");
+
+        if (!$destroyed) {
+            $this->io->writeln([
+                '',
+                '<fg=yellow>Your server may still be running and incurring costs:</>',
+                '  • Double-check with your cloud provider to ensure it is fully terminated.',
+                '',
+            ]);
+        }
 
         //
         // Show command replay

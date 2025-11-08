@@ -124,14 +124,18 @@ $command = $container->build(ServerAddCommand::class);  // Gets mock
 **Comment structure:**
 
 ```
-//
-// {Section Header}
-// -------------------------------------------------------------------------------
+// ----
+// {h1}
+// ----
 
 //
-// {Section Subheader}
+// {h2}
+// ----
 
-// {Paragraph}
+//
+// {h3}
+
+// {p}
 ```
 
 Separate sections visually. One newline between headers/subheaders/paragraphs. No obvious comments. Remove comments when removing code.

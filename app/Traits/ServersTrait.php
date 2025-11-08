@@ -6,6 +6,7 @@ namespace Bigpixelrocket\DeployerPHP\Traits;
 
 use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
 use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
+use Bigpixelrocket\DeployerPHP\Enums\Distribution;
 use Bigpixelrocket\DeployerPHP\Repositories\ServerRepository;
 use Bigpixelrocket\DeployerPHP\Services\IOService;
 use Bigpixelrocket\DeployerPHP\Services\SSHService;
@@ -15,6 +16,7 @@ use Symfony\Component\Console\Command\Command;
  * Reusable server things.
  *
  * Requires classes using this trait to have IOService, ServerRepository, SSHService, and SiteRepository properties.
+ * Also requires PlaybooksTrait for getServerInfo() method.
  *
  * @property IOService $io
  * @property ServerRepository $servers
@@ -23,11 +25,117 @@ use Symfony\Component\Console\Command\Command;
  */
 trait ServersTrait
 {
+    use PlaybooksTrait;
+
     // -------------------------------------------------------------------------------
     //
     // Helpers
     //
     // -------------------------------------------------------------------------------
+
+    //
+    // Server info
+    // -------------------------------------------------------------------------------
+
+    /**
+     * Get server information by executing server-info playbook.
+     *
+     * Automatically displays server info and validates that the server is running a supported distribution (Debian/Ubuntu).
+     *
+     * @param ServerDTO $server Server to get information for
+     * @return array<string, mixed>|int Returns parsed server info or failure code on failure
+     */
+    protected function getServerInfo(ServerDTO $server): array|int
+    {
+        $info = $this->executePlaybook(
+            $server,
+            'server-info',
+            'Retrieving server information...'
+        );
+
+        if (is_int($info)) {
+            return $info;
+        }
+
+        // Display server information before validation
+        $this->displayServerInfo($info);
+
+        return $this->validateServerDistribution($info);
+    }
+
+    /**
+     * Validate that server is running a supported distribution.
+     *
+     * @param array<string, mixed> $info Server information array from server-info playbook
+     * @return array<string, mixed>|int Returns validated server info or failure code
+     */
+    protected function validateServerDistribution(array $info): array|int
+    {
+        /** @var string $distro */
+        $distro = $info['distro'] ?? 'unknown';
+        $distribution = Distribution::tryFrom($distro);
+
+        if ($distribution === null) {
+            $this->nay("Unknown distribution: {$distro}");
+
+            return Command::FAILURE;
+        }
+
+        $distroName = $distribution->displayName();
+
+        if (!$distribution->isSupported()) {
+            $this->nay("Unsupported distribution: {$distroName}. Only Debian and Ubuntu are supported.");
+
+            return Command::FAILURE;
+        }
+
+        return $info;
+    }
+
+    /**
+     * Display formatted server information.
+     *
+     * @param array<string, mixed> $info
+     */
+    protected function displayServerInfo(array $info): void
+    {
+        /** @var string $distroSlug */
+        $distroSlug = $info['distro'] ?? 'unknown';
+        $distribution = Distribution::tryFrom($distroSlug);
+        $distroName = $distribution?->displayName() ?? 'Unknown';
+
+        $permissionsText = match ($info['permissions'] ?? 'none') {
+            'root' => 'root',
+            'sudo' => 'sudo',
+            default => 'insufficient',
+        };
+
+        $deets = [
+            'Distro' => $distroName,
+            'User' => $permissionsText,
+        ];
+
+        $this->io->displayDeets($deets);
+        $this->io->writeln('');
+
+        $services = [];
+
+        // Add listening ports if any
+        if (isset($info['ports']) && is_array($info['ports']) && count($info['ports']) > 0) {
+            $portsList = [];
+            foreach ($info['ports'] as $port => $process) {
+                if (is_numeric($port) && is_string($process)) {
+                    $portsList[] = "Port {$port}: {$process}";
+                }
+            }
+            if (count($portsList) > 0) {
+                $services = $portsList;
+            }
+        }
+
+        $this->io->displayDeets(['Services' => $services]);
+        $this->io->writeln('');
+    }
 
     //
     // UI

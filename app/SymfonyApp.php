@@ -11,8 +11,11 @@ use Bigpixelrocket\DeployerPHP\Console\Key\KeyListDigitalOceanCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerAddCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerDeleteCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerInfoCommand;
+use Bigpixelrocket\DeployerPHP\Console\Server\ServerInstallCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerListCommand;
+use Bigpixelrocket\DeployerPHP\Console\Server\ServerLogsCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerProvisionDigitalOceanCommand;
+use Bigpixelrocket\DeployerPHP\Console\Server\ServerRunCommand;
 use Bigpixelrocket\DeployerPHP\Console\Site\SiteAddCommand;
 use Bigpixelrocket\DeployerPHP\Console\Site\SiteDeleteCommand;
 use Bigpixelrocket\DeployerPHP\Console\Site\SiteListCommand;
@@ -140,6 +143,9 @@ final class SymfonyApp extends SymfonyApplication
             ServerDeleteCommand::class,
             ServerListCommand::class,
             ServerInfoCommand::class,
+            ServerInstallCommand::class,
+            ServerLogsCommand::class,
+            ServerRunCommand::class,
 
             // Providers
             ServerProvisionDigitalOceanCommand::class,
