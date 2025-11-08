@@ -27,7 +27,7 @@ enum Distribution: string
     {
         return match ($this) {
             self::UBUNTU, self::DEBIAN => DistributionFamily::DEBIAN,
-            default => DistributionFamily::DEBIAN, // Fallback for unsupported distributions
+            default => throw new \RuntimeException("Distribution '{$this->value}' is not supported. Use isSupported() to check before calling family()"),
         };
     }
 
