@@ -197,6 +197,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             $this->servers->create($server);
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
+            $this->rollbackDroplet($dropletId);
 
             return Command::FAILURE;
         }
