@@ -29,6 +29,7 @@ export DEBIAN_FRONTEND=noninteractive
 [[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_FAMILY ]] && echo "Error: DEPLOYER_FAMILY required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
+[[ -z $DEPLOYER_SERVER_NAME ]] && echo "Error: DEPLOYER_SERVER_NAME required" && exit 1
 export DEPLOYER_PERMS
 
 #
@@ -345,6 +346,219 @@ install_bun() {
 	fi
 }
 
+ensure_deployer_user() {
+	if id -u deployer > /dev/null 2>&1; then
+		echo "✓ Deployer user already exists"
+		return 0
+	fi
+
+	echo "✓ Creating deployer user..."
+	if ! run_cmd useradd -m -s /bin/bash deployer; then
+		echo "Error: Failed to create deployer user" >&2
+		exit 1
+	fi
+}
+
+configure_deployer_groups() {
+	local php_fpm_user
+	php_fpm_user=$(get_php_fpm_user)
+
+	# Add caddy user to deployer group so it can access deployer's files
+	if ! id -nG caddy 2> /dev/null | grep -qw deployer; then
+		echo "✓ Adding caddy user to deployer group..."
+		if ! run_cmd usermod -aG deployer caddy; then
+			echo "Error: Failed to add caddy to deployer group" >&2
+			exit 1
+		fi
+
+		# Restart Caddy so it picks up the new group membership
+		if systemctl is-active --quiet caddy 2> /dev/null; then
+			echo "✓ Restarting Caddy to apply group membership..."
+			if ! run_cmd systemctl restart caddy; then
+				echo "Error: Failed to restart Caddy" >&2
+				exit 1
+			fi
+		fi
+	fi
+
+	# Add PHP-FPM user to deployer group so it can access files
+	if id -u "$php_fpm_user" > /dev/null 2>&1; then
+		if ! id -nG "$php_fpm_user" 2> /dev/null | grep -qw deployer; then
+			echo "✓ Adding $php_fpm_user user to deployer group..."
+			if ! run_cmd usermod -aG deployer "$php_fpm_user"; then
+				echo "Error: Failed to add $php_fpm_user to deployer group" >&2
+				exit 1
+			fi
+
+			# Restart PHP-FPM so it picks up the new group membership
+			local php_fpm_service
+			php_fpm_service=$(get_php_fpm_service)
+			if systemctl is-active --quiet "$php_fpm_service" 2> /dev/null; then
+				echo "✓ Restarting PHP-FPM to apply group membership..."
+				if ! run_cmd systemctl restart "$php_fpm_service"; then
+					echo "Error: Failed to restart PHP-FPM" >&2
+					exit 1
+				fi
+			fi
+		fi
+	else
+		echo "Warning: PHP-FPM user '$php_fpm_user' not found, skipping group assignment"
+	fi
+}
+
+get_php_fpm_user() {
+	if [[ $DEPLOYER_FAMILY == 'debian' ]]; then
+		echo 'www-data'
+	else
+		local config_file='/etc/php-fpm.d/www.conf'
+		if [[ -f $config_file ]]; then
+			local user
+			user=$(grep -E '^\s*user\s*=' "$config_file" | awk '{print $3}' | tr -d ';')
+			if [[ -n $user ]]; then
+				echo "$user"
+			else
+				echo 'apache'
+			fi
+		else
+			echo 'apache'
+		fi
+	fi
+}
+
+get_php_fpm_service() {
+	if [[ $DEPLOYER_FAMILY == 'debian' ]]; then
+		echo 'php8.4-fpm'
+	else
+		echo 'php-fpm'
+	fi
+}
+
+setup_deploy_user() {
+	ensure_deployer_user
+
+	local deployer_home
+	deployer_home=$(getent passwd deployer | cut -d: -f6)
+
+	if [[ -z $deployer_home ]]; then
+		echo "Error: Unable to determine deployer home directory" >&2
+		exit 1
+	fi
+
+	if ! run_cmd test -d "$deployer_home"; then
+		if ! run_cmd mkdir -p "$deployer_home"; then
+			echo "Error: Failed to create deployer home directory" >&2
+			exit 1
+		fi
+	fi
+
+	if ! run_cmd chown deployer:deployer "$deployer_home"; then
+		echo "Error: Failed to set ownership on deployer home directory" >&2
+		exit 1
+	fi
+
+	if ! run_cmd chmod 750 "$deployer_home"; then
+		echo "Error: Failed to set permissions on deployer home directory" >&2
+		exit 1
+	fi
+
+	configure_deployer_groups
+}
+
+setup_deploy_key() {
+	echo "✓ Setting up deploy key..."
+
+	setup_deploy_user
+
+	local deployer_home
+	deployer_home=$(getent passwd deployer | cut -d: -f6)
+	local deployer_ssh_dir
+	deployer_ssh_dir="${deployer_home}/.ssh"
+	local private_key
+	private_key="${deployer_ssh_dir}/id_ed25519"
+	local public_key
+	public_key="${deployer_ssh_dir}/id_ed25519.pub"
+
+	# Create .ssh directory if it doesn't exist
+	if ! run_cmd test -d "$deployer_ssh_dir"; then
+		if ! run_cmd mkdir -p "$deployer_ssh_dir"; then
+			echo "Error: Failed to create .ssh directory" >&2
+			exit 1
+		fi
+	fi
+
+	# Generate key pair if it doesn't exist
+	if ! run_cmd test -f "$private_key"; then
+		echo "✓ Generating SSH key pair..."
+		if ! run_cmd ssh-keygen -t ed25519 -C "deployer@${DEPLOYER_SERVER_NAME}" -f "$private_key" -N ""; then
+			echo "Error: Failed to generate SSH key pair" >&2
+			exit 1
+		fi
+	else
+		echo "✓ SSH key pair already exists"
+	fi
+
+	# Set proper ownership and permissions
+	if ! run_cmd chown -R deployer:deployer "$deployer_ssh_dir"; then
+		echo "Error: Failed to set ownership on .ssh directory" >&2
+		exit 1
+	fi
+
+	if ! run_cmd chmod 700 "$deployer_ssh_dir"; then
+		echo "Error: Failed to set permissions on .ssh directory" >&2
+		exit 1
+	fi
+
+	if ! run_cmd chmod 600 "$private_key"; then
+		echo "Error: Failed to set permissions on private key" >&2
+		exit 1
+	fi
+
+	if ! run_cmd chmod 644 "$public_key"; then
+		echo "Error: Failed to set permissions on public key" >&2
+		exit 1
+	fi
+}
+
+setup_deploy_directories() {
+	if ! run_cmd test -d /home/deployer; then
+		echo "Error: Deployer home directory missing" >&2
+		exit 1
+	fi
+
+	# Ensure home directory permissions
+	if ! run_cmd chmod 750 /home/deployer; then
+		echo "Error: Failed to set permissions on deployer home" >&2
+		exit 1
+	fi
+
+	# Ensure demo directory structure ownership if present
+	if run_cmd test -d /home/deployer/demo; then
+		if ! run_cmd chown -R deployer:deployer /home/deployer/demo; then
+			echo "Error: Failed to set ownership on demo directory" >&2
+			exit 1
+		fi
+
+		if ! run_cmd chmod 750 /home/deployer/demo; then
+			echo "Error: Failed to set permissions on demo directory" >&2
+			exit 1
+		fi
+
+		if run_cmd test -d /home/deployer/demo/public; then
+			if ! run_cmd chmod 750 /home/deployer/demo/public; then
+				echo "Error: Failed to set permissions on public directory" >&2
+				exit 1
+			fi
+
+			if run_cmd test -f /home/deployer/demo/public/index.php; then
+				if ! run_cmd chmod 640 /home/deployer/demo/public/index.php; then
+					echo "Error: Failed to set permissions on index.php" >&2
+					exit 1
+				fi
+			fi
+		fi
+	fi
+}
+
 validate_php_version() {
 	local php_version
 	php_version=$(php -r "echo PHP_VERSION;" 2> /dev/null || echo "unknown")
@@ -372,18 +586,21 @@ validate_php_version() {
 # ----
 
 main() {
-	local php_version caddy_version bun_version git_version
+	local php_version caddy_version bun_version git_version deploy_public_key
 
 	# Execute installation tasks
 	install_all_packages
 	install_bun
 	validate_php_version
+	setup_deploy_key
+	setup_deploy_directories
 
-	# Get versions
+	# Get versions and public key
 	php_version=$(php -r "echo PHP_VERSION;" 2> /dev/null || echo "unknown")
 	caddy_version=$(caddy version 2> /dev/null | head -n1 | awk '{print $1}' || echo "unknown")
 	git_version=$(git --version 2> /dev/null | awk '{print $3}' || echo "unknown")
 	bun_version=$(bun --version 2> /dev/null || echo "unknown")
+	deploy_public_key=$(run_cmd cat /home/deployer/.ssh/id_ed25519.pub 2> /dev/null || echo "unknown")
 
 	# Write output YAML
 	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
@@ -393,6 +610,7 @@ main() {
 		caddy_version: $caddy_version
 		git_version: $git_version
 		bun_version: $bun_version
+		deploy_public_key: $deploy_public_key
 		tasks_completed:
 		  - install_caddy
 		  - install_php
@@ -401,6 +619,9 @@ main() {
 		  - install_git
 		  - install_rsync
 		  - install_bun
+		  - setup_deploy_user
+		  - setup_deploy_key
+		  - setup_deploy_directories
 	EOF
 		echo "Error: Failed to write output file" >&2
 		exit 1
