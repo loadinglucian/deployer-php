@@ -111,9 +111,7 @@ trait PlaybooksTrait
             $this->nay($e->getMessage());
             $this->io->writeln([
                 '',
-                '<fg=yellow>The process took longer than expected to complete.</>',
-                '',
-                '<fg=yellow>Package downloads or installation are taking longer than expected. Either:</>',
+                '<fg=yellow>The process took longer than expected to complete. Either:</>',
                 '  • Server has a slow network connection',
                 '  • Or the server is under heavy load',
                 '',

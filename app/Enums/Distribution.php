@@ -21,6 +21,28 @@ enum Distribution: string
     case AMAZON = 'amazon';
 
     /**
+     * Get the distribution family.
+     */
+    public function family(): DistributionFamily
+    {
+        return match ($this) {
+            self::UBUNTU, self::DEBIAN => DistributionFamily::DEBIAN,
+            default => DistributionFamily::DEBIAN, // Fallback for unsupported distributions
+        };
+    }
+
+    /**
+     * Check if distribution is supported.
+     */
+    public function isSupported(): bool
+    {
+        return match ($this) {
+            self::UBUNTU, self::DEBIAN => true,
+            default => false,
+        };
+    }
+
+    /**
      * Get human-readable display name.
      */
     public function displayName(): string
