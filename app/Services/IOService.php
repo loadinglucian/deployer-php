@@ -87,22 +87,27 @@ class IOService
     ): mixed {
         $value = $this->input->getOption($optionName);
 
-        // For boolean flags (VALUE_NONE options), check if actually provided
+        // For boolean flags (VALUE_NONE or VALUE_NEGATABLE), check if actually provided
         if (is_bool($value)) {
             // Build list of option flags to check
             $optionFlags = ['--' . $optionName];
 
             // Try to find short flag from option definition
+            $optionDefinition = null;
             try {
                 $inputDef = $this->command->getDefinition();
                 if ($inputDef->hasOption($optionName)) {
-                    $option = $inputDef->getOption($optionName);
-                    if ($option->getShortcut() !== null) {
-                        $optionFlags[] = '-' . $option->getShortcut();
+                    $optionDefinition = $inputDef->getOption($optionName);
+                    if ($optionDefinition->getShortcut() !== null) {
+                        $optionFlags[] = '-' . $optionDefinition->getShortcut();
                     }
                 }
             } catch (\Throwable) {
                 // Ignore errors getting shortcut
+            }
+
+            if ($optionDefinition !== null && $optionDefinition->isNegatable()) {
+                $optionFlags[] = '--no-' . $optionName;
             }
 
             // Check if flag was actually provided (works for both CLI and tests with ArrayInput)
