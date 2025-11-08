@@ -137,72 +137,59 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
         }
 
         //
-        // Wait for droplet to become active
+        // Configure droplet with automatic rollback on failure
         // -------------------------------------------------------------------------------
 
+        $shouldKeepDroplet = false;
+
         try {
+            // Wait for droplet to become active
             $this->io->promptSpin(
                 fn () => $this->digitalOcean->droplet->waitForDropletReady($dropletId),
                 'Waiting for droplet to become active...'
             );
 
             $this->yay('Droplet is active');
-        } catch (\RuntimeException $e) {
-            $this->nay($e->getMessage());
-            $this->rollbackDroplet($dropletId);
 
-            return Command::FAILURE;
-        }
-
-        //
-        // Get droplet IP address & display server details
-        // -------------------------------------------------------------------------------
-
-        try {
+            // Get droplet IP address
             $ipAddress = $this->digitalOcean->droplet->getDropletIp($dropletId);
-        } catch (\RuntimeException $e) {
-            $this->nay('Failed to get droplet IP address: ' . $e->getMessage());
-            $this->rollbackDroplet($dropletId);
 
-            return Command::FAILURE;
-        }
+            // Create server DTO
+            $server = new ServerDTO(
+                name: $name,
+                host: $ipAddress,
+                port: 22,
+                username: 'root',
+                privateKeyPath: $privateKeyPath,
+                provider: 'digitalocean',
+                dropletId: $dropletId
+            );
 
-        $server = new ServerDTO(
-            name: $name,
-            host: $ipAddress,
-            port: 22,
-            username: 'root',
-            privateKeyPath: $privateKeyPath,
-            provider: 'digitalocean',
-            dropletId: $dropletId
-        );
+            $this->displayServerDeets($server);
 
-        $this->displayServerDeets($server);
+            // Get server info (verifies SSH connection and validates distribution)
+            $info = $this->getServerInfo($server);
 
-        //
-        // Get server info (verifies SSH connection and validates distribution)
-        // -------------------------------------------------------------------------------
+            if (is_int($info)) {
+                throw new \RuntimeException('Failed to validate server distribution');
+            }
 
-        $info = $this->getServerInfo($server);
-
-        if (is_int($info)) {
-            return $info;
-        }
-
-        //
-        // Add to inventory
-        // -------------------------------------------------------------------------------
-
-        try {
+            // Add to inventory
             $this->servers->create($server);
+            $this->yay('Server added to inventory');
+
+            $shouldKeepDroplet = true;
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
-            $this->rollbackDroplet($dropletId);
-
-            return Command::FAILURE;
+        } finally {
+            if (!$shouldKeepDroplet) {
+                $this->rollbackDroplet($dropletId);
+            }
         }
 
-        $this->yay('Server added to inventory');
+        if (!$shouldKeepDroplet) {
+            return Command::FAILURE;
+        }
 
         //
         // Show command replay
