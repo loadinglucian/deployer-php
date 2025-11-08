@@ -41,9 +41,9 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             ->addOption('size', null, InputOption::VALUE_REQUIRED, 'Droplet size (e.g., s-1vcpu-1gb)')
             ->addOption('ssh-key-id', null, InputOption::VALUE_REQUIRED, 'SSH key ID')
             ->addOption('vpc-uuid', null, InputOption::VALUE_REQUIRED, 'VPC UUID (default: use default VPC)')
-            ->addOption('backups', null, InputOption::VALUE_NONE, 'Enable backups')
-            ->addOption('ipv6', null, InputOption::VALUE_NONE, 'Enable IPv6')
-            ->addOption('monitoring', null, InputOption::VALUE_NONE, 'Enable monitoring');
+            ->addOption('backups', null, InputOption::VALUE_NEGATABLE, 'Enable backups')
+            ->addOption('ipv6', null, InputOption::VALUE_NEGATABLE, 'Enable IPv6')
+            ->addOption('monitoring', null, InputOption::VALUE_NEGATABLE, 'Enable monitoring');
     }
 
     // ----
@@ -102,6 +102,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             'monitoring' => $monitoring,
             'ipv6' => $ipv6,
             'vpcUuid' => $vpcUuid,
+            'vpcUuidDisplay' => $vpcUuidDisplay,
         ] = $deets;
 
         //
@@ -197,10 +198,11 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             'size' => $size,
             'image' => $image,
             'ssh-key-id' => $sshKeyId,
+            'private-key-path' => $privateKeyPath,
             'backups' => $backups,
             'monitoring' => $monitoring,
             'ipv6' => $ipv6,
-            'vpc-uuid' => $vpcUuid,
+            'vpc-uuid' => $vpcUuidDisplay,
         ]);
 
         return Command::SUCCESS;
@@ -214,7 +216,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
      * Gather provisioning details from user input or CLI options.
      *
      * @param array{keys: array<int|string, string>, regions: array<string, string>, sizes: array<string, string>, images: array<string, string>} $accountData
-     * @return array{name: string, region: string, size: string, image: string, sshKeyId: int, sshKeyIds: array<int, int>, privateKeyPath: string, backups: bool, monitoring: bool, ipv6: bool, vpcUuid: string|null}|null
+     * @return array{name: string, region: string, size: string, image: string, sshKeyId: int, sshKeyIds: array<int, int>, privateKeyPath: string, backups: bool, monitoring: bool, ipv6: bool, vpcUuid: string|null, vpcUuidDisplay: string}|null
      */
     protected function gatherProvisioningDeets(array $accountData): ?array
     {
@@ -379,9 +381,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
         }
 
         // Convert "default" to null for API
-        if ($vpcUuid === 'default') {
-            $vpcUuid = null;
-        }
+        $vpcUuidForApi = ($vpcUuid === 'default') ? null : $vpcUuid;
 
         return [
             'name' => $name,
@@ -394,7 +394,8 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             'backups' => $backups,
             'monitoring' => $monitoring,
             'ipv6' => $ipv6,
-            'vpcUuid' => $vpcUuid,
+            'vpcUuid' => $vpcUuidForApi,
+            'vpcUuidDisplay' => $vpcUuid,
         ];
     }
 
