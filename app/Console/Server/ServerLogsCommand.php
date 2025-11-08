@@ -220,9 +220,15 @@ class ServerLogsCommand extends BaseCommand
         ]);
 
         try {
-            $command = $unit === ''
-                ? "journalctl -n {$lines} --no-pager"
-                : "journalctl -u " . implode(' -u ', $this->getServiceNamePatterns($unit)) . " -n {$lines} --no-pager 2>&1";
+            if ($unit === '') {
+                $command = sprintf('journalctl -n %d --no-pager 2>&1', $lines);
+            } else {
+                $unitArgs = array_map(
+                    static fn (string $name): string => '-u ' . escapeshellarg($name),
+                    $this->getServiceNamePatterns($unit)
+                );
+                $command = sprintf('journalctl %s -n %d --no-pager 2>&1', implode(' ', $unitArgs), $lines);
+            }
 
             $result = $this->ssh->executeCommand($server, $command);
             $output = trim($result['output']);
