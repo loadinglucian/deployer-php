@@ -29,7 +29,7 @@ class SiteDeleteCommand extends BaseCommand
 
         $this
             ->addOption('site', null, InputOption::VALUE_REQUIRED, 'Site domain')
-            ->addOption('force', null, InputOption::VALUE_NONE, 'Skip typing the site domain to confirm')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the site domain to confirm')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
     }
 

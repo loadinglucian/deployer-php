@@ -34,7 +34,7 @@ class KeyDeleteDigitalOceanCommand extends BaseCommand
 
         $this
             ->addOption('key', null, InputOption::VALUE_REQUIRED, 'DigitalOcean public SSH key ID')
-            ->addOption('force', null, InputOption::VALUE_NONE, 'Skip typing the key ID to confirm')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the key ID to confirm')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
     }
 

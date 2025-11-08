@@ -34,7 +34,7 @@ class ServerDeleteCommand extends BaseCommand
 
         $this
             ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name')
-            ->addOption('force', null, InputOption::VALUE_NONE, 'Skip typing the server name to confirm')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the server name to confirm')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
     }
 

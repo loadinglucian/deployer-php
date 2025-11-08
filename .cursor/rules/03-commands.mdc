@@ -182,15 +182,16 @@ expect($validator->testValidateHost('invalid'))->toContain('valid');
 
 **Naming Convention Rules:**
 
-| Option         | Usage                    | Type             | When                 |
-| -------------- | ------------------------ | ---------------- | -------------------- |
-| `--server`     | Select existing server   | `VALUE_REQUIRED` | delete, info, deploy |
-| `--site`       | Select existing site     | `VALUE_REQUIRED` | site operations      |
-| `--name`       | Define new resource name | `VALUE_REQUIRED` | add, create          |
-| `--host`       | Host/IP address          | `VALUE_REQUIRED` | server config        |
-| `--port`       | Port number              | `VALUE_REQUIRED` | server config        |
-| `--yes` / `-y` | Skip confirmation        | `VALUE_NONE`     | all confirmations    |
-| `--skip`       | Skip validation          | `VALUE_NONE`     | validation steps     |
+| Option           | Usage                      | Type             | When                 |
+| ---------------- | -------------------------- | ---------------- | -------------------- |
+| `--server`       | Select existing server     | `VALUE_REQUIRED` | delete, info, deploy |
+| `--site`         | Select existing site       | `VALUE_REQUIRED` | site operations      |
+| `--name`         | Define new resource name   | `VALUE_REQUIRED` | add, create          |
+| `--host`         | Host/IP address            | `VALUE_REQUIRED` | server config        |
+| `--port`         | Port number                | `VALUE_REQUIRED` | server config        |
+| `--yes` / `-y`   | Skip confirmation          | `VALUE_NONE`     | all confirmations    |
+| `--force` / `-f` | Skip type-to-confirm       | `VALUE_NONE`     | delete commands      |
+| `--skip`         | Skip validation            | `VALUE_NONE`     | validation steps     |
 
 **Golden Rule:**
 
@@ -205,7 +206,7 @@ Prevents conflicts in commands working with multiple resource types.
 - Pair all options with `getOptionOrPrompt()` for dual-mode support
 - Boolean flags: `VALUE_NONE`
 - Data inputs: `VALUE_REQUIRED`
-- Only `--yes` gets short flag (`-y`)
+- Only `--yes` (`-y`) and `--force` (`-f`) get short flags
 
 See: ServerDeleteCommand.php, ServerAddCommand.php
 
