@@ -198,32 +198,45 @@ abstract class BaseCommand extends Command
         // Build command options
 
         $parts = [];
+        $definition = $this->getDefinition();
+
         foreach ($options as $optionName => $value) {
+            $option = $definition->hasOption($optionName) ? $definition->getOption($optionName) : null;
+
+            if (is_bool($value)) {
+                if ($option !== null && $option->isNegatable()) {
+                    $parts[] = $value ? '--'.$optionName : '--no-'.$optionName;
+                } elseif ($value) {
+                    $parts[] = '--'.$optionName;
+                }
+
+                continue;
+            }
+
             if ($value === null || $value === '') {
                 continue;
             }
 
             // Format the option
             $optionFlag = '--'.$optionName;
-            if (is_bool($value)) {
-                if ($value) {
-                    $parts[] = $optionFlag;
-                }
-            } else {
-                $stringValue = is_scalar($value) ? (string) $value : '';
-                $escapedValue = escapeshellarg($stringValue);
-                $parts[] = "{$optionFlag}={$escapedValue}";
-            }
+            $stringValue = is_scalar($value) ? (string) $value : '';
+            $escapedValue = escapeshellarg($stringValue);
+            $parts[] = "{$optionFlag}={$escapedValue}";
         }
 
         //
         // Display command hint
 
-        $this->io->writeln("<fg=gray>\$ vendor/bin/deployer {$commandName} \\ </>");
+        $this->io->write('<fg=gray>');
+        $this->io->writeln("\$ vendor/bin/deployer {$commandName} \\");
 
         foreach ($parts as $index => $part) {
             $last = $index === count($parts) - 1;
-            $this->io->writeln("  <fg=gray>  {$part}</>".($last ? '' : '<fg=gray> \\ </>'));
+            $suffix = $last ? '' : ' \\';
+            $this->io->writeln(sprintf('  %s%s', $part, $suffix));
         }
+
+        $this->io->write('</>');
+        $this->io->writeln('');
     }
 }
