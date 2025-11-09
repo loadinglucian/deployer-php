@@ -84,7 +84,7 @@ class ServerAddCommand extends BaseCommand
         $this->displayServerDeets($server);
 
         //
-        // Get server info (verifies SSH connection and validates distribution)
+        // Get server info (verifies SSH connection and validates distribution & permissions)
         // ----
 
         $info = $this->getServerInfo($server);
