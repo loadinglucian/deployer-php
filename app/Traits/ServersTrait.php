@@ -38,7 +38,8 @@ trait ServersTrait
     /**
      * Get server information by executing server-info playbook.
      *
-     * Automatically displays server info and validates that the server is running a supported distribution (Debian/Ubuntu).
+     * Automatically displays server info and validates that the server is running a supported distribution (Debian/Ubuntu)
+     * and has sufficient permissions (root or sudo).
      *
      * @param ServerDTO $server Server to get information for
      * @return array<string, mixed>|int Returns parsed server info or failure code on failure
@@ -58,7 +59,15 @@ trait ServersTrait
         // Display server information before validation
         $this->displayServerInfo($info);
 
-        return $this->validateServerDistribution($info);
+        // Validate server distribution and permissions
+        $distroResult = $this->validateServerDistribution($info);
+        $permissionsResult = $this->validateServerPermissions($info);
+
+        if (is_int($distroResult) || is_int($permissionsResult)) {
+            return Command::FAILURE;
+        }
+
+        return $info;
     }
 
     /**
@@ -83,6 +92,25 @@ trait ServersTrait
 
         if (!$distribution->isSupported()) {
             $this->nay("Unsupported distribution: {$distroName}. Only Debian and Ubuntu are supported.");
+
+            return Command::FAILURE;
+        }
+
+        return $info;
+    }
+
+    /**
+     * Validate that server has sufficient permissions (root or sudo).
+     *
+     * @param array<string, mixed> $info Server information array from server-info playbook
+     * @return array<string, mixed>|int Returns validated server info or failure code
+     */
+    protected function validateServerPermissions(array $info): array|int
+    {
+        $permissions = $info['permissions'] ?? null;
+
+        if (!is_string($permissions) || !in_array($permissions, ['root', 'sudo'])) {
+            $this->nay('Server requires root or sudo permissions');
 
             return Command::FAILURE;
         }
