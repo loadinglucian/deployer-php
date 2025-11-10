@@ -2,7 +2,7 @@
 #
 # Gather Server Information
 # ----
-# This playbook detects distribution, family, permissions, listening services, Caddy metrics, and PHP-FPM metrics.
+# This playbook detects distribution, family, permissions, hardware info, listening services, Caddy metrics, and PHP-FPM metrics.
 #
 # Required Environment Variables:
 #   DEPLOYER_OUTPUT_FILE - Output file path (provided automatically)
@@ -11,6 +11,7 @@
 #   - distro: ubuntu|debian|fedora|centos|rocky|alma|rhel|amazon|unknown
 #   - family: debian|fedora|redhat|amazon|unknown
 #   - permissions: root|sudo|none
+#   - hardware: cpu_cores, ram_mb, disk_type
 #   - caddy: Caddy metrics (available, version, sites_count, domains, uptime_seconds, active_requests, total_requests, memory_mb)
 #   - php_fpm: PHP-FPM metrics (available, pool, process_manager, uptime_seconds, accepted_conn, listen_queue, idle_processes, active_processes, total_processes, max_children_reached, slow_requests)
 #   - ports: map of port numbers to process names
