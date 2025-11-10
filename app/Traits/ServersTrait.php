@@ -161,6 +161,156 @@ trait ServersTrait
 
         $this->io->displayDeets(['Services' => $services]);
         $this->io->writeln('');
+
+        // Display Caddy information if available
+        if (isset($info['caddy']) && is_array($info['caddy']) && ($info['caddy']['available'] ?? false) === true) {
+            $caddyItems = [];
+
+            if (isset($info['caddy']['version']) && $info['caddy']['version'] !== 'unknown') {
+                /** @var string $version */
+                $version = $info['caddy']['version'];
+                $caddyItems[] = 'Version: '.$version;
+            }
+
+            if (isset($info['caddy']['uptime_seconds'])) {
+                /** @var int|string|float $rawUptime */
+                $rawUptime = $info['caddy']['uptime_seconds'];
+                /** @var int $uptimeSeconds */
+                $uptimeSeconds = (int) $rawUptime;
+                $caddyItems[] = 'Uptime: '.$this->formatUptime($uptimeSeconds);
+            }
+
+            if (isset($info['caddy']['total_requests'])) {
+                /** @var int|string|float $rawTotalReq */
+                $rawTotalReq = $info['caddy']['total_requests'];
+                /** @var int $totalReq */
+                $totalReq = (int) $rawTotalReq;
+                $caddyItems[] = 'Total Requests: '.number_format($totalReq);
+            }
+
+            if (isset($info['caddy']['active_requests'])) {
+                /** @var int|string $activeRequests */
+                $activeRequests = $info['caddy']['active_requests'];
+                $caddyItems[] = 'Active Requests: '.$activeRequests;
+            }
+
+            if (isset($info['caddy']['memory_mb']) && $info['caddy']['memory_mb'] !== '0') {
+                /** @var string $memoryMb */
+                $memoryMb = $info['caddy']['memory_mb'];
+                $caddyItems[] = 'Memory: '.$memoryMb.' MB';
+            }
+
+            if (count($caddyItems) > 0) {
+                $this->io->displayDeets(['Caddy' => $caddyItems]);
+                $this->io->writeln('');
+            }
+        }
+
+        // Display PHP-FPM information if available
+        if (isset($info['php_fpm']) && is_array($info['php_fpm']) && ($info['php_fpm']['available'] ?? false) === true) {
+            $phpFpmItems = [];
+
+            if (isset($info['php_fpm']['pool']) && $info['php_fpm']['pool'] !== 'unknown') {
+                /** @var string $pool */
+                $pool = $info['php_fpm']['pool'];
+                $phpFpmItems[] = 'Pool: '.$pool;
+            }
+
+            if (isset($info['php_fpm']['process_manager']) && $info['php_fpm']['process_manager'] !== 'unknown') {
+                /** @var string $processManager */
+                $processManager = $info['php_fpm']['process_manager'];
+                $phpFpmItems[] = 'Process Manager: '.$processManager;
+            }
+
+            if (isset($info['php_fpm']['active_processes'])) {
+                /** @var int|string $activeProcesses */
+                $activeProcesses = $info['php_fpm']['active_processes'];
+                $phpFpmItems[] = 'Active: '.$activeProcesses.' processes';
+            }
+
+            if (isset($info['php_fpm']['idle_processes'])) {
+                /** @var int|string $idleProcesses */
+                $idleProcesses = $info['php_fpm']['idle_processes'];
+                $phpFpmItems[] = 'Idle: '.$idleProcesses.' processes';
+            }
+
+            if (isset($info['php_fpm']['total_processes'])) {
+                /** @var int|string $totalProcesses */
+                $totalProcesses = $info['php_fpm']['total_processes'];
+                $phpFpmItems[] = 'Total: '.$totalProcesses.' processes';
+            }
+
+            if (isset($info['php_fpm']['listen_queue'])) {
+                /** @var int|string|float $rawQueue */
+                $rawQueue = $info['php_fpm']['listen_queue'];
+                /** @var int $queue */
+                $queue = (int) $rawQueue;
+                $queueDisplay = $queue > 0 ? "<fg=yellow>{$queue} waiting</>" : '0 waiting';
+                $phpFpmItems[] = 'Queue: '.$queueDisplay;
+            }
+
+            if (isset($info['php_fpm']['accepted_conn'])) {
+                /** @var int|string|float $rawAccepted */
+                $rawAccepted = $info['php_fpm']['accepted_conn'];
+                /** @var int $accepted */
+                $accepted = (int) $rawAccepted;
+                $phpFpmItems[] = 'Accepted: '.number_format($accepted);
+            }
+
+            if (isset($info['php_fpm']['max_children_reached'])) {
+                /** @var int|string|float $rawMaxChildren */
+                $rawMaxChildren = $info['php_fpm']['max_children_reached'];
+                /** @var int $maxChildren */
+                $maxChildren = (int) $rawMaxChildren;
+                if ($maxChildren > 0) {
+                    $phpFpmItems[] = "<fg=yellow>Max Children Reached: {$maxChildren}</>";
+                }
+            }
+
+            if (isset($info['php_fpm']['slow_requests'])) {
+                /** @var int|string|float $rawSlowReqs */
+                $rawSlowReqs = $info['php_fpm']['slow_requests'];
+                /** @var int $slowReqsInt */
+                $slowReqsInt = (int) $rawSlowReqs;
+                if ($slowReqsInt > 0) {
+                    $slowReqs = number_format($slowReqsInt);
+                    $phpFpmItems[] = "<fg=yellow>Slow Requests: {$slowReqs}</>";
+                }
+            }
+
+            if (count($phpFpmItems) > 0) {
+                $this->io->displayDeets(['PHP-FPM' => $phpFpmItems]);
+                $this->io->writeln('');
+            }
+        }
+    }
+
+    /**
+     * Format uptime seconds into human-readable string.
+     */
+    private function formatUptime(int $seconds): string
+    {
+        if ($seconds < 60) {
+            return "{$seconds}s";
+        }
+
+        if ($seconds < 3600) {
+            $minutes = floor($seconds / 60);
+
+            return "{$minutes}m";
+        }
+
+        if ($seconds < 86400) {
+            $hours = floor($seconds / 3600);
+            $minutes = floor(($seconds % 3600) / 60);
+
+            return "{$hours}h {$minutes}m";
+        }
+
+        $days = floor($seconds / 86400);
+        $hours = floor(($seconds % 86400) / 3600);
+
+        return "{$days}d {$hours}h";
     }
 
     //
