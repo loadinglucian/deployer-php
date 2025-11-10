@@ -35,8 +35,12 @@ export DEBIAN_FRONTEND=noninteractive
 [[ -z $DEPLOYER_SERVER_NAME ]] && echo "Error: DEPLOYER_SERVER_NAME required" && exit 1
 export DEPLOYER_PERMS
 
-#
+# ----
 # Helpers
+# ----
+
+#
+# Permission Management
 # ----
 
 #
@@ -49,6 +53,10 @@ run_cmd() {
 		sudo -n "$@"
 	fi
 }
+
+#
+# Package Management
+# ----
 
 #
 # Wait for dpkg lock to be released
@@ -126,8 +134,12 @@ apt_get_with_retry() {
 	return 1
 }
 
-#
+# ----
 # Installation Functions
+# ----
+
+#
+# Repository Setup
 # ----
 
 #
@@ -182,6 +194,13 @@ setup_repositories() {
 			;;
 	esac
 }
+
+#
+# Package Installation
+# ----
+
+#
+# Install all required packages (Caddy, PHP, Git, system utilities)
 
 install_all_packages() {
 	echo "✓ Installing all packages..."
@@ -270,6 +289,12 @@ install_all_packages() {
 		exit 1
 	fi
 
+	# Enable PHP-FPM status page
+	if ! run_cmd sed -i 's/^;pm.status_path = .*/pm.status_path = \/fpm-status/' /etc/php/8.4/fpm/pool.d/www.conf; then
+		echo "Error: Failed to enable PHP-FPM status page" >&2
+		exit 1
+	fi
+
 	if ! systemctl is-enabled --quiet php8.4-fpm 2> /dev/null; then
 		if ! run_cmd systemctl enable --quiet php8.4-fpm; then
 			echo "Error: Failed to enable PHP-FPM service" >&2
@@ -283,6 +308,9 @@ install_all_packages() {
 		fi
 	fi
 }
+
+#
+# Install Bun runtime
 
 install_bun() {
 	if command -v bun > /dev/null 2>&1; then
@@ -299,6 +327,69 @@ install_bun() {
 	fi
 }
 
+#
+# Caddy Configuration
+# ----
+
+#
+# Setup Caddy configuration structure
+
+setup_caddy_structure() {
+	echo "✓ Setting up Caddy configuration structure..."
+
+	# Create directory structure
+	if ! run_cmd mkdir -p /etc/caddy/conf.d/sites; then
+		echo "Error: Failed to create Caddy config directories" >&2
+		exit 1
+	fi
+
+	# Create main Caddyfile with global settings and imports
+	if ! run_cmd tee /etc/caddy/Caddyfile > /dev/null <<- 'EOF'; then
+		{
+			metrics
+
+			log {
+				output file /var/log/caddy/access.log
+				format json
+			}
+		}
+
+		# Import localhost-only endpoints (monitoring, status pages)
+		import conf.d/localhost.caddy
+
+		# Import all site configurations
+		import conf.d/sites/*.caddy
+	EOF
+		echo "Error: Failed to create main Caddyfile" >&2
+		exit 1
+	fi
+
+	# Create localhost.caddy - monitoring endpoints only accessible via localhost
+	if ! run_cmd tee /etc/caddy/conf.d/localhost.caddy > /dev/null <<- 'EOF'; then
+		# PHP-FPM status endpoint - localhost only (not accessible from internet)
+		http://localhost:9001 {
+			handle {
+				reverse_proxy unix//run/php/php8.4-fpm.sock {
+					transport fastcgi {
+						env SCRIPT_FILENAME /fpm-status
+						env SCRIPT_NAME /fpm-status
+					}
+				}
+			}
+		}
+	EOF
+		echo "Error: Failed to create localhost.caddy" >&2
+		exit 1
+	fi
+}
+
+#
+# Deployer User Setup
+# ----
+
+#
+# Ensure deployer user exists
+
 ensure_deployer_user() {
 	if id -u deployer > /dev/null 2>&1; then
 		echo "✓ Deployer user already exists"
@@ -311,6 +402,9 @@ ensure_deployer_user() {
 		exit 1
 	fi
 }
+
+#
+# Configure group memberships for file access
 
 configure_deployer_groups() {
 	# Add caddy user to deployer group so it can access deployer's files
@@ -354,6 +448,9 @@ configure_deployer_groups() {
 	fi
 }
 
+#
+# Setup deploy user with proper home directory and permissions
+
 setup_deploy_user() {
 	ensure_deployer_user
 
@@ -384,6 +481,13 @@ setup_deploy_user() {
 
 	configure_deployer_groups
 }
+
+#
+# Deploy Key Setup
+# ----
+
+#
+# Generate SSH deploy key for git operations
 
 setup_deploy_key() {
 	echo "✓ Setting up deploy key..."
@@ -440,6 +544,9 @@ setup_deploy_key() {
 	fi
 }
 
+#
+# Ensure proper permissions on deploy directories
+
 setup_deploy_directories() {
 	if ! run_cmd test -d /home/deployer; then
 		echo "Error: Deployer home directory missing" >&2
@@ -480,6 +587,13 @@ setup_deploy_directories() {
 	fi
 }
 
+#
+# Validation
+# ----
+
+#
+# Validate PHP version meets minimum requirements
+
 validate_php_version() {
 	local php_version
 	php_version=$(php -r "echo PHP_VERSION;" 2> /dev/null || echo "unknown")
@@ -502,7 +616,7 @@ validate_php_version() {
 	echo "✓ PHP $php_version installed (meets minimum 8.3)"
 }
 
-#
+# ----
 # Main Execution
 # ----
 
@@ -512,6 +626,7 @@ main() {
 	# Execute installation tasks
 	install_all_packages
 	install_bun
+	setup_caddy_structure
 	validate_php_version
 	setup_deploy_key
 	setup_deploy_directories
@@ -534,6 +649,7 @@ main() {
 		deploy_public_key: $deploy_public_key
 		tasks_completed:
 		  - install_caddy
+		  - setup_caddy_structure
 		  - install_php
 		  - install_extensions
 		  - configure_php_fpm

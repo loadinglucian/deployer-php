@@ -3,10 +3,11 @@
 #
 # Demo Site Setup Playbook - Ubuntu/Debian Only
 #
-# Provision demo site (requires deployer user pre-configured)
+# Provision demo site (requires deployer user and Caddy structure pre-configured)
 # ----
 #
 # This playbook only supports Ubuntu and Debian distributions (debian family).
+# Requires server-install to have run first (creates /etc/caddy/conf.d/sites/ directory).
 #
 # Required Environment Variables:
 #   DEPLOYER_OUTPUT_FILE - Output file path
@@ -16,7 +17,7 @@
 #   - status: success
 #   - demo_site_path: /home/deployer/demo/public
 #   - deployer_user: existing
-#   - caddy_configured: true
+#   - demo_site_configured: true
 #
 
 set -o pipefail
@@ -26,7 +27,7 @@ export DEBIAN_FRONTEND=noninteractive
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 export DEPLOYER_PERMS
 
-#
+# ----
 # Helpers
 # ----
 
@@ -41,8 +42,16 @@ run_cmd() {
 	fi
 }
 
-#
+# ----
 # Setup Functions
+# ----
+
+#
+# Prerequisites
+# ----
+
+#
+# Verify deployer user and home directory exist
 
 require_deployer_user() {
 	if ! id -u deployer > /dev/null 2>&1; then
@@ -55,6 +64,13 @@ require_deployer_user() {
 		exit 1
 	fi
 }
+
+#
+# Demo Site Setup
+# ----
+
+#
+# Create demo site directory structure and files
 
 setup_demo_site() {
 	echo "✓ Setting up demo site..."
@@ -106,8 +122,15 @@ setup_demo_site() {
 	fi
 }
 
-configure_caddy() {
-	echo "✓ Configuring Caddy..."
+#
+# Caddy Configuration
+# ----
+
+#
+# Configure Caddy for demo site
+
+configure_demo_site() {
+	echo "✓ Configuring demo site..."
 
 	# PHP-FPM socket path (debian family)
 	local php_fpm_socket='/run/php/php8.4-fpm.sock'
@@ -125,15 +148,8 @@ configure_caddy() {
 		exit 1
 	fi
 
-	# Create Caddyfile with logging - using the simplest PHP configuration
-	if ! run_cmd tee /etc/caddy/Caddyfile > /dev/null <<- EOF; then
-		{
-			log {
-				output file /var/log/caddy/access.log
-				format json
-			}
-		}
-
+	# Create demo.caddy - demo site configuration
+	if ! run_cmd tee /etc/caddy/conf.d/sites/demo.caddy > /dev/null <<- EOF; then
 		# Demo site - HTTP only (can't get HTTPS cert for IP address)
 		http://:80 {
 			root * /home/deployer/demo/public
@@ -148,11 +164,11 @@ configure_caddy() {
 				format json
 			}
 
-		# This single line handles everything: PHP files, index.php routing, and static files
-		php_fastcgi unix/${php_fpm_socket}
+			# This single line handles everything: PHP files, index.php routing, and static files
+			php_fastcgi unix/${php_fpm_socket}
 		}
 	EOF
-		echo "Error: Failed to create Caddyfile" >&2
+		echo "Error: Failed to create demo.caddy" >&2
 		exit 1
 	fi
 
@@ -177,7 +193,7 @@ configure_caddy() {
 	fi
 }
 
-#
+# ----
 # Main Execution
 # ----
 
@@ -185,14 +201,14 @@ main() {
 	# Execute setup tasks
 	require_deployer_user
 	setup_demo_site
-	configure_caddy
+	configure_demo_site
 
 	# Write output YAML
 	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 		status: success
 		demo_site_path: /home/deployer/demo/public
 		deployer_user: existing
-		caddy_configured: true
+		demo_site_configured: true
 	EOF
 		echo "Error: Failed to write output file" >&2
 		exit 1
