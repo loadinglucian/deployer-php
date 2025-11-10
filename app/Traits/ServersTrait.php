@@ -144,6 +144,38 @@ trait ServersTrait
         $this->io->displayDeets($deets);
         $this->io->writeln('');
 
+        // Display hardware information if available
+        if (isset($info['hardware']) && is_array($info['hardware'])) {
+            $hardwareItems = [];
+
+            if (isset($info['hardware']['cpu_cores'])) {
+                /** @var int|string $cpuCores */
+                $cpuCores = $info['hardware']['cpu_cores'];
+                $coresText = $cpuCores === '1' || $cpuCores === 1 ? '1 core' : "{$cpuCores} cores";
+                $hardwareItems[] = "CPU: {$coresText}";
+            }
+
+            if (isset($info['hardware']['ram_mb'])) {
+                /** @var int|string $ramMb */
+                $ramMb = $info['hardware']['ram_mb'];
+                $ramGb = round((int) $ramMb / 1024, 1);
+                $ramText = $ramGb >= 1 ? "{$ramGb} GB" : "{$ramMb} MB";
+                $hardwareItems[] = "RAM: {$ramText}";
+            }
+
+            if (isset($info['hardware']['disk_type'])) {
+                /** @var string $diskType */
+                $diskType = $info['hardware']['disk_type'];
+                $diskText = strtoupper($diskType);
+                $hardwareItems[] = "Disk: {$diskText}";
+            }
+
+            if (count($hardwareItems) > 0) {
+                $this->io->displayDeets(['Hardware' => $hardwareItems]);
+                $this->io->writeln('');
+            }
+        }
+
         $services = [];
 
         // Add listening ports if any

@@ -143,20 +143,62 @@ ensure_tools() {
 	local family=$1 perms=$2
 	export DEPLOYER_PERMS=$perms
 
-	# If the command is already installed, return
-	command -v ss > /dev/null 2>&1 && return 0
-	command -v netstat > /dev/null 2>&1 && return 0
+	# Check if required tools exist
+	command -v ss > /dev/null 2>&1 && command -v lsblk > /dev/null 2>&1 && return 0
 
 	case $family in
 		debian)
 			run_cmd apt-get update -q 2> /dev/null
-			run_cmd apt-get install -y -q iproute2 2> /dev/null
+			run_cmd apt-get install -y -q iproute2 util-linux 2> /dev/null
 			;;
 		fedora | redhat | amazon)
-			run_cmd yum install -y -q iproute 2> /dev/null \
-				|| run_cmd dnf install -y -q iproute 2> /dev/null
+			run_cmd yum install -y -q iproute util-linux 2> /dev/null \
+				|| run_cmd dnf install -y -q iproute util-linux 2> /dev/null
 			;;
 	esac
+}
+
+#
+# Hardware Detection
+# ----
+
+#
+# Detect CPU core count
+
+detect_cpu_cores() {
+	nproc 2> /dev/null || echo "1"
+}
+
+#
+# Detect total system RAM in MB
+
+detect_ram_mb() {
+	free -m 2> /dev/null | awk 'NR==2 {print $2}' || echo "512"
+}
+
+#
+# Detect disk type (ssd or hdd)
+
+detect_disk_type() {
+	local disc_gran rotation
+
+	# Primary detection: Check discard granularity (TRIM support = SSD)
+	# Works reliably in virtualized environments (cloud VMs)
+	disc_gran=$(lsblk -d -o name,disc-gran 2> /dev/null | grep -E "^[sv]da" | head -n1 | awk '{print $2}')
+
+	# If disc-gran is non-zero (e.g., "512B"), it's an SSD
+	if [[ -n $disc_gran && $disc_gran != "0B" ]]; then
+		echo "ssd"
+		return
+	fi
+
+	# Fallback: Check rotation flag (works for physical disks)
+	rotation=$(lsblk -d -o name,rota 2> /dev/null | grep -E "^[sv]da" | head -n1 | awk '{print $2}')
+	if [[ $rotation == "0" ]]; then
+		echo "ssd"
+	else
+		echo "hdd"
+	fi
 }
 
 # ----
@@ -332,6 +374,7 @@ get_php_fpm_metrics() {
 
 main() {
 	local distro family permissions
+	local cpu_cores ram_mb disk_type
 
 	#
 	# Gather basic info
@@ -342,6 +385,11 @@ main() {
 
 	echo "✓ Checking permissions..."
 	permissions=$(check_permissions)
+
+	echo "✓ Detecting hardware..."
+	cpu_cores=$(detect_cpu_cores)
+	ram_mb=$(detect_ram_mb)
+	disk_type=$(detect_disk_type)
 
 	echo "✓ Cataloging services..."
 	ensure_tools "$family" "$permissions"
@@ -374,6 +422,10 @@ main() {
 		distro: $distro
 		family: $family
 		permissions: $permissions
+		hardware:
+		  cpu_cores: $cpu_cores
+		  ram_mb: $ram_mb
+		  disk_type: $disk_type
 		caddy:
 		  available: $caddy_available
 		  version: ${caddy_version:-unknown}
