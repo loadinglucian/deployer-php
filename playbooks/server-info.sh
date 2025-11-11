@@ -12,8 +12,9 @@
 #   - family: debian|fedora|redhat|amazon|unknown
 #   - permissions: root|sudo|none
 #   - hardware: cpu_cores, ram_mb, disk_type
+#   - php: versions array, default version
 #   - caddy: Caddy metrics (available, version, sites_count, domains, uptime_seconds, active_requests, total_requests, memory_mb)
-#   - php_fpm: PHP-FPM metrics (available, pool, process_manager, uptime_seconds, accepted_conn, listen_queue, idle_processes, active_processes, total_processes, max_children_reached, slow_requests)
+#   - php_fpm: map of PHP versions to metrics (pool, process_manager, uptime_seconds, accepted_conn, listen_queue, idle_processes, active_processes, total_processes, max_children_reached, slow_requests)
 #   - ports: map of port numbers to process names
 
 set -o pipefail
@@ -24,6 +25,9 @@ if [[ -z $DEPLOYER_OUTPUT_FILE ]]; then
 	echo "Error: DEPLOYER_OUTPUT_FILE required"
 	exit 1
 fi
+
+# Shared helpers are automatically inlined when executing playbooks remotely
+# source "$(dirname "$0")/helpers.sh"
 
 # ----
 # Detection Functions
@@ -119,21 +123,6 @@ check_permissions() {
 # ----
 
 #
-# Command Execution
-# ----
-
-#
-# Execute command with appropriate permissions
-
-run_cmd() {
-	if [[ $DEPLOYER_PERMS == 'root' ]]; then
-		"$@"
-	else
-		sudo -n "$@"
-	fi
-}
-
-#
 # Tool Installation
 # ----
 
@@ -199,6 +188,33 @@ detect_disk_type() {
 		echo "ssd"
 	else
 		echo "hdd"
+	fi
+}
+
+#
+# PHP Detection
+# ----
+
+#
+# Detect installed PHP versions
+
+detect_php_versions() {
+	local version_list=()
+
+	# Find all php binaries in /usr/bin
+	while IFS= read -r binary; do
+		# Extract version from binary name (e.g., php8.4 -> 8.4)
+		if [[ $binary =~ php([0-9]+\.[0-9]+)$ ]]; then
+			version_list+=("${BASH_REMATCH[1]}")
+		fi
+	done < <(find /usr/bin -maxdepth 1 -name 'php[0-9]*' -type f 2> /dev/null | sort -V)
+
+	# Return comma-separated list
+	if ((${#version_list[@]} > 0)); then
+		printf '%s' "$(
+			IFS=,
+			echo "${version_list[*]}"
+		)"
 	fi
 }
 
@@ -318,17 +334,19 @@ get_caddy_metrics() {
 # ----
 
 #
-# Query PHP-FPM status page and extract metrics
+# Query PHP-FPM status page for a specific PHP version
 
 get_php_fpm_metrics() {
-	# Check if PHP-FPM status endpoint is available on localhost:9001
-	if ! curl -sf --max-time 2 http://localhost:9001/fpm-status > /dev/null 2>&1; then
+	local php_version=$1
+
+	# Check if PHP-FPM status endpoint is available for this version
+	if ! curl -sf --max-time 2 "http://localhost:9001/php${php_version}/fpm-status" > /dev/null 2>&1; then
 		return 0
 	fi
 
 	# Get status in JSON format
 	local status
-	status=$(curl -sf --max-time 2 'http://localhost:9001/fpm-status?json' 2> /dev/null || echo "{}")
+	status=$(curl -sf --max-time 2 "http://localhost:9001/php${php_version}/fpm-status?json" 2> /dev/null || echo "{}")
 
 	# Parse JSON fields using grep/sed (simple parsing without jq dependency)
 	local pool process_manager start_since accepted_conn
@@ -376,6 +394,7 @@ get_php_fpm_metrics() {
 main() {
 	local distro family permissions
 	local cpu_cores ram_mb disk_type
+	local php_versions php_default
 
 	#
 	# Gather basic info
@@ -395,6 +414,10 @@ main() {
 	ram_mb=$(detect_ram_mb)
 	disk_type=$(detect_disk_type)
 
+	echo "✓ Detecting PHP versions..."
+	php_versions=$(detect_php_versions)
+	php_default=$(detect_php_default)
+
 	echo "✓ Checking Caddy status..."
 	local caddy_metrics caddy_available="false"
 	local caddy_version caddy_sites caddy_domains caddy_uptime caddy_active_req caddy_total_req caddy_memory
@@ -406,15 +429,6 @@ main() {
 	fi
 
 	echo "✓ Checking PHP-FPM status..."
-	local php_fpm_metrics php_fpm_available="false"
-	local php_fpm_pool php_fpm_pm php_fpm_uptime php_fpm_accepted php_fpm_queue
-	local php_fpm_idle php_fpm_active php_fpm_total php_fpm_max_children php_fpm_slow
-	php_fpm_metrics=$(get_php_fpm_metrics)
-
-	if [[ -n $php_fpm_metrics ]]; then
-		php_fpm_available="true"
-		IFS=$'\t' read -r php_fpm_pool php_fpm_pm php_fpm_uptime php_fpm_accepted php_fpm_queue php_fpm_idle php_fpm_active php_fpm_total php_fpm_max_children php_fpm_slow <<< "$php_fpm_metrics"
-	fi
 
 	#
 	# Output YAML to file
@@ -427,6 +441,9 @@ main() {
 		  cpu_cores: $cpu_cores
 		  ram_mb: $ram_mb
 		  disk_type: $disk_type
+		php:
+		  versions: [${php_versions}]
+		  default: ${php_default:-}
 		caddy:
 		  available: $caddy_available
 		  version: ${caddy_version:-unknown}
@@ -437,20 +454,55 @@ main() {
 		  total_requests: ${caddy_total_req:-0}
 		  memory_mb: ${caddy_memory:-0}
 		php_fpm:
-		  available: $php_fpm_available
-		  pool: ${php_fpm_pool:-www}
-		  process_manager: ${php_fpm_pm:-unknown}
-		  uptime_seconds: ${php_fpm_uptime:-0}
-		  accepted_conn: ${php_fpm_accepted:-0}
-		  listen_queue: ${php_fpm_queue:-0}
-		  idle_processes: ${php_fpm_idle:-0}
-		  active_processes: ${php_fpm_active:-0}
-		  total_processes: ${php_fpm_total:-0}
-		  max_children_reached: ${php_fpm_max_children:-0}
-		  slow_requests: ${php_fpm_slow:-0}
-		ports:
 	EOF
 		echo "Error: Failed to write $DEPLOYER_OUTPUT_FILE" >&2
+		exit 1
+	fi
+
+	# Add PHP-FPM metrics for each installed version
+	local has_fpm_metrics=false
+	if [[ -n $php_versions ]]; then
+		IFS=',' read -ra version_array <<< "$php_versions"
+		for version in "${version_array[@]}"; do
+			local fpm_metrics
+			fpm_metrics=$(get_php_fpm_metrics "$version")
+
+			if [[ -n $fpm_metrics ]]; then
+				has_fpm_metrics=true
+				local pool pm uptime accepted queue idle active total max_children slow
+				IFS=$'\t' read -r pool pm uptime accepted queue idle active total max_children slow <<< "$fpm_metrics"
+
+				if ! cat >> "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
+					  "${version}":
+					    pool: ${pool}
+					    process_manager: ${pm}
+					    uptime_seconds: ${uptime}
+					    accepted_conn: ${accepted}
+					    listen_queue: ${queue}
+					    idle_processes: ${idle}
+					    active_processes: ${active}
+					    total_processes: ${total}
+					    max_children_reached: ${max_children}
+					    slow_requests: ${slow}
+				EOF
+					echo "Error: Failed to write PHP-FPM metrics to $DEPLOYER_OUTPUT_FILE" >&2
+					exit 1
+				fi
+			fi
+		done
+	fi
+
+	# If no PHP-FPM metrics were found, write empty object
+	if [[ $has_fpm_metrics == false ]]; then
+		if ! echo "  {}" >> "$DEPLOYER_OUTPUT_FILE"; then
+			echo "Error: Failed to write empty PHP-FPM section to $DEPLOYER_OUTPUT_FILE" >&2
+			exit 1
+		fi
+	fi
+
+	# Add ports section
+	if ! echo "ports:" >> "$DEPLOYER_OUTPUT_FILE"; then
+		echo "Error: Failed to write ports section to $DEPLOYER_OUTPUT_FILE" >&2
 		exit 1
 	fi
 

@@ -53,6 +53,13 @@ trait PlaybooksTrait
         $playbookPath = $projectRoot . '/playbooks/' . $playbookName . '.sh';
         $scriptContents = $this->fs->readFile($playbookPath);
 
+        // Prepend helpers.sh content to playbook for remote execution
+        $helpersPath = $projectRoot . '/playbooks/helpers.sh';
+        if (file_exists($helpersPath)) {
+            $helpersContents = $this->fs->readFile($helpersPath);
+            $scriptContents = $helpersContents . "\n\n" . $scriptContents;
+        }
+
         // Unique output file name
         $outputFile = sprintf('/tmp/deployer-output-%d-%s.yml', time(), bin2hex(random_bytes(8)));
 

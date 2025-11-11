@@ -27,20 +27,8 @@ export DEBIAN_FRONTEND=noninteractive
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 export DEPLOYER_PERMS
 
-# ----
-# Helpers
-# ----
-
-#
-# Execute command with appropriate permissions
-
-run_cmd() {
-	if [[ $DEPLOYER_PERMS == 'root' ]]; then
-		"$@"
-	else
-		sudo -n "$@"
-	fi
-}
+# Shared helpers are automatically inlined when executing playbooks remotely
+# source "$(dirname "$0")/helpers.sh"
 
 # ----
 # Setup Functions
@@ -132,8 +120,19 @@ setup_demo_site() {
 configure_demo_site() {
 	echo "✓ Configuring demo site..."
 
+	# Detect default PHP version
+	local php_version
+	php_version=$(detect_php_default)
+
+	if [[ -z $php_version ]]; then
+		echo "Error: No default PHP version found. Run server:install to install PHP first." >&2
+		exit 1
+	fi
+
+	echo "✓ Using PHP ${php_version} (default)"
+
 	# PHP-FPM socket path (debian family)
-	local php_fpm_socket='/run/php/php8.4-fpm.sock'
+	local php_fpm_socket="/run/php/php${php_version}-fpm.sock"
 
 	# Create log directory
 	if [[ ! -d /var/log/caddy ]]; then

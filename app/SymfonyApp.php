@@ -12,6 +12,7 @@ use Bigpixelrocket\DeployerPHP\Console\Server\ServerAddCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerDeleteCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerInfoCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerInstallCommand;
+use Bigpixelrocket\DeployerPHP\Console\Server\ServerInstallPhpCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerListCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerLogsCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerProvisionDigitalOceanCommand;
@@ -144,6 +145,7 @@ final class SymfonyApp extends SymfonyApplication
             ServerListCommand::class,
             ServerInfoCommand::class,
             ServerInstallCommand::class,
+            ServerInstallPhpCommand::class,
             ServerLogsCommand::class,
             ServerRunCommand::class,
 

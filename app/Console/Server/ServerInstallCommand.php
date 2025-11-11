@@ -33,6 +33,8 @@ class ServerInstallCommand extends BaseCommand
         parent::configure();
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
+        $this->addOption('php-version', null, InputOption::VALUE_REQUIRED, 'PHP version to install');
+        $this->addOption('php-default', null, InputOption::VALUE_NONE, 'Set as default PHP version');
     }
 
     // ----
@@ -100,6 +102,20 @@ class ServerInstallCommand extends BaseCommand
         $this->yay('Server installed successfully');
 
         //
+        // Install PHP
+        // ----
+
+        $phpResult = $this->installPhp($server, $info);
+
+        if (is_int($phpResult)) {
+            return $phpResult;
+        }
+
+        /** @var array{status: int, php_version: string, php_default: bool} $phpResult */
+        $phpVersion = $phpResult['php_version'];
+        $phpDefault = $phpResult['php_default'];
+
+        //
         // Setup demo site
         // ----
 
@@ -152,6 +168,8 @@ class ServerInstallCommand extends BaseCommand
 
         $this->showCommandReplay('server:install', [
             'server' => $server->name,
+            'php-version' => $phpVersion,
+            'php-default' => $phpDefault,
         ]);
 
         return Command::SUCCESS;

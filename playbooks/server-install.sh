@@ -3,11 +3,13 @@
 #
 # Server Installation Playbook - Ubuntu/Debian Only
 #
-# Install Caddy, PHP 8.4, PHP-FPM, Git, Bun
+# Install Caddy, Git, Bun, and setup deploy user
 # ----
 #
 # This playbook only supports Ubuntu and Debian distributions (debian family).
 # Both distributions use apt package manager and follow debian conventions.
+#
+# Note: PHP installation is handled by a separate playbook (server-install-php.sh)
 #
 # Required Environment Variables:
 #   DEPLOYER_OUTPUT_FILE - Output file path
@@ -18,7 +20,6 @@
 # Returns YAML with:
 #   - status: success
 #   - distro: detected distribution
-#   - php_version: installed PHP version
 #   - caddy_version: installed Caddy version
 #   - git_version: installed Git version
 #   - bun_version: installed Bun version
@@ -35,104 +36,8 @@ export DEBIAN_FRONTEND=noninteractive
 [[ -z $DEPLOYER_SERVER_NAME ]] && echo "Error: DEPLOYER_SERVER_NAME required" && exit 1
 export DEPLOYER_PERMS
 
-# ----
-# Helpers
-# ----
-
-#
-# Permission Management
-# ----
-
-#
-# Execute command with appropriate permissions
-
-run_cmd() {
-	if [[ $DEPLOYER_PERMS == 'root' ]]; then
-		"$@"
-	else
-		sudo -n "$@"
-	fi
-}
-
-#
-# Package Management
-# ----
-
-#
-# Wait for dpkg lock to be released
-
-wait_for_dpkg_lock() {
-	local max_wait=60
-	local waited=0
-	local lock_found=false
-
-	# Check multiple times to catch the lock even in race conditions
-	while ((waited < max_wait)); do
-		# Try to acquire the lock by checking if we can open it
-		if fuser /var/lib/dpkg/lock-frontend > /dev/null 2>&1 \
-			|| fuser /var/lib/dpkg/lock > /dev/null 2>&1 \
-			|| fuser /var/lib/apt/lists/lock > /dev/null 2>&1; then
-			lock_found=true
-			echo "✓ Waiting for package manager lock to be released..."
-			sleep 2
-			waited=$((waited + 2))
-		else
-			# Lock not held, but wait a bit to ensure it's really released
-			if [[ $lock_found == true ]]; then
-				# Was locked before, give it extra time
-				sleep 2
-			else
-				# Never saw lock, just a small delay
-				sleep 1
-			fi
-			return 0
-		fi
-	done
-
-	echo "Error: Timeout waiting for dpkg lock to be released" >&2
-	return 1
-}
-
-#
-# apt-get with retry
-
-apt_get_with_retry() {
-	local max_attempts=5
-	local attempt=1
-	local wait_time=10
-	local output
-
-	while ((attempt <= max_attempts)); do
-		# Capture output to check for lock errors
-		output=$(run_cmd apt-get "$@" 2>&1)
-		local exit_code=$?
-
-		if ((exit_code == 0)); then
-			[[ -n $output ]] && echo "$output"
-			return 0
-		fi
-
-		# Only retry on lock-related errors
-		if echo "$output" | grep -qE 'Could not get lock|dpkg.*lock|Unable to acquire'; then
-			if ((attempt < max_attempts)); then
-				echo "✓ Package manager locked, waiting ${wait_time}s before retry (attempt ${attempt}/${max_attempts})..."
-				sleep "$wait_time"
-				wait_time=$((wait_time + 5))
-				attempt=$((attempt + 1))
-				wait_for_dpkg_lock || true
-			else
-				echo "$output" >&2
-				return "$exit_code"
-			fi
-		else
-			# Non-lock error, fail immediately
-			echo "$output" >&2
-			return "$exit_code"
-		fi
-	done
-
-	return 1
-}
+# Shared helpers are automatically inlined when executing playbooks remotely
+# source "$(dirname "$0")/helpers.sh"
 
 # ----
 # Installation Functions
@@ -162,37 +67,6 @@ setup_repositories() {
 			exit 1
 		fi
 	fi
-
-	# PHP repository (distribution-specific)
-	case $DEPLOYER_DISTRO in
-		ubuntu)
-			# PHP PPA (Ubuntu only)
-			if ! grep -qr "ondrej/php" /etc/apt/sources.list /etc/apt/sources.list.d/ 2> /dev/null; then
-				if ! run_cmd env DEBIAN_FRONTEND=noninteractive add-apt-repository -y ppa:ondrej/php 2>&1; then
-					echo "Error: Failed to add PHP PPA" >&2
-					exit 1
-				fi
-			fi
-			;;
-		debian)
-			# Sury PHP repository (Debian only)
-			if ! [[ -f /usr/share/keyrings/php-sury-archive-keyring.gpg ]]; then
-				if ! curl -fsSL 'https://packages.sury.org/php/apt.gpg' | run_cmd gpg --batch --yes --dearmor -o /usr/share/keyrings/php-sury-archive-keyring.gpg; then
-					echo "Error: Failed to add Sury PHP GPG key" >&2
-					exit 1
-				fi
-			fi
-
-			if ! [[ -f /etc/apt/sources.list.d/php-sury.list ]]; then
-				local debian_codename
-				debian_codename=$(lsb_release -sc)
-				if ! echo "deb [signed-by=/usr/share/keyrings/php-sury-archive-keyring.gpg] https://packages.sury.org/php/ ${debian_codename} main" | run_cmd tee /etc/apt/sources.list.d/php-sury.list > /dev/null; then
-					echo "Error: Failed to add Sury PHP repository" >&2
-					exit 1
-				fi
-			fi
-			;;
-	esac
 }
 
 #
@@ -252,61 +126,6 @@ install_all_packages() {
 		echo "Error: Failed to install main packages" >&2
 		exit 1
 	fi
-
-	# Install PHP 8.4
-	echo "✓ Installing PHP 8.4..."
-	if ! apt_get_with_retry install -y -q --no-install-recommends \
-		php8.4-cli \
-		php8.4-fpm \
-		php8.4-common \
-		php8.4-opcache \
-		php8.4-bcmath \
-		php8.4-curl \
-		php8.4-mbstring \
-		php8.4-xml \
-		php8.4-zip \
-		php8.4-gd \
-		php8.4-intl \
-		php8.4-soap 2>&1; then
-		echo "Error: Failed to install PHP 8.4 packages" >&2
-		exit 1
-	fi
-
-	# Configure PHP-FPM
-	echo "✓ Configuring PHP-FPM..."
-
-	# Set socket ownership so Caddy can access it
-	if ! run_cmd sed -i 's/^;listen.owner = .*/listen.owner = caddy/' /etc/php/8.4/fpm/pool.d/www.conf; then
-		echo "Error: Failed to set PHP-FPM socket owner" >&2
-		exit 1
-	fi
-	if ! run_cmd sed -i 's/^;listen.group = .*/listen.group = caddy/' /etc/php/8.4/fpm/pool.d/www.conf; then
-		echo "Error: Failed to set PHP-FPM socket group" >&2
-		exit 1
-	fi
-	if ! run_cmd sed -i 's/^;listen.mode = .*/listen.mode = 0660/' /etc/php/8.4/fpm/pool.d/www.conf; then
-		echo "Error: Failed to set PHP-FPM socket mode" >&2
-		exit 1
-	fi
-
-	# Enable PHP-FPM status page
-	if ! run_cmd sed -i 's/^;pm.status_path = .*/pm.status_path = \/fpm-status/' /etc/php/8.4/fpm/pool.d/www.conf; then
-		echo "Error: Failed to enable PHP-FPM status page" >&2
-		exit 1
-	fi
-
-	if ! systemctl is-enabled --quiet php8.4-fpm 2> /dev/null; then
-		if ! run_cmd systemctl enable --quiet php8.4-fpm; then
-			echo "Error: Failed to enable PHP-FPM service" >&2
-			exit 1
-		fi
-	fi
-	if ! systemctl is-active --quiet php8.4-fpm 2> /dev/null; then
-		if ! run_cmd systemctl start php8.4-fpm; then
-			echo "Error: Failed to start PHP-FPM service" >&2
-			exit 1
-		fi
-	fi
 }
 
 #
@@ -365,17 +184,11 @@ setup_caddy_structure() {
 	fi
 
 	# Create localhost.caddy - monitoring endpoints only accessible via localhost
+	# (PHP-FPM status endpoint will be added by PHP installation playbook)
 	if ! run_cmd tee /etc/caddy/conf.d/localhost.caddy > /dev/null <<- 'EOF'; then
-		# PHP-FPM status endpoint - localhost only (not accessible from internet)
+		# PHP-FPM status endpoints - localhost only (not accessible from internet)
 		http://localhost:9001 {
-			handle {
-				reverse_proxy unix//run/php/php8.4-fpm.sock {
-					transport fastcgi {
-						env SCRIPT_FILENAME /fpm-status
-						env SCRIPT_NAME /fpm-status
-					}
-				}
-			}
+			#### DEPLOYER-PHP CONFIG, WARRANTY VOID IF REMOVED :) ####
 		}
 	EOF
 		echo "Error: Failed to create localhost.caddy" >&2
@@ -425,27 +238,6 @@ configure_deployer_groups() {
 		fi
 	fi
 
-	# Add www-data (PHP-FPM user) to deployer group so it can access files
-	if id -u www-data > /dev/null 2>&1; then
-		if ! id -nG www-data 2> /dev/null | grep -qw deployer; then
-			echo "✓ Adding www-data user to deployer group..."
-			if ! run_cmd usermod -aG deployer www-data; then
-				echo "Error: Failed to add www-data to deployer group" >&2
-				exit 1
-			fi
-
-			# Restart PHP-FPM so it picks up the new group membership
-			if systemctl is-active --quiet php8.4-fpm 2> /dev/null; then
-				echo "✓ Restarting PHP-FPM to apply group membership..."
-				if ! run_cmd systemctl restart php8.4-fpm; then
-					echo "Error: Failed to restart PHP-FPM" >&2
-					exit 1
-				fi
-			fi
-		fi
-	else
-		echo "Warning: PHP-FPM user 'www-data' not found, skipping group assignment"
-	fi
 }
 
 #
@@ -591,48 +383,21 @@ setup_deploy_directories() {
 # Validation
 # ----
 
-#
-# Validate PHP version meets minimum requirements
-
-validate_php_version() {
-	local php_version
-	php_version=$(php -r "echo PHP_VERSION;" 2> /dev/null || echo "unknown")
-
-	if [[ $php_version == "unknown" ]]; then
-		echo "Error: PHP installation failed or PHP not in PATH" >&2
-		exit 1
-	fi
-
-	# Extract major.minor version
-	local php_major_minor
-	php_major_minor=$(echo "$php_version" | cut -d. -f1,2)
-
-	# Check if below 8.3 using awk
-	if awk "BEGIN {exit !($php_major_minor < 8.3)}"; then
-		echo "Error: PHP $php_version is below minimum required version 8.3" >&2
-		exit 1
-	fi
-
-	echo "✓ PHP $php_version installed (meets minimum 8.3)"
-}
-
 # ----
 # Main Execution
 # ----
 
 main() {
-	local php_version caddy_version bun_version git_version deploy_public_key
+	local caddy_version bun_version git_version deploy_public_key
 
 	# Execute installation tasks
 	install_all_packages
 	install_bun
 	setup_caddy_structure
-	validate_php_version
 	setup_deploy_key
 	setup_deploy_directories
 
 	# Get versions and public key
-	php_version=$(php -r "echo PHP_VERSION;" 2> /dev/null || echo "unknown")
 	caddy_version=$(caddy version 2> /dev/null | head -n1 | awk '{print $1}' || echo "unknown")
 	git_version=$(git --version 2> /dev/null | awk '{print $3}' || echo "unknown")
 	bun_version=$(bun --version 2> /dev/null || echo "unknown")
@@ -642,7 +407,6 @@ main() {
 	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 		status: success
 		distro: $DEPLOYER_DISTRO
-		php_version: $php_version
 		caddy_version: $caddy_version
 		git_version: $git_version
 		bun_version: $bun_version
@@ -650,9 +414,6 @@ main() {
 		tasks_completed:
 		  - install_caddy
 		  - setup_caddy_structure
-		  - install_php
-		  - install_extensions
-		  - configure_php_fpm
 		  - install_git
 		  - install_rsync
 		  - install_bun

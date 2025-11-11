@@ -238,81 +238,121 @@ trait ServersTrait
             }
         }
 
-        // Display PHP-FPM information if available
-        if (isset($info['php_fpm']) && is_array($info['php_fpm']) && ($info['php_fpm']['available'] ?? false) === true) {
-            $phpFpmItems = [];
+        // Display PHP versions if available
+        if (isset($info['php']) && is_array($info['php'])) {
+            $phpItems = [];
 
-            if (isset($info['php_fpm']['pool']) && $info['php_fpm']['pool'] !== 'unknown') {
-                /** @var string $pool */
-                $pool = $info['php_fpm']['pool'];
-                $phpFpmItems[] = 'Pool: '.$pool;
-            }
+            if (isset($info['php']['versions']) && is_array($info['php']['versions']) && count($info['php']['versions']) > 0) {
+                $versions = $info['php']['versions'];
+                $defaultVersion = $info['php']['default'] ?? null;
 
-            if (isset($info['php_fpm']['process_manager']) && $info['php_fpm']['process_manager'] !== 'unknown') {
-                /** @var string $processManager */
-                $processManager = $info['php_fpm']['process_manager'];
-                $phpFpmItems[] = 'Process Manager: '.$processManager;
-            }
-
-            if (isset($info['php_fpm']['active_processes'])) {
-                /** @var int|string $activeProcesses */
-                $activeProcesses = $info['php_fpm']['active_processes'];
-                $phpFpmItems[] = 'Active: '.$activeProcesses.' processes';
-            }
-
-            if (isset($info['php_fpm']['idle_processes'])) {
-                /** @var int|string $idleProcesses */
-                $idleProcesses = $info['php_fpm']['idle_processes'];
-                $phpFpmItems[] = 'Idle: '.$idleProcesses.' processes';
-            }
-
-            if (isset($info['php_fpm']['total_processes'])) {
-                /** @var int|string $totalProcesses */
-                $totalProcesses = $info['php_fpm']['total_processes'];
-                $phpFpmItems[] = 'Total: '.$totalProcesses.' processes';
-            }
-
-            if (isset($info['php_fpm']['listen_queue'])) {
-                /** @var int|string|float $rawQueue */
-                $rawQueue = $info['php_fpm']['listen_queue'];
-                /** @var int $queue */
-                $queue = (int) $rawQueue;
-                $queueDisplay = $queue > 0 ? "<fg=yellow>{$queue} waiting</>" : '0 waiting';
-                $phpFpmItems[] = 'Queue: '.$queueDisplay;
-            }
-
-            if (isset($info['php_fpm']['accepted_conn'])) {
-                /** @var int|string|float $rawAccepted */
-                $rawAccepted = $info['php_fpm']['accepted_conn'];
-                /** @var int $accepted */
-                $accepted = (int) $rawAccepted;
-                $phpFpmItems[] = 'Accepted: '.number_format($accepted);
-            }
-
-            if (isset($info['php_fpm']['max_children_reached'])) {
-                /** @var int|string|float $rawMaxChildren */
-                $rawMaxChildren = $info['php_fpm']['max_children_reached'];
-                /** @var int $maxChildren */
-                $maxChildren = (int) $rawMaxChildren;
-                if ($maxChildren > 0) {
-                    $phpFpmItems[] = "<fg=yellow>Max Children Reached: {$maxChildren}</>";
+                foreach ($versions as $version) {
+                    if (is_string($version) || is_numeric($version)) {
+                        $versionStr = (string) $version;
+                        if ($defaultVersion !== null && (is_string($defaultVersion) || is_numeric($defaultVersion))) {
+                            /** @var string|int|float $defaultVersion */
+                            $isDefault = $versionStr === (string) $defaultVersion;
+                            if ($isDefault) {
+                                $phpItems[] = "PHP {$versionStr} <fg=green>(default)</>";
+                            } else {
+                                $phpItems[] = "PHP {$versionStr}";
+                            }
+                        } else {
+                            $phpItems[] = "PHP {$versionStr}";
+                        }
+                    }
                 }
             }
 
-            if (isset($info['php_fpm']['slow_requests'])) {
-                /** @var int|string|float $rawSlowReqs */
-                $rawSlowReqs = $info['php_fpm']['slow_requests'];
-                /** @var int $slowReqsInt */
-                $slowReqsInt = (int) $rawSlowReqs;
-                if ($slowReqsInt > 0) {
-                    $slowReqs = number_format($slowReqsInt);
-                    $phpFpmItems[] = "<fg=yellow>Slow Requests: {$slowReqs}</>";
-                }
+            if (count($phpItems) === 0) {
+                $phpItems[] = '<fg=yellow>No PHP installed</>';
             }
 
-            if (count($phpFpmItems) > 0) {
-                $this->io->displayDeets(['PHP-FPM' => $phpFpmItems]);
-                $this->io->writeln('');
+            $this->io->displayDeets(['PHP' => $phpItems]);
+            $this->io->writeln('');
+        }
+
+        // Display PHP-FPM information if available (multiple versions)
+        if (isset($info['php_fpm']) && is_array($info['php_fpm']) && count($info['php_fpm']) > 0) {
+            foreach ($info['php_fpm'] as $version => $fpmData) {
+                if (!is_array($fpmData) || !is_string($version)) {
+                    continue;
+                }
+
+                $phpFpmItems = [];
+
+                if (isset($fpmData['pool']) && $fpmData['pool'] !== 'unknown') {
+                    /** @var string $pool */
+                    $pool = $fpmData['pool'];
+                    $phpFpmItems[] = 'Pool: '.$pool;
+                }
+
+                if (isset($fpmData['process_manager']) && $fpmData['process_manager'] !== 'unknown') {
+                    /** @var string $processManager */
+                    $processManager = $fpmData['process_manager'];
+                    $phpFpmItems[] = 'Process Manager: '.$processManager;
+                }
+
+                if (isset($fpmData['active_processes'])) {
+                    /** @var int|string $activeProcesses */
+                    $activeProcesses = $fpmData['active_processes'];
+                    $phpFpmItems[] = 'Active: '.$activeProcesses.' processes';
+                }
+
+                if (isset($fpmData['idle_processes'])) {
+                    /** @var int|string $idleProcesses */
+                    $idleProcesses = $fpmData['idle_processes'];
+                    $phpFpmItems[] = 'Idle: '.$idleProcesses.' processes';
+                }
+
+                if (isset($fpmData['total_processes'])) {
+                    /** @var int|string $totalProcesses */
+                    $totalProcesses = $fpmData['total_processes'];
+                    $phpFpmItems[] = 'Total: '.$totalProcesses.' processes';
+                }
+
+                if (isset($fpmData['listen_queue'])) {
+                    /** @var int|string|float $rawQueue */
+                    $rawQueue = $fpmData['listen_queue'];
+                    /** @var int $queue */
+                    $queue = (int) $rawQueue;
+                    $queueDisplay = $queue > 0 ? "<fg=yellow>{$queue} waiting</>" : '0 waiting';
+                    $phpFpmItems[] = 'Queue: '.$queueDisplay;
+                }
+
+                if (isset($fpmData['accepted_conn'])) {
+                    /** @var int|string|float $rawAccepted */
+                    $rawAccepted = $fpmData['accepted_conn'];
+                    /** @var int $accepted */
+                    $accepted = (int) $rawAccepted;
+                    $phpFpmItems[] = 'Accepted: '.number_format($accepted);
+                }
+
+                if (isset($fpmData['max_children_reached'])) {
+                    /** @var int|string|float $rawMaxChildren */
+                    $rawMaxChildren = $fpmData['max_children_reached'];
+                    /** @var int $maxChildren */
+                    $maxChildren = (int) $rawMaxChildren;
+                    if ($maxChildren > 0) {
+                        $phpFpmItems[] = "<fg=yellow>Max Children Reached: {$maxChildren}</>";
+                    }
+                }
+
+                if (isset($fpmData['slow_requests'])) {
+                    /** @var int|string|float $rawSlowReqs */
+                    $rawSlowReqs = $fpmData['slow_requests'];
+                    /** @var int $slowReqsInt */
+                    $slowReqsInt = (int) $rawSlowReqs;
+                    if ($slowReqsInt > 0) {
+                        $slowReqs = number_format($slowReqsInt);
+                        $phpFpmItems[] = "<fg=yellow>Slow Requests: {$slowReqs}</>";
+                    }
+                }
+
+                if (count($phpFpmItems) > 0) {
+                    $this->io->displayDeets(["PHP-FPM {$version}" => $phpFpmItems]);
+                    $this->io->writeln('');
+                }
             }
         }
     }
@@ -343,6 +383,102 @@ trait ServersTrait
         $hours = floor(($seconds % 86400) / 3600);
 
         return "{$days}d {$hours}h";
+    }
+
+    /**
+     * Install PHP on a server.
+     *
+     * Prompts for PHP version selection and handles installation via playbook.
+     * Automatically sets first PHP install as default, otherwise prompts user.
+     *
+     * @param ServerDTO $server Server to install PHP on
+     * @param array<string, mixed> $info Server information from getServerInfo()
+     * @return array{status: int, php_version: string, php_default: bool}|int Returns array with status and values, or int on failure
+     */
+    protected function installPhp(ServerDTO $server, array $info): array|int
+    {
+        $phpVersions = ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5'];
+
+        //
+        // Extract installed PHP versions
+        // ----
+
+        $installedPhpVersions = [];
+        if (isset($info['php']) && is_array($info['php']) && isset($info['php']['versions']) && is_array($info['php']['versions'])) {
+            foreach ($info['php']['versions'] as $version) {
+                if (is_string($version) || is_numeric($version)) {
+                    $installedPhpVersions[] = (string) $version;
+                }
+            }
+        }
+
+        //
+        // Prompt for version to install
+        // ----
+
+        $phpVersion = (string) $this->io->getOptionOrPrompt(
+            'php-version',
+            fn () => $this->io->promptSelect(
+                label: 'PHP version:',
+                options: $phpVersions,
+                default: '8.4'
+            )
+        );
+
+        //
+        // Determine if setting as default
+        // ----
+
+        if (count($installedPhpVersions) === 0) {
+            // First PHP install - automatically set as default
+            $setAsDefault = true;
+        } else {
+            // PHP already installed - ask user
+            $setAsDefault = (bool) $this->io->getOptionOrPrompt(
+                'php-default',
+                fn () => $this->io->promptConfirm(
+                    label: "Set PHP {$phpVersion} as default?",
+                    default: false
+                )
+            );
+        }
+
+        //
+        // Execute installation playbook
+        // ----
+
+        /** @var string $distro */
+        $distro = $info['distro'];
+        /** @var string $permissions */
+        $permissions = $info['permissions'];
+
+        $result = $this->executePlaybook(
+            $server,
+            'server-install-php',
+            "Installing PHP {$phpVersion}...",
+            [
+                'DEPLOYER_DISTRO' => $distro,
+                'DEPLOYER_PERMS' => $permissions,
+                'DEPLOYER_PHP_VERSION' => $phpVersion,
+                'DEPLOYER_PHP_SET_DEFAULT' => $setAsDefault ? 'true' : 'false',
+            ],
+            true
+        );
+
+        if (is_int($result)) {
+            $this->io->error('PHP installation failed');
+
+            return Command::FAILURE;
+        }
+
+        $defaultStatus = $setAsDefault ? ' (set as default)' : '';
+        $this->yay("PHP {$phpVersion} installed successfully{$defaultStatus}");
+
+        return [
+            'status' => Command::SUCCESS,
+            'php_version' => $phpVersion,
+            'php_default' => $setAsDefault,
+        ];
     }
 
     //
