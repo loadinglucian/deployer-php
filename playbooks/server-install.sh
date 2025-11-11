@@ -186,8 +186,10 @@ setup_caddy_structure() {
 	# Create localhost.caddy - monitoring endpoints only accessible via localhost
 	# (PHP-FPM status endpoint will be added by PHP installation playbook)
 	if ! run_cmd tee /etc/caddy/conf.d/localhost.caddy > /dev/null <<- 'EOF'; then
-		# Localhost-only endpoints configuration
-		# PHP-FPM status endpoint will be configured during PHP installation
+		# PHP-FPM status endpoints - localhost only (not accessible from internet)
+		http://localhost:9001 {
+			#### DEPLOYER-PHP CONFIG, WARRANTY VOID IF REMOVED :) ####
+		}
 	EOF
 		echo "Error: Failed to create localhost.caddy" >&2
 		exit 1
@@ -236,27 +238,6 @@ configure_deployer_groups() {
 		fi
 	fi
 
-	# Add www-data (PHP-FPM user) to deployer group so it can access files
-	if id -u www-data > /dev/null 2>&1; then
-		if ! id -nG www-data 2> /dev/null | grep -qw deployer; then
-			echo "✓ Adding www-data user to deployer group..."
-			if ! run_cmd usermod -aG deployer www-data; then
-				echo "Error: Failed to add www-data to deployer group" >&2
-				exit 1
-			fi
-
-			# Restart PHP-FPM so it picks up the new group membership
-			if systemctl is-active --quiet php8.4-fpm 2> /dev/null; then
-				echo "✓ Restarting PHP-FPM to apply group membership..."
-				if ! run_cmd systemctl restart php8.4-fpm; then
-					echo "Error: Failed to restart PHP-FPM" >&2
-					exit 1
-				fi
-			fi
-		fi
-	else
-		echo "Warning: PHP-FPM user 'www-data' not found, skipping group assignment"
-	fi
 }
 
 #

@@ -166,6 +166,37 @@ configure_php_fpm() {
 }
 
 #
+# User Group Configuration
+# ----
+
+#
+# Configure PHP-FPM user group membership for file access
+
+configure_php_user_groups() {
+	# Add www-data (PHP-FPM user) to deployer group so it can access files
+	if id -u www-data > /dev/null 2>&1; then
+		if ! id -nG www-data 2> /dev/null | grep -qw deployer; then
+			echo "✓ Adding www-data user to deployer group..."
+			if ! run_cmd usermod -aG deployer www-data; then
+				echo "Error: Failed to add www-data to deployer group" >&2
+				exit 1
+			fi
+
+			# Restart PHP-FPM so it picks up the new group membership
+			if systemctl is-active --quiet php${DEPLOYER_PHP_VERSION}-fpm 2> /dev/null; then
+				echo "✓ Restarting PHP-FPM to apply group membership..."
+				if ! run_cmd systemctl restart php${DEPLOYER_PHP_VERSION}-fpm; then
+					echo "Error: Failed to restart PHP-FPM" >&2
+					exit 1
+				fi
+			fi
+		fi
+	else
+		echo "Warning: PHP-FPM user 'www-data' not found, skipping group assignment"
+	fi
+}
+
+#
 # Default Version Configuration
 # ----
 
@@ -210,23 +241,16 @@ update_caddy_config() {
 
 	echo "✓ Updating Caddy localhost configuration..."
 
-	# Check if the base server block exists
-	if ! grep -q "http://localhost:9001" /etc/caddy/conf.d/localhost.caddy 2> /dev/null; then
-		# Create base server block structure
-		if ! run_cmd tee /etc/caddy/conf.d/localhost.caddy > /dev/null <<- 'EOF'; then
-			# PHP-FPM status endpoints - localhost only (not accessible from internet)
-			http://localhost:9001 {
-			}
-		EOF
-			echo "Error: Failed to create Caddy localhost configuration" >&2
-			exit 1
-		fi
-	fi
-
 	# Check if this PHP version's endpoint already exists
 	if grep -q "handle_path /php${DEPLOYER_PHP_VERSION}/" /etc/caddy/conf.d/localhost.caddy 2> /dev/null; then
 		echo "✓ PHP ${DEPLOYER_PHP_VERSION} endpoint already configured"
 		return 0
+	fi
+
+	# Check if the marker exists (file should be created by server-install.sh)
+	if ! grep -q "#### DEPLOYER-PHP CONFIG, WARRANTY VOID IF REMOVED :) ####" /etc/caddy/conf.d/localhost.caddy 2> /dev/null; then
+		echo "Error: localhost.caddy marker not found. File may have been modified manually." >&2
+		exit 1
 	fi
 
 	# Create temporary file with the new handle block
@@ -234,6 +258,7 @@ update_caddy_config() {
 	temp_handle=$(mktemp)
 
 	cat > "$temp_handle" <<- EOF
+
 		handle_path /php${DEPLOYER_PHP_VERSION}/* {
 			reverse_proxy unix//run/php/php${DEPLOYER_PHP_VERSION}-fpm.sock {
 				transport fastcgi {
@@ -244,15 +269,15 @@ update_caddy_config() {
 		}
 	EOF
 
-	# Insert the handle block before the closing brace of the server block
+	# Insert the handle block after the marker
 	local temp_config
 	temp_config=$(mktemp)
 
-	# Read the file, insert handle block before last closing brace
 	if ! awk -v handle="$(cat "$temp_handle")" '
-		/^}$/ && !found {
+		/#### DEPLOYER-PHP CONFIG, WARRANTY VOID IF REMOVED :\) ####/ {
+			print
 			print handle
-			found=1
+			next
 		}
 		{ print }
 	' /etc/caddy/conf.d/localhost.caddy > "$temp_config"; then
@@ -290,6 +315,7 @@ main() {
 	setup_php_repository
 	install_php_packages
 	configure_php_fpm
+	configure_php_user_groups
 	set_as_default
 	update_caddy_config
 
@@ -311,6 +337,7 @@ main() {
 		  - setup_php_repository
 		  - install_php_packages
 		  - configure_php_fpm
+		  - configure_php_user_groups
 		  - set_as_default
 		  - update_caddy_config
 	EOF
