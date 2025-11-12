@@ -16,7 +16,7 @@ use Symfony\Component\Console\Command\Command;
  * Reusable server things.
  *
  * Requires classes using this trait to have IOService, ServerRepository, SSHService, and SiteRepository properties.
- * Also requires PlaybooksTrait for getServerInfo() method.
+ * Also requires PlaybooksTrait for serverInfo() method.
  *
  * @property IOService $io
  * @property ServerRepository $servers
@@ -390,7 +390,7 @@ trait ServersTrait
      * Automatically sets first PHP install as default, otherwise prompts user.
      *
      * @param ServerDTO $server Server to install PHP on
-     * @param array<string, mixed> $info Server information from getServerInfo()
+     * @param array<string, mixed> $info Server information from serverInfo()
      * @return array{status: int, php_version: string, php_default: bool}|int Returns array with status and values, or int on failure
      */
     protected function installPhp(ServerDTO $server, array $info): array|int
