@@ -110,7 +110,16 @@ trait ServersTrait
         $permissions = $info['permissions'] ?? null;
 
         if (!is_string($permissions) || !in_array($permissions, ['root', 'sudo'])) {
-            $this->nay('Server requires root or sudo permissions');
+            $this->nay('Server requires root or passwordless sudo permissions');
+            $this->io->writeln([
+                '',
+                '<fg=yellow>To enable passwordless sudo on your server:</>',
+                '  1. SSH to your server as root or with sudo access',
+                '  2. Run: <fg=gray>echo "USERNAME ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/USERNAME</>',
+                '  3. Run: <fg=gray>sudo chmod 0440 /etc/sudoers.d/USERNAME</>',
+                '  ^- Replace USERNAME with your actual username, e.g.: <fg=gray>echo "ubuntu ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/ubuntu</>',
+                '',
+            ]);
 
             return Command::FAILURE;
         }

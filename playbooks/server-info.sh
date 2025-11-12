@@ -107,6 +107,7 @@ detect_family() {
 #
 # Check User Permissions
 # Returns: root|sudo|none
+# Note: sudo -n checks for passwordless sudo (non-interactive)
 
 check_permissions() {
 	if [[ $EUID -eq 0 ]]; then
