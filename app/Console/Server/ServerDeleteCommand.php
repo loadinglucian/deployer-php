@@ -181,10 +181,10 @@ class ServerDeleteCommand extends BaseCommand
         $this->yay("Server '{$server->name}' deleted from inventory");
 
         if (!$destroyed) {
+            $this->io->warning('Your server may still be running and incurring costs!');
             $this->io->writeln([
                 '',
-                '<fg=yellow>Your server may still be running and incurring costs:</>',
-                '  • Double-check with your cloud provider to ensure it is fully terminated.',
+                'Check with your cloud provider to ensure it is fully terminated.',
                 '',
             ]);
         }

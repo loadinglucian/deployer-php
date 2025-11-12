@@ -106,7 +106,7 @@ Traits mixed into Commands ARE Command layer. Display errors directly without re
 
 ```php
 // ✅ CORRECT - Display exception directly, no prefix
-protected function getServerInfo(ServerDTO $server): array|int
+protected function serverInfo(ServerDTO $server): array|int
 {
     try {
         $result = $this->executePlaybook($server, 'server-info', 'Gathering...');

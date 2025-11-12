@@ -165,7 +165,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             $this->displayServerDeets($server);
 
             // Get server info (verifies SSH connection and validates distribution & permissions)
-            $info = $this->getServerInfo($server);
+            $info = $this->serverInfo($server);
 
             if (is_int($info)) {
                 throw new \RuntimeException('Failed to validate server distribution');

@@ -65,7 +65,7 @@ class ServerLogsCommand extends BaseCommand
         // Get server info (verifies SSH connection and validates distribution & permissions)
         // ----
 
-        $info = $this->getServerInfo($server);
+        $info = $this->serverInfo($server);
 
         if (is_int($info)) {
             return $info;
