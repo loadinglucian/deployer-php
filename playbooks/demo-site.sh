@@ -11,6 +11,7 @@
 #
 # Required Environment Variables:
 #   DEPLOYER_OUTPUT_FILE - Output file path
+#   DEPLOYER_DISTRO      - Exact distribution: ubuntu|debian
 #   DEPLOYER_PERMS       - Permissions: root|sudo
 #
 # Returns YAML with:
@@ -24,6 +25,7 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
+[[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 export DEPLOYER_PERMS
 
@@ -54,6 +56,29 @@ require_deployer_user() {
 }
 
 #
+# Verify required services are installed
+
+require_services() {
+	if ! command -v caddy > /dev/null 2>&1; then
+		echo "Error: Caddy not found. Run server:install to install base packages first." >&2
+		exit 1
+	fi
+
+	# Verify PHP is available (detect_php_default returns empty string if not found)
+	local php_version
+	php_version=$(detect_php_default)
+	if [[ -z $php_version ]]; then
+		echo "Error: No PHP installation found. Run server:install to install PHP first." >&2
+		exit 1
+	fi
+
+	if ! run_cmd test -d /etc/caddy/conf.d/sites; then
+		echo "Error: Caddy site directory missing. Run server:install to configure Caddy first." >&2
+		exit 1
+	fi
+}
+
+#
 # Demo Site Setup
 # ----
 
@@ -61,7 +86,7 @@ require_deployer_user() {
 # Create demo site directory structure and files
 
 setup_demo_site() {
-	echo "✓ Setting up demo site..."
+	echo "→ Setting up demo site..."
 
 	# Create directory structure
 	if ! run_cmd test -d /home/deployer/demo/public; then
@@ -118,7 +143,7 @@ setup_demo_site() {
 # Configure Caddy for demo site
 
 configure_demo_site() {
-	echo "✓ Configuring demo site..."
+	echo "→ Configuring demo site..."
 
 	# Detect default PHP version
 	local php_version
@@ -129,7 +154,7 @@ configure_demo_site() {
 		exit 1
 	fi
 
-	echo "✓ Using PHP ${php_version} (default)"
+	echo "→ Using PHP ${php_version} (default)"
 
 	# PHP-FPM socket path (debian family)
 	local php_fpm_socket="/run/php/php${php_version}-fpm.sock"
@@ -163,8 +188,11 @@ configure_demo_site() {
 				format json
 			}
 
-			# This single line handles everything: PHP files, index.php routing, and static files
-			php_fastcgi unix/${php_fpm_socket}
+			# Serve PHP files through FPM
+			php_fastcgi unix//${php_fpm_socket}
+
+			# Serve static files directly (more efficient than passing through PHP-FPM)
+			file_server
 		}
 	EOF
 		echo "Error: Failed to create demo.caddy" >&2
@@ -190,6 +218,13 @@ configure_demo_site() {
 			exit 1
 		fi
 	fi
+
+	# Restart PHP-FPM to ensure proper socket communication with Caddy
+	if systemctl is-active --quiet "php${php_version}-fpm" 2> /dev/null; then
+		if ! run_cmd systemctl restart "php${php_version}-fpm"; then
+			echo "Warning: Failed to restart PHP-FPM service"
+		fi
+	fi
 }
 
 # ----
@@ -199,6 +234,7 @@ configure_demo_site() {
 main() {
 	# Execute setup tasks
 	require_deployer_user
+	require_services
 	setup_demo_site
 	configure_demo_site
 

@@ -71,7 +71,7 @@ wait_for_dpkg_lock() {
 			|| fuser /var/lib/dpkg/lock > /dev/null 2>&1 \
 			|| fuser /var/lib/apt/lists/lock > /dev/null 2>&1; then
 			lock_found=true
-			echo "✓ Waiting for package manager lock to be released..."
+			echo "Waiting for package manager lock to be released..."
 			sleep 2
 			waited=$((waited + 2))
 		else
@@ -113,7 +113,7 @@ apt_get_with_retry() {
 		# Only retry on lock-related errors
 		if echo "$output" | grep -qE 'Could not get lock|dpkg.*lock|Unable to acquire'; then
 			if ((attempt < max_attempts)); then
-				echo "✓ Package manager locked, waiting ${wait_time}s before retry (attempt ${attempt}/${max_attempts})..."
+				echo "Package manager locked, waiting ${wait_time}s before retry (attempt ${attempt}/${max_attempts})..."
 				sleep "$wait_time"
 				wait_time=$((wait_time + 5))
 				attempt=$((attempt + 1))
