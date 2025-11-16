@@ -31,9 +31,8 @@ class SiteAddCommand extends BaseCommand
 
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Domain name')
-            ->addOption('source', null, InputOption::VALUE_REQUIRED, 'Site source: git or local')
-            ->addOption('repo', null, InputOption::VALUE_REQUIRED, 'Git repository URL (for git sites)')
-            ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'Git branch name (for git sites)')
+            ->addOption('repo', null, InputOption::VALUE_REQUIRED, 'Git repository URL')
+            ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'Git branch name')
             ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
     }
 
@@ -59,7 +58,6 @@ class SiteAddCommand extends BaseCommand
 
         [
             'domain' => $domain,
-            'siteSource' => $siteSource,
             'repo' => $repo,
             'branch' => $branch,
             'server' => $server,
@@ -96,18 +94,12 @@ class SiteAddCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $hintOptions = [
+        $this->showCommandReplay('site:add', [
             'domain' => $domain,
-            'source' => $siteSource,
+            'repo' => $repo,
+            'branch' => $branch,
             'server' => $server->name,
-        ];
-
-        if ($siteSource !== 'local') {
-            $hintOptions['repo'] = $repo;
-            $hintOptions['branch'] = $branch;
-        }
-
-        $this->showCommandReplay('site:add', $hintOptions);
+        ]);
 
         return Command::SUCCESS;
     }
@@ -119,7 +111,7 @@ class SiteAddCommand extends BaseCommand
     /**
      * Gather site details from user input or CLI options.
      *
-     * @return array{domain: string, siteSource: string, repo: ?string, branch: ?string, server: ServerDTO}|null
+     * @return array{domain: string, repo: string, branch: string, server: ServerDTO}|null
      */
     protected function gatherSiteDeets(): ?array
     {
@@ -154,71 +146,49 @@ class SiteAddCommand extends BaseCommand
         }
 
         //
-        // Select site source
+        // Gather git details
         // ----
 
-        /** @var string $siteSource */
-        $siteSource = $this->io->getOptionOrPrompt(
-            'source',
-            fn (): string => (string) $this->io->promptSelect(
-                label: 'Deploy from:',
-                options: ['git' => 'Git Repository', 'local' => 'Local files'],
-                default: 'git'
-            )
+        $defaultRepo = $this->git->detectRemoteUrl() ?? '';
+
+        /** @var string|null $repo */
+        $repo = $this->io->getValidatedOptionOrPrompt(
+            'repo',
+            fn ($validate) => $this->io->promptText(
+                label: 'Git repository URL:',
+                placeholder: 'git@github.com:user/repo.git',
+                default: $defaultRepo,
+                required: true,
+                validate: $validate
+            ),
+            fn ($value) => $this->validateSiteRepo($value)
         );
 
-        $isLocal = $siteSource === 'local';
+        if ($repo === null) {
+            return null;
+        }
 
-        //
-        // Gather git-specific details
-        // ----
+        $defaultBranch = $this->git->detectCurrentBranch() ?? 'main';
 
-        $repo = null;
-        $branch = null;
+        /** @var string|null $branch */
+        $branch = $this->io->getValidatedOptionOrPrompt(
+            'branch',
+            fn ($validate) => $this->io->promptText(
+                label: 'Git branch:',
+                placeholder: $defaultBranch,
+                default: $defaultBranch,
+                required: true,
+                validate: $validate
+            ),
+            fn ($value) => $this->validateSiteBranch($value)
+        );
 
-        if (!$isLocal) {
-            $defaultRepo = $this->git->detectRemoteUrl() ?? '';
-
-            /** @var string|null $repo */
-            $repo = $this->io->getValidatedOptionOrPrompt(
-                'repo',
-                fn ($validate) => $this->io->promptText(
-                    label: 'Git repository URL:',
-                    placeholder: 'git@github.com:user/repo.git',
-                    default: $defaultRepo,
-                    required: true,
-                    validate: $validate
-                ),
-                fn ($value) => $this->validateSiteRepo($value)
-            );
-
-            if ($repo === null) {
-                return null;
-            }
-
-            $defaultBranch = $this->git->detectCurrentBranch() ?? 'main';
-
-            /** @var string|null $branch */
-            $branch = $this->io->getValidatedOptionOrPrompt(
-                'branch',
-                fn ($validate) => $this->io->promptText(
-                    label: 'Git branch:',
-                    placeholder: $defaultBranch,
-                    default: $defaultBranch,
-                    required: true,
-                    validate: $validate
-                ),
-                fn ($value) => $this->validateSiteBranch($value)
-            );
-
-            if ($branch === null) {
-                return null;
-            }
+        if ($branch === null) {
+            return null;
         }
 
         return [
             'domain' => $domain,
-            'siteSource' => $siteSource,
             'repo' => $repo,
             'branch' => $branch,
             'server' => $server,
