@@ -115,13 +115,8 @@ trait SitesTrait
             'Source' => 'Git',
             'Repo' => $site->repo,
             'Branch' => $site->branch,
+            'Server' => $site->server,
         ];
-
-        if (count($site->servers) > 1) {
-            $details['Servers'] = $site->servers;
-        } elseif (count($site->servers) === 1) {
-            $details['Server'] = $site->servers[0];
-        }
 
         $this->io->displayDeets($details);
         $this->io->writeln('');

@@ -115,7 +115,7 @@ final class SiteRepository
         $filtered = [];
         foreach ($this->sites as $siteData) {
             $site = $this->hydrateSiteDTO($siteData);
-            if (in_array($serverName, $site->servers, true)) {
+            if ($site->server === $serverName) {
                 $filtered[] = $site;
             }
         }
@@ -167,7 +167,7 @@ final class SiteRepository
      * Serialize a SiteDTO into an associative array suitable for inventory storage.
      *
      * @param SiteDTO $site The site DTO to serialize.
-     * @return array<string, mixed> Associative array with keys `domain`, `repo`, `branch`, and `servers`.
+     * @return array<string, mixed> Associative array with keys `domain`, `repo`, `branch`, and `server`.
      */
     private function dehydrateSiteDTO(SiteDTO $site): array
     {
@@ -175,7 +175,7 @@ final class SiteRepository
             'domain' => $site->domain,
             'repo' => $site->repo,
             'branch' => $site->branch,
-            'servers' => $site->servers,
+            'server' => $site->server,
         ];
     }
 
@@ -183,20 +183,20 @@ final class SiteRepository
          * Create a SiteDTO from raw inventory data.
          *
          * @param array<string,mixed> $data Raw associative array from inventory.
-         * @return SiteDTO A SiteDTO where `domain`, `repo`, and `branch` are strings (empty if missing), and `servers` is an array of strings.
+         * @return SiteDTO A SiteDTO where `domain`, `repo`, `branch`, and `server` are strings (empty if missing).
          */
     private function hydrateSiteDTO(array $data): SiteDTO
     {
         $domain = $data['domain'] ?? '';
         $repo = $data['repo'] ?? '';
         $branch = $data['branch'] ?? '';
-        $servers = $data['servers'] ?? [];
+        $server = $data['server'] ?? '';
 
         return new SiteDTO(
             domain: is_string($domain) ? $domain : '',
             repo: is_string($repo) ? $repo : '',
             branch: is_string($branch) ? $branch : '',
-            servers: is_array($servers) ? array_values(array_filter($servers, is_string(...))) : [],
+            server: is_string($server) ? $server : '',
         );
     }
 }
