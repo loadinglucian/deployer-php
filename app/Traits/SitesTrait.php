@@ -110,18 +110,12 @@ trait SitesTrait
      */
     protected function displaySiteDeets(SiteDTO $site): void
     {
-        $details = ['Domain' => $site->domain];
-
-        if ($site->isLocal()) {
-            $details['Source'] = 'Local';
-        } else {
-            $details = [
-                ...$details,
-                'Source' => 'Git',
-                'Repo' => $site->repo,
-                'Branch' => $site->branch,
-            ];
-        }
+        $details = [
+            'Domain' => $site->domain,
+            'Source' => 'Git',
+            'Repo' => $site->repo,
+            'Branch' => $site->branch,
+        ];
 
         if (count($site->servers) > 1) {
             $details['Servers'] = $site->servers;
