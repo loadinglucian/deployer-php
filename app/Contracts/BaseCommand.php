@@ -11,6 +11,7 @@ use Bigpixelrocket\DeployerPHP\Services\DigitalOceanService;
 use Bigpixelrocket\DeployerPHP\Services\EnvService;
 use Bigpixelrocket\DeployerPHP\Services\FilesystemService;
 use Bigpixelrocket\DeployerPHP\Services\GitService;
+use Bigpixelrocket\DeployerPHP\Services\HttpService;
 use Bigpixelrocket\DeployerPHP\Services\InventoryService;
 use Bigpixelrocket\DeployerPHP\Services\IOService;
 use Bigpixelrocket\DeployerPHP\Services\ProcessService;
@@ -43,6 +44,7 @@ abstract class BaseCommand extends Command
         protected readonly EnvService $env,
         protected readonly FilesystemService $fs,
         protected readonly GitService $git,
+        protected readonly HttpService $http,
         protected readonly InventoryService $inventory,
         protected readonly IOService $io,
         protected readonly ProcessService $proc,

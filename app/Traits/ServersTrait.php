@@ -255,9 +255,37 @@ trait ServersTrait
                 $versions = $info['php']['versions'];
                 $defaultVersion = $info['php']['default'] ?? null;
 
-                foreach ($versions as $version) {
-                    if (is_string($version) || is_numeric($version)) {
+                foreach ($versions as $versionData) {
+                    // Handle both old format (string) and new format (array with version/extensions)
+                    if (is_array($versionData) && isset($versionData['version'])) {
+                        /** @var string|int|float */
+                        $version = $versionData['version'];
                         $versionStr = (string) $version;
+                        $extensions = $versionData['extensions'] ?? [];
+
+                        // Build version line with extensions
+                        $isDefault = false;
+                        if ($defaultVersion !== null && (is_string($defaultVersion) || is_numeric($defaultVersion))) {
+                            /** @var string|int|float $defaultVersion */
+                            $isDefault = $versionStr === (string) $defaultVersion;
+                        }
+
+                        $versionLine = "PHP {$versionStr}";
+                        if ($isDefault) {
+                            $versionLine .= ' <fg=green>(default)</>';
+                        }
+
+                        // Add extensions if available
+                        if (is_array($extensions) && count($extensions) > 0) {
+                            $extCount = count($extensions);
+                            $extList = implode(', ', $extensions);
+                            $versionLine .= " with {$extCount} extensions: {$extList}";
+                        }
+
+                        $phpItems[] = $versionLine;
+                    } elseif (is_string($versionData) || is_numeric($versionData)) {
+                        // Fallback for old format (simple string/numeric version)
+                        $versionStr = (string) $versionData;
                         if ($defaultVersion !== null && (is_string($defaultVersion) || is_numeric($defaultVersion))) {
                             /** @var string|int|float $defaultVersion */
                             $isDefault = $versionStr === (string) $defaultVersion;
@@ -390,102 +418,6 @@ trait ServersTrait
         $hours = floor(($seconds % 86400) / 3600);
 
         return "{$days}d {$hours}h";
-    }
-
-    /**
-     * Install PHP on a server.
-     *
-     * Prompts for PHP version selection and handles installation via playbook.
-     * Automatically sets first PHP install as default, otherwise prompts user.
-     *
-     * @param ServerDTO $server Server to install PHP on
-     * @param array<string, mixed> $info Server information from serverInfo()
-     * @return array{status: int, php_version: string, php_default: bool}|int Returns array with status and values, or int on failure
-     */
-    protected function installPhp(ServerDTO $server, array $info): array|int
-    {
-        $phpVersions = ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5'];
-
-        //
-        // Extract installed PHP versions
-        // ----
-
-        $installedPhpVersions = [];
-        if (isset($info['php']) && is_array($info['php']) && isset($info['php']['versions']) && is_array($info['php']['versions'])) {
-            foreach ($info['php']['versions'] as $version) {
-                if (is_string($version) || is_numeric($version)) {
-                    $installedPhpVersions[] = (string) $version;
-                }
-            }
-        }
-
-        //
-        // Prompt for version to install
-        // ----
-
-        $phpVersion = (string) $this->io->getOptionOrPrompt(
-            'php-version',
-            fn () => $this->io->promptSelect(
-                label: 'PHP version:',
-                options: $phpVersions,
-                default: '8.4'
-            )
-        );
-
-        //
-        // Determine if setting as default
-        // ----
-
-        if (count($installedPhpVersions) === 0) {
-            // First PHP install - automatically set as default
-            $setAsDefault = true;
-        } else {
-            // PHP already installed - ask user
-            $setAsDefault = (bool) $this->io->getOptionOrPrompt(
-                'php-default',
-                fn () => $this->io->promptConfirm(
-                    label: "Set PHP {$phpVersion} as default?",
-                    default: false
-                )
-            );
-        }
-
-        //
-        // Execute installation playbook
-        // ----
-
-        /** @var string $distro */
-        $distro = $info['distro'];
-        /** @var string $permissions */
-        $permissions = $info['permissions'];
-
-        $result = $this->executePlaybook(
-            $server,
-            'server-install-php',
-            "Installing PHP {$phpVersion}...",
-            [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-                'DEPLOYER_PHP_VERSION' => $phpVersion,
-                'DEPLOYER_PHP_SET_DEFAULT' => $setAsDefault ? 'true' : 'false',
-            ],
-            true
-        );
-
-        if (is_int($result)) {
-            $this->io->error('PHP installation failed');
-
-            return Command::FAILURE;
-        }
-
-        $defaultStatus = $setAsDefault ? ' (set as default)' : '';
-        $this->yay("PHP {$phpVersion} installed successfully{$defaultStatus}");
-
-        return [
-            'status' => Command::SUCCESS,
-            'php_version' => $phpVersion,
-            'php_default' => $setAsDefault,
-        ];
     }
 
     //

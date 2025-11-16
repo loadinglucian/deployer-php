@@ -39,7 +39,7 @@ export DEBIAN_FRONTEND=noninteractive
 # ----
 
 main() {
-    echo "✓ Starting..."
+    echo "→ Starting..."
 
     # Tasks go here
 
@@ -69,7 +69,7 @@ main "$@"
 Use `DEPLOYER_` prefix. Standard variables:
 
 - `DEPLOYER_OUTPUT_FILE` - YAML output path (provided automatically)
-- `DEPLOYER_DISTRO` - Distribution: `debian|redhat|amazon` (if needed)
+- `DEPLOYER_DISTRO` - Distribution: `ubuntu|debian` (if needed)
 - `DEPLOYER_PERMS` - Permissions: `root|sudo|none` (if needed)
 
 **Validation:**
@@ -78,24 +78,26 @@ Detection playbooks only validate `DEPLOYER_OUTPUT_FILE`. Provisioning playbooks
 
 ### Distribution Support
 
-Support Debian, RedHat, Amazon Linux. Use `case` statements for package operations:
+Support Ubuntu and Debian only (both use apt package manager). Use `case` statements when Ubuntu/Debian need different package names or configurations:
 
 ```bash
-# ✅ CORRECT - case statement for package managers
+# ✅ CORRECT - case statement when distributions differ
 case $DEPLOYER_DISTRO in
-    debian)
-        run_cmd apt-get update -q
-        run_cmd apt-get install -y -q "$package"
+    ubuntu)
+        distro_packages=(software-properties-common)
+        run_cmd apt-get install -y "${distro_packages[@]}"
         ;;
-    redhat|amazon)
-        run_cmd yum install -y -q "$package"
+    debian)
+        distro_packages=(apt-transport-https lsb-release ca-certificates)
+        run_cmd apt-get install -y "${distro_packages[@]}"
         ;;
 esac
 
-# ❌ WRONG - Unnecessary branching for universal operations
+# ❌ WRONG - Unnecessary branching for identical operations
 case $DEPLOYER_DISTRO in
-    debian|redhat|amazon)
-        run_cmd systemctl start service  # Same everywhere!
+    ubuntu|debian)
+        run_cmd apt-get update -q  # Same for both!
+        run_cmd apt-get install -y -q caddy  # Same for both!
         ;;
 esac
 ```
@@ -103,6 +105,8 @@ esac
 **Universal operations (no branching needed):**
 
 ```bash
+run_cmd apt-get update -q
+run_cmd apt-get install -y -q caddy
 run_cmd systemctl start caddy
 run_cmd systemctl enable caddy
 run_cmd mkdir -p /var/www/app
@@ -136,9 +140,22 @@ if ! systemctl is-enabled --quiet caddy; then
     run_cmd systemctl enable --quiet caddy
 fi
 
+# For config files that may exist (from packages), check for custom content markers
+if ! grep -q "import conf.d/localhost.caddy" /etc/caddy/Caddyfile 2> /dev/null; then
+    echo "→ Creating Caddyfile with custom configuration..."
+    run_cmd tee /etc/caddy/Caddyfile > /dev/null <<- 'EOF'
+        # ... custom config with marker ...
+    EOF
+fi
+
 # ❌ WRONG - Not idempotent
 run_cmd useradd deployer  # Fails second time
 echo "export PATH=\$PATH:/usr/local/bin" >> ~/.bashrc  # Duplicates each run
+
+# ❌ WRONG - File existence check when package installs default config
+if ! run_cmd test -f /etc/caddy/Caddyfile; then
+    # This will never run if package created a default file!
+fi
 ```
 
 ### Error Handling
@@ -157,7 +174,7 @@ fi
 
 # Silent checks (expected to sometimes fail)
 if ! command -v nginx >/dev/null 2>&1; then
-    echo "✓ Installing nginx..."
+    echo "→ Installing nginx..."
     run_cmd apt-get install -y -q nginx
 fi
 
@@ -190,6 +207,22 @@ run_cmd() {
 
 The `-n` flag ensures sudo fails fast without prompting for a password, maintaining non-interactive operation.
 
+**Sourcing Shared Helpers:**
+
+Playbooks use shared helper functions from `helpers.sh`. These helpers are automatically inlined when executing playbooks remotely, so playbooks should include a commented source line:
+
+```bash
+# Shared helpers are automatically inlined when executing playbooks remotely
+# source "$(dirname "$0")/helpers.sh"
+```
+
+**Rules:**
+
+- NEVER manually inline helpers into playbook files
+- Keep the commented source line for documentation
+- Helpers are inlined automatically during remote execution
+- The comment pattern allows local testing if needed while documenting the dependency
+
 ### Output
 
 Write YAML to `$DEPLOYER_OUTPUT_FILE`. Progress messages to stdout/stderr.
@@ -197,9 +230,9 @@ Write YAML to `$DEPLOYER_OUTPUT_FILE`. Progress messages to stdout/stderr.
 **Pattern:**
 
 ```bash
-# Progress messages (stdout)
-echo "✓ Processing..."
-echo "✓ Task complete"
+# Action messages (stdout) - indicate what's about to happen
+echo "→ Installing packages..."
+echo "→ Configuring service..."
 
 # YAML output to file (check for errors)
 if ! cat > "$DEPLOYER_OUTPUT_FILE" <<EOF; then
@@ -218,11 +251,45 @@ if ! some_command; then
 fi
 ```
 
-**Progress indicators:**
+**Action Messages:**
 
-- `✓` for success messages
-- `✗` for failure messages (before exit)
-- Never write progress to output file
+Use `→` (Unicode rightwards arrow U+2192) to indicate an operation is about to start. Messages describe what's about to happen, not what happened. Keep concise and action-oriented. Be explicit: include paths, package names, versions, or identifiers.
+
+```bash
+# ✅ CORRECT - Explicit details (path, package name, repository name)
+echo "→ Creating /var/www/app directory..."
+echo "→ Installing PHP 8.3..."
+echo "→ Adding Caddy GPG key..."
+
+# ❌ WRONG - Too generic
+echo "→ Creating directory..."
+echo "→ Installing package..."
+echo "→ Adding key..."
+
+# ✅ CORRECT - Unconditional operations (always run)
+echo "→ Updating package lists..."
+if ! apt_get_with_retry update; then
+    echo "Error: Failed to update package lists" >&2
+    exit 1
+fi
+
+# ✅ CORRECT - Conditional operations (message INSIDE block, only when needed)
+if ! [[ -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg ]]; then
+    echo "→ Adding Caddy GPG key..."
+    if ! curl -1sLf 'https://example.com/key.gpg' | run_cmd gpg --batch --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg; then
+        echo "Error: Failed to add Caddy GPG key" >&2
+        exit 1
+    fi
+fi
+
+# ❌ WRONG - Message outside conditional (shows even when nothing happens)
+echo "→ Configuring Caddy repository..."
+if ! [[ -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg ]]; then
+    # GPG key logic...
+fi
+```
+
+**Rules:** Be explicit with paths/names/versions. Place messages INSIDE conditional blocks for idempotent operations, OUTSIDE only for operations that always run. Never write progress to output file. See: `playbooks/package-manager.sh`
 
 ### Complete Example
 
@@ -256,26 +323,19 @@ run_cmd() {
 main() {
     local caddy_version
 
-    echo "✓ Installing Caddy..."
     if ! command -v caddy >/dev/null 2>&1; then
-        case $DEPLOYER_DISTRO in
-            debian)
-                run_cmd apt-get update -q
-                run_cmd apt-get install -y -q caddy
-                ;;
-            redhat|amazon)
-                run_cmd yum install -y -q caddy
-                ;;
-        esac
+        echo "→ Installing Caddy web server..."
+        run_cmd apt-get update -q
+        run_cmd apt-get install -y -q caddy
     fi
 
-    echo "✓ Creating directory..."
     if [[ ! -d /var/www/app ]]; then
+        echo "→ Creating /var/www/app directory..."
         run_cmd mkdir -p /var/www/app
     fi
 
-    echo "✓ Enabling service..."
     if ! systemctl is-enabled --quiet caddy; then
+        echo "→ Enabling Caddy service..."
         run_cmd systemctl enable --quiet caddy
     fi
 
