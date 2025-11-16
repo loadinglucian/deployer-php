@@ -71,7 +71,7 @@ class SiteAddCommand extends BaseCommand
             domain: $domain,
             repo: $repo,
             branch: $branch,
-            servers: [$server->name]
+            server: $server->name
         );
 
         $this->displaySiteDeets($site);
