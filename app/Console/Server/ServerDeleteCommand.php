@@ -82,6 +82,19 @@ class ServerDeleteCommand extends BaseCommand
         }
 
         //
+        // Prepare site deletion info
+        // ----
+
+        $siteCount = count($serverSites);
+        $hasSites = $siteCount > 0;
+        $sitesList = '';
+
+        if ($hasSites) {
+            $siteDomains = array_map(fn ($site) => $site->domain, $serverSites);
+            $sitesList = implode(', ', $siteDomains);
+        }
+
+        //
         // Display warning for cloud provider servers
         // ----
 
@@ -93,18 +106,12 @@ class ServerDeleteCommand extends BaseCommand
             $this->io->writeln('  • Destroy the droplet on DigitalOcean');
             $this->io->writeln('  • Remove the server from inventory');
 
-            if (count($serverSites) > 0) {
-                $siteCount = count($serverSites);
-                $siteDomains = array_map(fn ($site) => $site->domain, $serverSites);
-                $sitesList = implode(', ', $siteDomains);
+            if ($hasSites) {
                 $this->io->writeln("  • Delete {$siteCount} associated site(s): {$sitesList}");
             }
 
             $this->io->writeln('');
-        } elseif (count($serverSites) > 0) {
-            $siteCount = count($serverSites);
-            $siteDomains = array_map(fn ($site) => $site->domain, $serverSites);
-            $sitesList = implode(', ', $siteDomains);
+        } elseif ($hasSites) {
             $this->io->warning('This will:');
             $this->io->writeln('  • Remove the server from inventory');
             $this->io->writeln("  • Delete {$siteCount} associated site(s): {$sitesList}");
@@ -189,12 +196,11 @@ class ServerDeleteCommand extends BaseCommand
         // Delete associated sites
         // ----
 
-        if (count($serverSites) > 0) {
+        if ($hasSites) {
             foreach ($serverSites as $site) {
                 $this->sites->delete($site->domain);
             }
 
-            $siteCount = count($serverSites);
             $sitesText = $siteCount === 1 ? 'site' : 'sites';
             $this->yay("Deleted {$siteCount} associated {$sitesText}");
         }
