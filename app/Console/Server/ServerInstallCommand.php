@@ -205,7 +205,8 @@ class ServerInstallCommand extends BaseCommand
 
         // IPv6 addresses must be wrapped in brackets for URLs
         $host = $server->host;
-        if (str_contains($host, ':') && $host !== '::1') {
+        if (str_contains($host, ':')) {
+            // Any IPv6 literal must be wrapped in brackets
             $url = "http://[{$host}]";
         } else {
             $url = "http://{$host}";
@@ -358,10 +359,13 @@ class ServerInstallCommand extends BaseCommand
 
         // Handle both array (from prompt) and string (from CLI option)
         if (is_string($selectedExtensions)) {
-            $selectedExtensions = array_map(trim(...), explode(',', $selectedExtensions));
+            $selectedExtensions = array_filter(
+                array_map(trim(...), explode(',', $selectedExtensions)),
+                static fn (string $ext): bool => $ext !== ''
+            );
         }
 
-        if (!is_array($selectedExtensions) || empty($selectedExtensions)) {
+        if (!is_array($selectedExtensions) || $selectedExtensions === []) {
             $this->io->error('At least one extension must be selected');
 
             return Command::FAILURE;
@@ -451,51 +455,53 @@ class ServerInstallCommand extends BaseCommand
      */
     private function verifyInstallation(string $url, ?string $deployKey): array
     {
-        try {
-            $result = $this->http->verifyUrl($url);
+        $result = $this->http->verifyUrl($url);
 
-            if (!$result['success']) {
+        if (!$result['success']) {
+            // Network errors return status_code: 0
+            if (0 === $result['status_code']) {
                 return [
                     'status' => 'warning',
-                    'message' => "Demo site returned HTTP {$result['status_code']} (expected 200)",
+                    'message' => "Could not connect to demo site: {$result['body']}",
                     'lines' => [],
                 ];
             }
 
-            if (!str_contains($result['body'], 'hello, world')) {
-                return [
-                    'status' => 'warning',
-                    'message' => 'Demo site is responding but content verification failed',
-                    'lines' => [],
-                ];
-            }
-
-            $nextSteps = [
-                'Next steps:',
-                '  • Caddy running at <fg=cyan>' . $url . '</>',
-                '  • Run <fg=cyan>site:add</> to deploy your first application',
-            ];
-
-            if ($deployKey !== null) {
-                $nextSteps[] = '  • Add this key to your Git provider (GitHub, GitLab, etc.) to enable deployments:';
-                $nextSteps[] = '';
-                $nextSteps[] = '<fg=cyan>' . $deployKey . '</>';
-            }
-
-            $nextSteps[] = '';
-
-            return [
-                'status' => 'success',
-                'message' => 'Server installation completed successfully',
-                'lines' => $nextSteps,
-            ];
-        } catch (\Throwable $e) {
+            // HTTP protocol errors (got response but wrong status code)
             return [
                 'status' => 'warning',
-                'message' => 'Could not verify demo site: ' . $e->getMessage(),
+                'message' => "Demo site returned HTTP {$result['status_code']} (expected 200)",
                 'lines' => [],
             ];
         }
+
+        if (!str_contains($result['body'], 'hello, world')) {
+            return [
+                'status' => 'warning',
+                'message' => 'Demo site is responding but content verification failed',
+                'lines' => [],
+            ];
+        }
+
+        $nextSteps = [
+            'Next steps:',
+            '  • Caddy running at <fg=cyan>' . $url . '</>',
+            '  • Run <fg=cyan>site:add</> to deploy your first application',
+        ];
+
+        if ($deployKey !== null) {
+            $nextSteps[] = '  • Add this key to your Git provider (GitHub, GitLab, etc.) to enable deployments:';
+            $nextSteps[] = '';
+            $nextSteps[] = '<fg=cyan>' . $deployKey . '</>';
+        }
+
+        $nextSteps[] = '';
+
+        return [
+            'status' => 'success',
+            'message' => 'Server installation completed successfully',
+            'lines' => $nextSteps,
+        ];
     }
 
 }

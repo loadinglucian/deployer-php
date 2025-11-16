@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bigpixelrocket\DeployerPHP\Services;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 
 /**
  * HTTP client service.
@@ -30,12 +31,20 @@ class HttpService
      */
     public function verifyUrl(string $url): array
     {
-        $response = $this->client->get($url);
+        try {
+            $response = $this->client->get($url);
 
-        return [
-            'success' => $response->getStatusCode() === 200,
-            'status_code' => $response->getStatusCode(),
-            'body' => (string) $response->getBody(),
-        ];
+            return [
+                'success' => $response->getStatusCode() === 200,
+                'status_code' => $response->getStatusCode(),
+                'body' => (string) $response->getBody(),
+            ];
+        } catch (GuzzleException $e) {
+            return [
+                'success' => false,
+                'status_code' => 0,
+                'body' => $e->getMessage(),
+            ];
+        }
     }
 }
