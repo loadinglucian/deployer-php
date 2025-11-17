@@ -34,7 +34,7 @@ trait SitesTrait
     /**
      * Display a warning to add a site if no sites are available. Otherwise, return all sites.
      *
-     * @param array<int, SiteDTO>|null $sites Optional pre-fetched sites; if null, fetches from repository
+     * @param  array<int, SiteDTO>|null  $sites  Optional pre-fetched sites; if null, fetches from repository
      * @return array<int, SiteDTO>|int Returns array of sites or Command::SUCCESS if no sites available
      */
     protected function ensureSitesAvailable(?array $sites = null): array|int
@@ -64,7 +64,7 @@ trait SitesTrait
     /**
      * Select a site from inventory by domain option or interactive prompt.
      *
-     * @param array<int, SiteDTO>|null $sites Optional pre-fetched sites; if null, fetches from repository
+     * @param  array<int, SiteDTO>|null  $sites  Optional pre-fetched sites; if null, fetches from repository
      * @return SiteDTO|int Returns SiteDTO on success, or Command::SUCCESS if empty inventory, or Command::FAILURE if not found
      */
     protected function selectSite(?array $sites = null): SiteDTO|int
@@ -133,13 +133,13 @@ trait SitesTrait
      */
     protected function validateSiteDomain(mixed $domain): ?string
     {
-        if (!is_string($domain)) {
+        if (! is_string($domain)) {
             return 'Domain must be a string';
         }
 
         // Check format
         $isValid = filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
-        if (!$isValid) {
+        if (! $isValid) {
             return 'Must be a valid domain name (e.g., example.com, subdomain.example.com)';
         }
 
@@ -159,7 +159,7 @@ trait SitesTrait
      */
     protected function validateSiteBranch(mixed $branch): ?string
     {
-        if (!is_string($branch)) {
+        if (! is_string($branch)) {
             return 'Branch name must be a string';
         }
 
@@ -177,7 +177,7 @@ trait SitesTrait
      */
     protected function validateSiteRepo(mixed $repo): ?string
     {
-        if (!is_string($repo)) {
+        if (! is_string($repo)) {
             return 'Repository URL must be a string';
         }
 
@@ -197,10 +197,26 @@ trait SitesTrait
             }
         }
 
-        if (!$hasValidPrefix) {
+        if (! $hasValidPrefix) {
             return 'Repository URL must start with git@, https://, http://, or ssh://';
         }
 
         return null;
+    }
+
+    /**
+     * Get the remote root path for a site.
+     */
+    protected function getSiteRootPath(SiteDTO $site): string
+    {
+        return '/home/deployer/sites/'.$site->domain;
+    }
+
+    /**
+     * Get the remote shared directory path for a site.
+     */
+    protected function getSiteSharedPath(SiteDTO $site): string
+    {
+        return $this->getSiteRootPath($site).'/shared';
     }
 }

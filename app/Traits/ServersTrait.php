@@ -41,7 +41,7 @@ trait ServersTrait
      * Automatically displays server info and validates that the server is running a supported distribution (Debian/Ubuntu)
      * and has sufficient permissions (root or sudo).
      *
-     * @param ServerDTO $server Server to get information for
+     * @param  ServerDTO  $server  Server to get information for
      * @return array<string, mixed>|int Returns parsed server info or failure code on failure
      */
     protected function serverInfo(ServerDTO $server): array|int
@@ -73,7 +73,7 @@ trait ServersTrait
     /**
      * Validate that server is running a supported distribution.
      *
-     * @param array<string, mixed> $info Server information array from server-info playbook
+     * @param  array<string, mixed>  $info  Server information array from server-info playbook
      * @return array<string, mixed>|int Returns validated server info or failure code
      */
     protected function validateServerDistribution(array $info): array|int
@@ -90,7 +90,7 @@ trait ServersTrait
 
         $distroName = $distribution->displayName();
 
-        if (!$distribution->isSupported()) {
+        if (! $distribution->isSupported()) {
             $this->nay("Unsupported distribution: {$distroName}. Only Debian and Ubuntu are supported.");
 
             return Command::FAILURE;
@@ -102,14 +102,14 @@ trait ServersTrait
     /**
      * Validate that server has sufficient permissions (root or sudo).
      *
-     * @param array<string, mixed> $info Server information array from server-info playbook
+     * @param  array<string, mixed>  $info  Server information array from server-info playbook
      * @return array<string, mixed>|int Returns validated server info or failure code
      */
     protected function validateServerPermissions(array $info): array|int
     {
         $permissions = $info['permissions'] ?? null;
 
-        if (!is_string($permissions) || !in_array($permissions, ['root', 'sudo'])) {
+        if (! is_string($permissions) || ! in_array($permissions, ['root', 'sudo'])) {
             $this->nay('Server requires root or passwordless sudo permissions');
             $this->io->writeln([
                 '',
@@ -130,7 +130,7 @@ trait ServersTrait
     /**
      * Display formatted server information.
      *
-     * @param array<string, mixed> $info
+     * @param  array<string, mixed>  $info
      */
     protected function displayServerInfo(array $info): void
     {
@@ -310,7 +310,7 @@ trait ServersTrait
         // Display PHP-FPM information if available (multiple versions)
         if (isset($info['php_fpm']) && is_array($info['php_fpm']) && count($info['php_fpm']) > 0) {
             foreach ($info['php_fpm'] as $version => $fpmData) {
-                if (!is_array($fpmData) || !is_string($version)) {
+                if (! is_array($fpmData) || ! is_string($version)) {
                     continue;
                 }
 
@@ -427,7 +427,7 @@ trait ServersTrait
     /**
      * Display a warning to add a server if no servers are available. Otherwise, return all servers.
      *
-     * @param array<int, ServerDTO>|null $servers Optional pre-fetched servers; if null, fetches from repository
+     * @param  array<int, ServerDTO>|null  $servers  Optional pre-fetched servers; if null, fetches from repository
      * @return array<int, ServerDTO>|int Returns array of servers or Command::FAILURE if no servers available
      */
     protected function ensureServersAvailable(?array $servers = null): array|int
@@ -458,7 +458,7 @@ trait ServersTrait
     /**
      * Select a server from inventory by name option or interactive prompt.
      *
-     * @param array<int, ServerDTO>|null $servers Optional pre-fetched servers; if null, fetches from repository
+     * @param  array<int, ServerDTO>|null  $servers  Optional pre-fetched servers; if null, fetches from repository
      * @return ServerDTO|int Returns ServerDTO on success, or Command::FAILURE on error
      */
     protected function selectServer(?array $servers = null): ServerDTO|int
@@ -527,6 +527,22 @@ trait ServersTrait
     }
 
     /**
+     * Resolve the server associated with a site, handling error output.
+     */
+    protected function getServerForSite(SiteDTO $site): ServerDTO|int
+    {
+        $server = $this->servers->findByName($site->server);
+
+        if ($server === null) {
+            $this->nay("Server '{$site->server}' not found in inventory");
+
+            return Command::FAILURE;
+        }
+
+        return $server;
+    }
+
+    /**
      * Verify SSH connection to a server with proper error handling.
      *
      * Differentiates between fatal errors (authentication/key issues) and non-fatal
@@ -563,8 +579,8 @@ trait ServersTrait
             $this->io->writeln([
                 '',
                 '<fg=yellow>The server will be added to the inventory regardless. You can either:</>',
-                '  • Wait a minute and run <fg=cyan>server:info --server=' . $server->name . '</> to check again',
-                '  • Or run <fg=cyan>server:install --server=' . $server->name . '</> to install software when ready',
+                '  • Wait a minute and run <fg=cyan>server:info --server='.$server->name.'</> to check again',
+                '  • Or run <fg=cyan>server:install --server='.$server->name.'</> to install software when ready',
                 '',
             ]);
 
@@ -589,13 +605,13 @@ trait ServersTrait
     // ----
 
     /**
-         * Validate server name format and uniqueness.
-         *
-         * @return string|null Error message if invalid, null if valid
-         */
+     * Validate server name format and uniqueness.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
     protected function validateServerName(mixed $name): ?string
     {
-        if (!is_string($name)) {
+        if (! is_string($name)) {
             return 'Server name must be a string';
         }
 
@@ -605,7 +621,7 @@ trait ServersTrait
         }
 
         // Validate format: alphanumeric, hyphens, underscores only
-        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $name)) {
+        if (! preg_match('/^[a-zA-Z0-9_-]+$/', $name)) {
             return 'Server name can only contain letters, numbers, hyphens, and underscores';
         }
 
@@ -625,7 +641,7 @@ trait ServersTrait
      */
     protected function validateServerHost(mixed $host): ?string
     {
-        if (!is_string($host)) {
+        if (! is_string($host)) {
             return 'Host must be a string';
         }
 
@@ -633,7 +649,7 @@ trait ServersTrait
         $isValidIp = filter_var($host, FILTER_VALIDATE_IP) !== false;
         $isValidDomain = filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
 
-        if (!$isValidIp && !$isValidDomain) {
+        if (! $isValidIp && ! $isValidDomain) {
             return 'Must be a valid IP address or domain name (e.g., 192.168.1.100, example.com)';
         }
 
@@ -653,11 +669,11 @@ trait ServersTrait
      */
     protected function validateServerPort(mixed $portString): ?string
     {
-        if (!is_string($portString)) {
+        if (! is_string($portString)) {
             return 'Port must be a string';
         }
 
-        if (!ctype_digit($portString)) {
+        if (! ctype_digit($portString)) {
             return 'Port must be a number';
         }
 
@@ -668,5 +684,4 @@ trait ServersTrait
 
         return null;
     }
-
 }
