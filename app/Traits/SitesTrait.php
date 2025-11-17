@@ -78,15 +78,13 @@ trait SitesTrait
             return $allSites;
         }
 
-        $optionName = $this->getDefinition()->hasOption('site') ? 'site' : 'domain';
-
         //
         // Extract site domains and prompt for selection
 
         $siteDomains = array_map(fn (SiteDTO $site) => $site->domain, $allSites);
 
         $domain = (string) $this->io->getOptionOrPrompt(
-            $optionName,
+            'domain',
             fn () => $this->io->promptSelect(
                 label: 'Select site:',
                 options: $siteDomains,

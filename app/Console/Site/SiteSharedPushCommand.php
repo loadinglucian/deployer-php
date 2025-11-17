@@ -7,6 +7,7 @@ namespace Bigpixelrocket\DeployerPHP\Console\Site;
 use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
 use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
 use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
+use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
 use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
 use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -21,18 +22,27 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class SiteSharedPushCommand extends BaseCommand
 {
+    use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
+
+    // ----
+    // Configuration
+    // ----
 
     protected function configure(): void
     {
         parent::configure();
 
         $this
-            ->addOption('site', null, InputOption::VALUE_REQUIRED, 'Site domain')
+            ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain')
             ->addOption('local', null, InputOption::VALUE_REQUIRED, 'Local file path to upload')
             ->addOption('remote', null, InputOption::VALUE_REQUIRED, 'Remote filename (relative to shared/)');
     }
+
+    // ----
+    // Execution
+    // ----
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
@@ -40,15 +50,41 @@ class SiteSharedPushCommand extends BaseCommand
 
         $this->heading('Upload Shared File');
 
+        //
+        // Select site
+        // ----
+
         $site = $this->selectSite();
         if (is_int($site)) {
             return $site;
         }
 
+        $this->displaySiteDeets($site);
+
+        //
+        // Get server for site
+        // ----
+
         $server = $this->getServerForSite($site);
         if (is_int($server)) {
             return $server;
         }
+
+        $this->displayServerDeets($server);
+
+        //
+        // Verify server connection
+        // ----
+
+        $info = $this->serverInfo($server);
+
+        if (is_int($info)) {
+            return $info;
+        }
+
+        //
+        // Resolve paths
+        // ----
 
         $localPath = $this->resolveLocalPath();
         if ($localPath === null) {
@@ -62,6 +98,10 @@ class SiteSharedPushCommand extends BaseCommand
 
         $remotePath = $this->buildSharedPath($site, $remoteRelative);
         $remoteDir = dirname($remotePath);
+
+        //
+        // Upload file
+        // ----
 
         $this->io->info("Uploading <fg=cyan>{$localPath}</> to <fg=cyan>{$remotePath}</>");
         $this->io->writeln('');
@@ -85,14 +125,22 @@ class SiteSharedPushCommand extends BaseCommand
 
         $this->yay('Shared file uploaded');
 
+        //
+        // Show command replay
+        // ----
+
         $this->showCommandReplay('site:shared:push', [
-            'site' => $site->domain,
+            'domain' => $site->domain,
             'local' => $localPath,
             'remote' => $remoteRelative,
         ]);
 
         return Command::SUCCESS;
     }
+
+    // ----
+    // Helpers
+    // ----
 
     private function resolveLocalPath(): ?string
     {
