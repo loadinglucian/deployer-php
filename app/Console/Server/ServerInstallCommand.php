@@ -6,7 +6,6 @@ namespace Bigpixelrocket\DeployerPHP\Console\Server;
 
 use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
 use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Enums\Distribution;
 use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
 use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -17,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'server:install',
-    description: 'Install and prepare server for hosting PHP applications'
+    description: 'Install the server so it can host PHP applications'
 )]
 class ServerInstallCommand extends BaseCommand
 {

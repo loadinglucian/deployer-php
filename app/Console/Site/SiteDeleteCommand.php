@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Bigpixelrocket\DeployerPHP\Console\Site;
 
 use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
+use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
+use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
 use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -12,9 +14,14 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'site:delete', description: 'Delete a site from the inventory')]
+#[AsCommand(
+    name: 'site:delete',
+    description: 'Remove a site from the server and delete it from the inventory'
+)]
 class SiteDeleteCommand extends BaseCommand
 {
+    use PlaybooksTrait;
+    use ServersTrait;
     use SitesTrait;
 
     // ----
@@ -26,7 +33,7 @@ class SiteDeleteCommand extends BaseCommand
         parent::configure();
 
         $this
-            ->addOption('site', null, InputOption::VALUE_REQUIRED, 'Site domain')
+            ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Domain name')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the site domain to confirm')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
     }
@@ -92,19 +99,92 @@ class SiteDeleteCommand extends BaseCommand
         }
 
         //
+        // Attempt to remove site from server
+        // ----
+
+        $removedFromServer = false;
+        $server = $this->servers->findByName($site->server);
+
+        if ($server === null) {
+            $this->io->warning("Server '{$site->server}' not found in inventory");
+            $this->io->writeln([
+                '',
+                '<fg=yellow>The server may have been deleted.</>',
+                '',
+            ]);
+        } else {
+            // Get server info (verifies SSH connection)
+            $info = $this->serverInfo($server);
+
+            if (is_int($info)) {
+                $this->io->warning('Could not connect to server');
+            } else {
+                [
+                    'distro' => $distro,
+                    'permissions' => $permissions,
+                ] = $info;
+
+                /** @var string $distro */
+                /** @var string $permissions */
+
+                // Execute site deletion playbook
+                $result = $this->executePlaybook(
+                    $server,
+                    'site-delete',
+                    'Removing site from server...',
+                    [
+                        'DEPLOYER_DISTRO' => $distro,
+                        'DEPLOYER_PERMS' => $permissions,
+                        'DEPLOYER_SITE_DOMAIN' => $site->domain,
+                    ],
+                    true
+                );
+
+                if (is_int($result)) {
+                    $this->io->warning('Failed to remove site from server');
+                } else {
+                    $removedFromServer = true;
+                }
+            }
+        }
+
+        //
+        // Confirm inventory deletion if server removal failed
+        // ----
+
+        if (!$removedFromServer) {
+            /** @var bool $proceedAnyway */
+            $proceedAnyway = $this->io->getOptionOrPrompt(
+                'yes',
+                fn (): bool => $this->io->promptConfirm(
+                    label: 'Remove site from inventory anyway?',
+                    default: false
+                )
+            );
+
+            if (!$proceedAnyway) {
+                return Command::FAILURE;
+            }
+        }
+
+        //
         // Delete site from inventory
         // ----
 
         $this->sites->delete($site->domain);
 
-        $this->yay("Site '{$site->domain}' deleted successfully");
+        if ($removedFromServer) {
+            $this->yay("Site '{$site->domain}' deleted successfully");
+        } else {
+            $this->yay("Site '{$site->domain}' deleted from inventory");
+        }
 
         //
         // Show command replay
         // ----
 
         $this->showCommandReplay('site:delete', [
-            'site' => $site->domain,
+            'domain' => $site->domain,
             'yes' => $confirmed,
             'force' => true,
         ]);

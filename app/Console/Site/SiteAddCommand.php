@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Bigpixelrocket\DeployerPHP\Console\Site;
 
 use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
 use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
+use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
 use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
 use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -15,9 +15,13 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'site:add', description: 'Add a new site to the inventory')]
+#[AsCommand(
+    name: 'site:add',
+    description: 'Set up a new site on the server and add it to the inventory'
+)]
 class SiteAddCommand extends BaseCommand
 {
+    use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
 
@@ -33,7 +37,8 @@ class SiteAddCommand extends BaseCommand
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Domain name')
             ->addOption('repo', null, InputOption::VALUE_REQUIRED, 'Git repository URL')
             ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'Git branch name')
-            ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
+            ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name')
+            ->addOption('php-version', null, InputOption::VALUE_REQUIRED, 'PHP version to use');
     }
 
     // ----
@@ -47,12 +52,62 @@ class SiteAddCommand extends BaseCommand
         $this->heading('Add New Site');
 
         //
+        // Select server
+        // ----
+
+        $server = $this->selectServer();
+
+        if (is_int($server)) {
+            return $server;
+        }
+
+        $this->displayServerDeets($server);
+
+        //
+        // Get server info (verifies SSH connection and validates distribution & permissions)
+        // ----
+
+        $info = $this->serverInfo($server);
+
+        if (is_int($info)) {
+            return $info;
+        }
+
+        [
+            'distro' => $distro,
+            'permissions' => $permissions,
+        ] = $info;
+
+        /** @var string $distro */
+        /** @var string $permissions */
+
+        //
+        // Validate server is ready for site provisioning
+        // ----
+
+        $validationResult = $this->validateServerReady($info);
+
+        if (is_int($validationResult)) {
+            return $validationResult;
+        }
+
+        //
+        // Select PHP version
+        // ----
+
+        $phpVersion = $this->selectPhpVersion($info);
+
+        if (is_int($phpVersion)) {
+            return $phpVersion;
+        }
+
+        //
         // Gather site details
         // ----
 
-        $deets = $this->gatherSiteDeets();
+        $siteInfo = $this->gatherSiteInfo();
 
-        if ($deets === null) {
+        if ($siteInfo === null) {
             return Command::FAILURE;
         }
 
@@ -60,8 +115,7 @@ class SiteAddCommand extends BaseCommand
             'domain' => $domain,
             'repo' => $repo,
             'branch' => $branch,
-            'server' => $server,
-        ] = $deets;
+        ] = $siteInfo;
 
         //
         // Display site details
@@ -75,6 +129,29 @@ class SiteAddCommand extends BaseCommand
         );
 
         $this->displaySiteDeets($site);
+
+        //
+        // Provision site on server
+        // ----
+
+        $result = $this->executePlaybook(
+            $server,
+            'site-add',
+            'Provisioning site...',
+            [
+                'DEPLOYER_DISTRO' => $distro,
+                'DEPLOYER_PERMS' => $permissions,
+                'DEPLOYER_SITE_DOMAIN' => $domain,
+                'DEPLOYER_PHP_VERSION' => $phpVersion,
+            ],
+            true
+        );
+
+        if (is_int($result)) {
+            return $result;
+        }
+
+        $this->yay('Site provisioned successfully');
 
         //
         // Save to inventory
@@ -91,6 +168,19 @@ class SiteAddCommand extends BaseCommand
         $this->yay('Site added to inventory');
 
         //
+        // Display next steps
+        // ----
+
+        $this->io->writeln([
+            '',
+            'Next steps:',
+            '  • Site is accessible at <fg=cyan>https://' . $domain . '</>',
+            '  • Update <fg=cyan>DNS records</> to point ' . $domain . ' to <fg=cyan>' . $server->host . '</>',
+            '  • Deploy your application with <fg=cyan>site:deploy</>',
+            '',
+        ]);
+
+        //
         // Show command replay
         // ----
 
@@ -99,9 +189,111 @@ class SiteAddCommand extends BaseCommand
             'repo' => $repo,
             'branch' => $branch,
             'server' => $server->name,
+            'php-version' => $phpVersion,
         ]);
 
         return Command::SUCCESS;
+    }
+
+    //
+    // Validation
+    // ----
+
+    /**
+     * Validate that server is ready for site provisioning.
+     *
+     * Checks for:
+     * - Caddy web server installed
+     * - PHP installed
+     *
+     * @param array<string, mixed> $info Server information from serverInfo()
+     * @return int|null Returns Command::FAILURE if validation fails, null if successful
+     */
+    private function validateServerReady(array $info): ?int
+    {
+        // Check if Caddy is installed
+        $caddyInstalled = isset($info['caddy']) && is_array($info['caddy']) && ($info['caddy']['available'] ?? false) === true;
+
+        // Check if PHP is installed
+        $phpInstalled = isset($info['php']) && is_array($info['php']) && isset($info['php']['versions']) && is_array($info['php']['versions']) && count($info['php']['versions']) > 0;
+
+        if (!$caddyInstalled || !$phpInstalled) {
+            $this->nay('Looks like the server was not installed as expected');
+            $this->io->writeln([
+                'Run <fg=cyan>server:install</> to install required software.',
+                '',
+            ]);
+
+            return Command::FAILURE;
+        }
+
+        return null;
+    }
+
+    /**
+     * Select PHP version to use for the site.
+     *
+     * If multiple PHP versions are installed, prompts user to select.
+     * If only one version is installed, uses that automatically.
+     *
+     * @param array<string, mixed> $info Server information from serverInfo()
+     * @return string|int Returns PHP version string or Command::FAILURE on error
+     */
+    private function selectPhpVersion(array $info): string|int
+    {
+        // Extract installed PHP versions
+        $installedPhpVersions = [];
+        if (isset($info['php']) && is_array($info['php']) && isset($info['php']['versions']) && is_array($info['php']['versions'])) {
+            foreach ($info['php']['versions'] as $version) {
+                // Handle both new format (array with version/extensions) and old format (string)
+                if (is_array($version) && isset($version['version'])) {
+                    /** @var string $versionStr */
+                    $versionStr = $version['version'];
+                    $installedPhpVersions[] = $versionStr;
+                } elseif (is_string($version) || is_numeric($version)) {
+                    $installedPhpVersions[] = (string) $version;
+                }
+            }
+        }
+
+        if (empty($installedPhpVersions)) {
+            $this->nay('No PHP versions found on server');
+
+            return Command::FAILURE;
+        }
+
+        // If only one version, use it automatically
+        if (count($installedPhpVersions) === 1) {
+            return $installedPhpVersions[0];
+        }
+
+        // Multiple versions available - prompt user to select
+        rsort($installedPhpVersions, SORT_NATURAL); // Newest first
+
+        /** @var array{default?: string|int|float}|null $phpInfo */
+        $phpInfo = $info['php'] ?? null;
+        $defaultVersion = is_array($phpInfo) ? ($phpInfo['default'] ?? null) : null;
+        $defaultVersionStr = $defaultVersion !== null ? (string) $defaultVersion : $installedPhpVersions[0];
+
+        $phpVersion = (string) $this->io->getOptionOrPrompt(
+            'php-version',
+            fn () => $this->io->promptSelect(
+                label: 'PHP version for this site:',
+                options: $installedPhpVersions,
+                default: $defaultVersionStr
+            )
+        );
+
+        // Validate CLI-provided version exists in available versions
+        if (!in_array($phpVersion, $installedPhpVersions, true)) {
+            $this->nay(
+                "PHP version {$phpVersion} is not installed on this server. Available: " . implode(', ', $installedPhpVersions)
+            );
+
+            return Command::FAILURE;
+        }
+
+        return $phpVersion;
     }
 
     // ----
@@ -111,24 +303,10 @@ class SiteAddCommand extends BaseCommand
     /**
      * Gather site details from user input or CLI options.
      *
-     * @return array{domain: string, repo: string, branch: string, server: ServerDTO}|null
+     * @return array{domain: string, repo: string, branch: string}|null
      */
-    protected function gatherSiteDeets(): ?array
+    protected function gatherSiteInfo(): ?array
     {
-        //
-        // Select server
-        // ----
-
-        $server = $this->selectServer();
-
-        if (is_int($server)) {
-            return null;
-        }
-
-        //
-        // Gather site details
-        // ----
-
         /** @var string|null $domain */
         $domain = $this->io->getValidatedOptionOrPrompt(
             'domain',
@@ -191,7 +369,6 @@ class SiteAddCommand extends BaseCommand
             'domain' => $domain,
             'repo' => $repo,
             'branch' => $branch,
-            'server' => $server,
         ];
     }
 }

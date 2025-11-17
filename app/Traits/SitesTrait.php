@@ -84,7 +84,7 @@ trait SitesTrait
         $siteDomains = array_map(fn (SiteDTO $site) => $site->domain, $allSites);
 
         $domain = (string) $this->io->getOptionOrPrompt(
-            'site',
+            'domain',
             fn () => $this->io->promptSelect(
                 label: 'Select site:',
                 options: $siteDomains,
