@@ -18,7 +18,7 @@ trait SiteSharedPathsTrait
         $cleaned = preg_replace('#/+#', '/', $cleaned);
 
         if ($cleaned === null) {
-            $this->nay('Remote filename is required.');
+            $this->nay('Failed to process path. Please check the path format.');
 
             return null;
         }
