@@ -45,4 +45,3 @@ trait SiteSharedPathsTrait
         return rtrim((string) $sharedRoot, '/').'/'.ltrim($relative, '/');
     }
 }
-
