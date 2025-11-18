@@ -4,22 +4,25 @@ declare(strict_types=1);
 
 namespace Bigpixelrocket\DeployerPHP\Traits;
 
+use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
 use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
 use Bigpixelrocket\DeployerPHP\Repositories\ServerRepository;
 use Bigpixelrocket\DeployerPHP\Repositories\SiteRepository;
 use Bigpixelrocket\DeployerPHP\Services\IOService;
 use Bigpixelrocket\DeployerPHP\Services\ProcessService;
+use Bigpixelrocket\DeployerPHP\Services\SSHService;
 use Symfony\Component\Console\Command\Command;
 
 /**
  * Reusable site things.
  *
- * Requires classes using this trait to have IOService, ProcessService, ServerRepository, and SiteRepository properties.
+ * Requires classes using this trait to have IOService, ProcessService, ServerRepository, SiteRepository, and SSHService properties.
  *
  * @property IOService $io
  * @property ProcessService $proc
  * @property ServerRepository $servers
  * @property SiteRepository $sites
+ * @property SSHService $ssh
  */
 trait SitesTrait
 {
@@ -199,6 +202,45 @@ trait SitesTrait
 
         if (! $hasValidPrefix) {
             return 'Repository URL must start with git@, https://, http://, or ssh://';
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate that site has been provisioned on the server.
+     *
+     * Checks for:
+     * - Site directory structure exists at /home/deployer/sites/{domain}
+     * - Caddy configuration file exists
+     *
+     * @return int|null Returns Command::FAILURE if validation fails, null if successful
+     */
+    protected function validateSiteProvisioned(ServerDTO $server, SiteDTO $site): ?int
+    {
+        try {
+            $result = $this->ssh->executeCommand(
+                $server,
+                sprintf(
+                    'test -d /home/deployer/sites/%s && test -f /etc/caddy/conf.d/sites/%s.caddy',
+                    escapeshellarg($site->domain),
+                    escapeshellarg($site->domain)
+                )
+            );
+
+            if ($result['exit_code'] !== 0) {
+                $this->nay("Site '{$site->domain}' has not been provisioned on the server");
+                $this->io->writeln([
+                    'Run <fg=cyan>site:add</> to provision the site first.',
+                    '',
+                ]);
+
+                return Command::FAILURE;
+            }
+        } catch (\RuntimeException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
         }
 
         return null;

@@ -8,6 +8,7 @@ use Bigpixelrocket\DeployerPHP\Console\HelloCommand;
 use Bigpixelrocket\DeployerPHP\Console\Key\KeyAddDigitalOceanCommand;
 use Bigpixelrocket\DeployerPHP\Console\Key\KeyDeleteDigitalOceanCommand;
 use Bigpixelrocket\DeployerPHP\Console\Key\KeyListDigitalOceanCommand;
+use Bigpixelrocket\DeployerPHP\Console\ScaffoldHooksCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerAddCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerDeleteCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerInfoCommand;
@@ -19,6 +20,8 @@ use Bigpixelrocket\DeployerPHP\Console\Server\ServerRunCommand;
 use Bigpixelrocket\DeployerPHP\Console\Site\SiteAddCommand;
 use Bigpixelrocket\DeployerPHP\Console\Site\SiteDeleteCommand;
 use Bigpixelrocket\DeployerPHP\Console\Site\SiteListCommand;
+use Bigpixelrocket\DeployerPHP\Console\Site\SiteSharedPullCommand;
+use Bigpixelrocket\DeployerPHP\Console\Site\SiteSharedPushCommand;
 use Bigpixelrocket\DeployerPHP\Services\VersionService;
 use Symfony\Component\Console\Application as SymfonyApplication;
 use Symfony\Component\Console\Command\Command;
@@ -112,7 +115,7 @@ final class SymfonyApp extends SymfonyApplication
             '',
             '  The Server & Site Deployment Tool for PHP',
             '<fg=cyan;options=bold>╰────────</><fg=blue;options=bold>──────────</><fg=bright-blue;options=bold>──────────</><fg=magenta;options=bold>──────────</><fg=gray;options=bold>─────────</>',
-            ''
+            '',
         ];
 
         // Display the banner
@@ -128,6 +131,11 @@ final class SymfonyApp extends SymfonyApplication
     {
         $commands = [
             HelloCommand::class,
+
+            //
+            // Scaffolding
+
+            ScaffoldHooksCommand::class,
 
             //
             // Key management
@@ -156,6 +164,8 @@ final class SymfonyApp extends SymfonyApplication
             SiteAddCommand::class,
             SiteDeleteCommand::class,
             SiteListCommand::class,
+            SiteSharedPushCommand::class,
+            SiteSharedPullCommand::class,
         ];
 
         foreach ($commands as $command) {
