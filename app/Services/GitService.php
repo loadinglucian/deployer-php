@@ -11,8 +11,10 @@ namespace Bigpixelrocket\DeployerPHP\Services;
  */
 final readonly class GitService
 {
-    public function __construct(private ProcessService $proc)
-    {
+    public function __construct(
+        private ProcessService $proc,
+        private FilesystemService $fs,
+    ) {
     }
 
     //
@@ -45,6 +47,55 @@ final readonly class GitService
             ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
             $workingDir
         );
+    }
+
+    //
+    // Remote Repository
+    // ----
+
+    /**
+     * Check if files exist in a remote git repository without full clone.
+     *
+     * Uses shallow clone with depth=1 to minimize data transfer.
+     *
+     * @param string $repo Git repository URL
+     * @param string $branch Branch to check
+     * @param list<string> $paths File paths to check (relative to repo root)
+     * @return array<string, bool> Map of path => exists
+     * @throws \RuntimeException If git operations fail
+     */
+    public function checkRemoteFilesExist(string $repo, string $branch, array $paths): array
+    {
+        $tempDir = sys_get_temp_dir().'/deployer-git-check-'.bin2hex(random_bytes(8));
+
+        try {
+            // Shallow clone with depth=1 to minimize data transfer
+            $process = $this->proc->run(
+                ['git', 'clone', '--depth', '1', '--branch', $branch, '--single-branch', $repo, $tempDir],
+                sys_get_temp_dir(),
+                30.0
+            );
+
+            if (! $process->isSuccessful()) {
+                throw new \RuntimeException(
+                    "Failed to access git repository '{$repo}' branch '{$branch}': ".trim($process->getErrorOutput())
+                );
+            }
+
+            // Check each path
+            $results = [];
+            foreach ($paths as $path) {
+                $fullPath = $tempDir.'/'.ltrim($path, '/');
+                $results[$path] = $this->fs->exists($fullPath);
+            }
+
+            return $results;
+        } finally {
+            // Clean up temp directory
+            if ($this->fs->isDirectory($tempDir)) {
+                $this->fs->remove($tempDir);
+            }
+        }
     }
 
     //

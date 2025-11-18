@@ -86,6 +86,16 @@ class SiteSharedPullCommand extends BaseCommand
         }
 
         //
+        // Validate site is provisioned on server
+        // ----
+
+        $validationResult = $this->validateSiteProvisioned($server, $site);
+
+        if (is_int($validationResult)) {
+            return $validationResult;
+        }
+
+        //
         // Resolve paths
         // ----
 

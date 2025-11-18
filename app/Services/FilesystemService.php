@@ -64,6 +64,17 @@ final readonly class FilesystemService
         $this->fs->dumpFile($path, $content);
     }
 
+    /**
+     * Remove files or directories.
+     *
+     * @param string|iterable<string> $files A filename, an array of files, or a \Traversable instance to remove
+     * @throws \RuntimeException If removal fails
+     */
+    public function remove(string|iterable $files): void
+    {
+        $this->fs->remove($files);
+    }
+
     //
     // Gap-Filling Methods (Native PHP Functions)
     // ----
