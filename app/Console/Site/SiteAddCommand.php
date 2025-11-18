@@ -92,20 +92,10 @@ class SiteAddCommand extends BaseCommand
         }
 
         //
-        // Select PHP version
-        // ----
-
-        $phpVersion = $this->selectPhpVersion($info);
-
-        if (is_int($phpVersion)) {
-            return $phpVersion;
-        }
-
-        //
         // Gather site details
         // ----
 
-        $siteInfo = $this->gatherSiteInfo();
+        $siteInfo = $this->gatherSiteInfo($info);
 
         if ($siteInfo === null) {
             return Command::FAILURE;
@@ -115,6 +105,7 @@ class SiteAddCommand extends BaseCommand
             'domain' => $domain,
             'repo' => $repo,
             'branch' => $branch,
+            'phpVersion' => $phpVersion,
         ] = $siteInfo;
 
         //
@@ -172,12 +163,10 @@ class SiteAddCommand extends BaseCommand
         // ----
 
         $this->io->writeln([
-            '',
             'Next steps:',
             '  • Site is accessible at <fg=cyan>https://' . $domain . '</>',
             '  • Update <fg=cyan>DNS records</> to point ' . $domain . ' to <fg=cyan>' . $server->host . '</>',
             '  • Deploy your application with <fg=cyan>site:deploy</>',
-            '',
         ]);
 
         //
@@ -303,9 +292,10 @@ class SiteAddCommand extends BaseCommand
     /**
      * Gather site details from user input or CLI options.
      *
-     * @return array{domain: string, repo: string, branch: string}|null
+     * @param array<string, mixed> $info Server information from serverInfo()
+     * @return array{domain: string, repo: string, branch: string, phpVersion: string}|null
      */
-    protected function gatherSiteInfo(): ?array
+    protected function gatherSiteInfo(array $info): ?array
     {
         /** @var string|null $domain */
         $domain = $this->io->getValidatedOptionOrPrompt(
@@ -365,10 +355,21 @@ class SiteAddCommand extends BaseCommand
             return null;
         }
 
+        //
+        // Select PHP version
+        // ----
+
+        $phpVersion = $this->selectPhpVersion($info);
+
+        if (is_int($phpVersion)) {
+            return null;
+        }
+
         return [
             'domain' => $domain,
             'repo' => $repo,
             'branch' => $branch,
+            'phpVersion' => $phpVersion,
         ];
     }
 }
