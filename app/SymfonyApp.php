@@ -8,6 +8,7 @@ use Bigpixelrocket\DeployerPHP\Console\HelloCommand;
 use Bigpixelrocket\DeployerPHP\Console\Key\KeyAddDigitalOceanCommand;
 use Bigpixelrocket\DeployerPHP\Console\Key\KeyDeleteDigitalOceanCommand;
 use Bigpixelrocket\DeployerPHP\Console\Key\KeyListDigitalOceanCommand;
+use Bigpixelrocket\DeployerPHP\Console\ScaffoldHooksCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerAddCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerDeleteCommand;
 use Bigpixelrocket\DeployerPHP\Console\Server\ServerInfoCommand;
@@ -134,7 +135,7 @@ final class SymfonyApp extends SymfonyApplication
             //
             // Scaffolding
 
-            // ScaffoldHooksCommand::class,
+            ScaffoldHooksCommand::class,
 
             //
             // Key management
