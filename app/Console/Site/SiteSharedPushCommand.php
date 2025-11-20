@@ -145,8 +145,6 @@ class SiteSharedPushCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $this->yay('Shared file uploaded');
-
         //
         // Link shared file
         // ----
@@ -165,6 +163,8 @@ class SiteSharedPushCommand extends BaseCommand
         if (is_int($result)) {
             return $result;
         }
+
+        $this->yay('Shared file uploaded and linked');
 
         //
         // Show command replay

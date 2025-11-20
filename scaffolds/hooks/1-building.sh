@@ -22,7 +22,9 @@ echo "→ Building release..."
 
 if [[ -f composer.json ]]; then
 	echo "→ Installing Composer dependencies..."
-	"${DEPLOYER_PHP}" composer install --no-interaction --no-dev --optimize-autoloader
+
+	composer_bin="$(command -v composer || true)"
+	"${DEPLOYER_PHP}" "${composer_bin}" install --no-interaction --no-dev --optimize-autoloader
 fi
 
 if [[ -f package.json ]]; then

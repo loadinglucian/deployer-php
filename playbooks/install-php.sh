@@ -70,9 +70,23 @@ install_php_packages() {
 	# Ensure composer is installed if not already present
 	if ! command -v composer > /dev/null 2>&1; then
 		echo "→ Installing Composer..."
-		run_cmd curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
-		run_cmd php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+		if ! run_cmd curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php; then
+			echo "Error: Failed to download Composer installer" >&2
+			exit 1
+		fi
+
+		if ! run_cmd php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer; then
+			echo "Error: Failed to install Composer" >&2
+			run_cmd rm -f /tmp/composer-setup.php
+			exit 1
+		fi
+
 		run_cmd rm /tmp/composer-setup.php
+
+		if ! command -v composer > /dev/null 2>&1; then
+			echo "Error: Composer installation failed (command not found)" >&2
+			exit 1
+		fi
 	fi
 
 	# Install selected packages
