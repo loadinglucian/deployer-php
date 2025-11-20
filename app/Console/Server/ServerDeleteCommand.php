@@ -99,23 +99,33 @@ class ServerDeleteCommand extends BaseCommand
         // ----
 
         if ($isDigitalOceanServer) {
-            $this->io->writeln('<fg=yellow>⚠ This is a DigitalOcean server.</>');
-            $this->io->writeln("  Droplet ID: <fg=gray>{$server->dropletId}</>");
-            $this->io->writeln('');
+            $this->io->warning('This is a DigitalOcean server.');
+            $this->io->writeln([
+                "  Droplet ID: <fg=gray>{$server->dropletId}</>",
+                '',
+            ]);
+
             $this->io->warning('This will:');
-            $this->io->writeln('  • Destroy the droplet on DigitalOcean');
-            $this->io->writeln('  • Remove the server from inventory');
+
+            $messages = [
+                '  • Destroy the droplet on DigitalOcean',
+                '  • Remove the server from inventory',
+            ];
 
             if ($hasSites) {
-                $this->io->writeln("  • Delete {$siteCount} associated site(s): {$sitesList}");
+                $messages[] = "  • Delete {$siteCount} associated site(s): {$sitesList}";
             }
 
-            $this->io->writeln('');
+            $messages[] = '';
+
+            $this->io->writeln($messages);
         } elseif ($hasSites) {
             $this->io->warning('This will:');
-            $this->io->writeln('  • Remove the server from inventory');
-            $this->io->writeln("  • Delete {$siteCount} associated site(s): {$sitesList}");
-            $this->io->writeln('');
+            $this->io->writeln([
+                '  • Remove the server from inventory',
+                "  • Delete {$siteCount} associated site(s): {$sitesList}",
+                '',
+            ]);
         }
 
         //
