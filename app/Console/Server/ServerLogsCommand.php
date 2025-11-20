@@ -24,7 +24,13 @@ class ServerLogsCommand extends BaseCommand
     use ServersTrait;
 
     /**
-     * @var array<string, mixed>|null
+     * @var array{
+     *     options: array<string|int, string>,
+     *     services: list<string>,
+     *     phpVersions: list<string>,
+     *     sites: list<string>,
+     *     hasDocker: bool
+     * }|null
      */
     private ?array $processedServices = null;
 
@@ -37,7 +43,7 @@ class ServerLogsCommand extends BaseCommand
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
         $this->addOption('lines', 'n', InputOption::VALUE_REQUIRED, 'Number of lines to retrieve');
-        $this->addOption('service', 's', InputOption::VALUE_REQUIRED, 'Service name (all|system|detected service name)');
+        $this->addOption('service', 's', InputOption::VALUE_REQUIRED, 'Service name (all|system|php-fpm|site|detected service name)');
     }
 
     // ---- Execution
@@ -124,7 +130,13 @@ class ServerLogsCommand extends BaseCommand
      * Process detected services, PHP versions, and sites to build options.
      *
      * @param array<string, mixed> $info Server information from server-info playbook
-     * @return array<string, mixed>
+     * @return array{
+     *     options: array<string|int, string>,
+     *     services: list<string>,
+     *     phpVersions: list<string>,
+     *     sites: list<string>,
+     *     hasDocker: bool
+     * }
      */
     protected function getProcessedServices(array $info): array
     {
@@ -141,7 +153,7 @@ class ServerLogsCommand extends BaseCommand
         $hasDocker = false;
 
         foreach ($detected as $service) {
-            $lower = strtolower($service);
+            $lower = strtolower((string) $service);
 
             if ($lower === 'unknown') {
                 continue;
@@ -152,7 +164,7 @@ class ServerLogsCommand extends BaseCommand
                 continue;
             }
 
-            $services[] = $service;
+            $services[] = (string) $service;
         }
 
         // 2. PHP Versions (PHP-FPM)
@@ -175,9 +187,10 @@ class ServerLogsCommand extends BaseCommand
         }
 
         // 3. Sites
+        /** @var list<string> $sites */
         $sites = [];
         if (isset($info['sites_config']) && is_array($info['sites_config'])) {
-            $sites = array_keys($info['sites_config']);
+            $sites = array_map(strval(...), array_keys($info['sites_config']));
         }
 
         // Build options
@@ -238,6 +251,12 @@ class ServerLogsCommand extends BaseCommand
 
             // 2. Detected Services (Caddy, SSH, etc.)
             foreach ($detectedServices as $serviceName) {
+                $lower = strtolower($serviceName);
+                if (str_starts_with($lower, 'php') && str_ends_with($lower, '-fpm')) {
+                    // Prefer file-based PHP-FPM logs handled below
+                    continue;
+                }
+
                 $this->retrieveServiceLogs($server, $serviceName, $serviceName, $lines);
             }
 
@@ -409,7 +428,8 @@ class ServerLogsCommand extends BaseCommand
     protected function readLogFile(ServerDTO $server, string $logFile, int $lines): ?string
     {
         try {
-            $result = $this->ssh->executeCommand($server, "tail -n {$lines} {$logFile} 2>/dev/null");
+            $safeLogFile = escapeshellarg($logFile);
+            $result = $this->ssh->executeCommand($server, "tail -n {$lines} {$safeLogFile} 2>/dev/null");
 
             if ($result['exit_code'] === 0 && trim($result['output']) !== '') {
                 return trim($result['output']);
