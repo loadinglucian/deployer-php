@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'server:logs',
-    description: 'View server logs (system and detected services)'
+    description: 'View server logs (system, PHP-FPM, sites, and detected services)'
 )]
 class ServerLogsCommand extends BaseCommand
 {
@@ -121,9 +121,7 @@ class ServerLogsCommand extends BaseCommand
     // ----
 
     /**
-     * Process detected services and build options for user selection.
-     *
-     * Consolidates Docker-related processes and caches results for reuse.
+     * Process detected services, PHP versions, and sites to build options.
      *
      * @param array<string, mixed> $info Server information from server-info playbook
      * @return array<string, mixed>
@@ -134,6 +132,7 @@ class ServerLogsCommand extends BaseCommand
             return $this->processedServices;
         }
 
+        // 1. Detected listening services
         /** @var array<int, string> $ports */
         $ports = $info['ports'] ?? [];
         $detected = array_unique(array_values($ports));
@@ -156,22 +155,60 @@ class ServerLogsCommand extends BaseCommand
             $services[] = $service;
         }
 
+        // 2. PHP Versions (PHP-FPM)
+        $phpVersions = [];
+        if (isset($info['php']) && is_array($info['php']) && isset($info['php']['versions']) && is_array($info['php']['versions'])) {
+            foreach ($info['php']['versions'] as $versionData) {
+                $version = null;
+                if (is_array($versionData) && isset($versionData['version'])) {
+                    $version = (string) $versionData['version'];
+                } elseif (is_string($versionData) || is_numeric($versionData)) {
+                    $version = (string) $versionData;
+                }
+
+                if ($version !== null) {
+                    $phpVersions[] = $version;
+                }
+            }
+        }
+
+        // 3. Sites
+        $sites = [];
+        if (isset($info['sites_config']) && is_array($info['sites_config'])) {
+            $sites = array_keys($info['sites_config']);
+        }
+
+        // Build options
         $options = [
-            'all' => 'All services',
+            'all' => 'All logs (System, Services, PHP, Sites)',
             'system' => 'System logs',
         ];
 
+        // Detected services (Caddy, SSH, etc.)
         foreach ($services as $service) {
             $options[strtolower($service)] = $service;
         }
 
+        // PHP-FPM services
+        foreach ($phpVersions as $version) {
+            $serviceName = "php{$version}-fpm";
+            $options[$serviceName] = "PHP {$version} FPM";
+        }
+
+        // Sites
+        foreach ($sites as $site) {
+            $options[$site] = "Site: {$site}";
+        }
+
         if ($hasDocker) {
-            $options['docker'] = 'docker';
+            $options['docker'] = 'Docker';
         }
 
         return $this->processedServices = [
             'options' => $options,
             'services' => $services,
+            'phpVersions' => $phpVersions,
+            'sites' => $sites,
             'hasDocker' => $hasDocker,
         ];
     }
@@ -183,25 +220,72 @@ class ServerLogsCommand extends BaseCommand
      */
     protected function displayServiceLogs(ServerDTO $server, string $service, int $lines, array $info): void
     {
-        if ($service === 'all') {
-            $processed = $this->getProcessedServices($info);
+        $processed = $this->getProcessedServices($info);
+        /** @var array<int, string> $detectedServices */
+        $detectedServices = $processed['services'];
+        /** @var array<int, string> $phpVersions */
+        $phpVersions = $processed['phpVersions'];
+        /** @var array<int, string> $sites */
+        $sites = $processed['sites'];
+        /** @var bool $hasDocker */
+        $hasDocker = $processed['hasDocker'];
 
+        if ($service === 'all') {
+            // 1. System Logs
             $this->retrieveServiceLogs($server, 'System', '', $lines);
 
-            /** @var array<int, string> $services */
-            $services = $processed['services'];
-            foreach ($services as $serviceName) {
+            // 2. Detected Services (Caddy, SSH, etc.)
+            foreach ($detectedServices as $serviceName) {
                 $this->retrieveServiceLogs($server, $serviceName, $serviceName, $lines);
             }
 
-            /** @var bool $hasDocker */
-            $hasDocker = $processed['hasDocker'];
-            if ($hasDocker) {
-                $this->retrieveServiceLogs($server, 'docker', 'docker', $lines);
+            // 3. PHP-FPM Logs
+            foreach ($phpVersions as $version) {
+                $this->retrieveFileLogs(
+                    $server,
+                    "PHP {$version} FPM",
+                    "/var/log/php{$version}-fpm.log",
+                    $lines
+                );
             }
+
+            // 4. Site Logs
+            foreach ($sites as $site) {
+                $this->retrieveFileLogs(
+                    $server,
+                    "Site: {$site}",
+                    "/var/log/caddy/{$site}-access.log",
+                    $lines
+                );
+            }
+
+            // 5. Docker
+            if ($hasDocker) {
+                $this->retrieveServiceLogs($server, 'Docker', 'docker', $lines);
+            }
+
         } elseif ($service === 'system') {
             $this->retrieveServiceLogs($server, 'System', '', $lines);
+        } elseif (in_array($service, $sites, true)) {
+            // Specific Site Log
+            $this->retrieveFileLogs(
+                $server,
+                "Site: {$service}",
+                "/var/log/caddy/{$service}-access.log",
+                $lines
+            );
+        } elseif (str_starts_with($service, 'php') && str_ends_with($service, '-fpm')) {
+            // Specific PHP-FPM Log
+            // Service name format: php8.3-fpm
+            // Check if it's a file log or system service (usually both, but we prefer file for PHP-FPM)
+            $this->retrieveFileLogs(
+                $server,
+                $service,
+                "/var/log/{$service}.log",
+                $lines
+            );
         } else {
+            // Generic Service (journalctl)
             $this->retrieveServiceLogs($server, $service, $service, $lines);
         }
     }
@@ -236,7 +320,7 @@ class ServerLogsCommand extends BaseCommand
 
             if ($result['exit_code'] !== 0 && !$serviceNotFound) {
                 $this->nay("Failed to retrieve {$service} logs");
-                $this->io->writeln($output);
+                $this->io->writeln($this->highlightErrors($output));
                 $this->io->writeln('');
 
                 return;
@@ -249,9 +333,31 @@ class ServerLogsCommand extends BaseCommand
                 return;
             }
 
-            $this->io->writeln($output);
+            $this->io->writeln($this->highlightErrors($output));
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
+        }
+
+        $this->io->writeln('');
+    }
+
+    /**
+     * Retrieve logs from a specific file.
+     */
+    protected function retrieveFileLogs(ServerDTO $server, string $title, string $filepath, int $lines): void
+    {
+        $this->io->writeln([
+            "<fg=cyan>{$title} Logs</>",
+            "<fg=gray>File: {$filepath}</>",
+            '',
+        ]);
+
+        $content = $this->readLogFile($server, $filepath, $lines);
+
+        if ($content !== null) {
+            $this->io->writeln($this->highlightErrors($content));
+        } else {
+            $this->io->writeln('<fg=yellow>No logs found or file does not exist.</>');
         }
 
         $this->io->writeln('');
@@ -282,7 +388,7 @@ class ServerLogsCommand extends BaseCommand
                     $this->io->writeln([
                         "<fg=bright-black>From {$logFile}:</>",
                         '',
-                        $logContent,
+                        $this->highlightErrors($logContent),
                     ]);
 
                     return;
@@ -311,6 +417,49 @@ class ServerLogsCommand extends BaseCommand
         } catch (\RuntimeException) {
             return null;
         }
+    }
+
+    /**
+     * Highlight error keywords in log content.
+     */
+    protected function highlightErrors(string $content): string
+    {
+        $keywords = [
+            'error',
+            'exception',
+            'fail',
+            'failed',
+            'fatal',
+            'panic',
+            ' 500 ', // HTTP 500
+            ' 502 ', // HTTP 502
+            ' 503 ', // HTTP 503
+            ' 504 ', // HTTP 504
+        ];
+
+        $lines = explode("\n", $content);
+        $processedLines = [];
+
+        foreach ($lines as $line) {
+            $lowerLine = strtolower($line);
+            $hasError = false;
+
+            foreach ($keywords as $keyword) {
+                if (str_contains($lowerLine, strtolower($keyword))) {
+                    $hasError = true;
+                    break;
+                }
+            }
+
+            if ($hasError) {
+                // Highlight the entire line in red
+                $processedLines[] = "<fg=red>{$line}</>";
+            } else {
+                $processedLines[] = $line;
+            }
+        }
+
+        return implode("\n", $processedLines);
     }
 
     /**
