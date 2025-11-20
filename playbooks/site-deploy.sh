@@ -3,7 +3,7 @@
 #
 # Site Deploy Playbook - Ubuntu/Debian Only
 #
-# Deploy site using Capistrano-style releases with deployment hooks
+# Deploy site using atomic releases with deployment hooks
 # ----
 #
 # This playbook orchestrates the complete deployment process for a site:
@@ -14,7 +14,7 @@
 # - Activates the new release by updating the current symlink
 # - Cleans up old releases beyond the retention limit
 #
-# The deployment follows a Capistrano-style structure:
+# The deployment follows an atomic release structure:
 #   /home/deployer/sites/{domain}/
 #     ├── releases/     - Timestamped release directories
 #     ├── current/      - Symlink to active release

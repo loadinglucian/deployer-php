@@ -3,7 +3,7 @@
 #
 # Site Add Playbook - Ubuntu/Debian Only
 #
-# Provision new site with Capistrano-style directory structure
+# Provision new site with atomic deployment directory structure
 # ----
 #
 # This playbook only supports Ubuntu and Debian distributions (debian family).
@@ -46,7 +46,7 @@ export DEPLOYER_PERMS
 # ----
 
 #
-# Create Capistrano-style directory structure for site
+# Create atomic deployment directory structure for site
 
 setup_site_directories() {
 	local domain=$1
@@ -62,7 +62,7 @@ setup_site_directories() {
 		fi
 	fi
 
-	# Create Capistrano structure
+	# Create atomic deployment structure
 	local dirs=(
 		"${site_path}/releases"
 		"${site_path}/shared"
