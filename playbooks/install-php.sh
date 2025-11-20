@@ -67,6 +67,14 @@ install_php_packages() {
 		packages+=("php${DEPLOYER_PHP_VERSION}-${ext}")
 	done
 
+	# Ensure composer is installed if not already present
+	if ! command -v composer > /dev/null 2>&1; then
+		echo "→ Installing Composer..."
+		run_cmd curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
+		run_cmd php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+		run_cmd rm /tmp/composer-setup.php
+	fi
+
 	# Install selected packages
 	if ! apt_get_with_retry install -y "${packages[@]}" 2>&1; then
 		echo "Error: Failed to install PHP ${DEPLOYER_PHP_VERSION} packages" >&2

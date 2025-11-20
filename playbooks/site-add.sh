@@ -85,8 +85,9 @@ setup_site_directories() {
 		exit 1
 	fi
 
-	# Set permissions on all directories (750 - owner+group read/execute)
-	if ! run_cmd find "$site_path" -type d -exec chmod 750 {} +; then
+	# Set permissions on all directories (755 - owner rwx, group+others rx)
+	# This ensures git and other tools can traverse and execute properly
+	if ! run_cmd find "$site_path" -type d -exec chmod 755 {} +; then
 		echo "Error: Failed to set directory permissions" >&2
 		exit 1
 	fi
