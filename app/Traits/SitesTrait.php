@@ -140,6 +140,8 @@ trait SitesTrait
             return 'Domain must be a string';
         }
 
+        $domain = $this->normalizeDomain($domain);
+
         // Check format
         $isValid = filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
         if (! $isValid) {
@@ -153,6 +155,20 @@ trait SitesTrait
         }
 
         return null;
+    }
+
+    /**
+     * Normalize domain name (lowercase and strip www.).
+     */
+    protected function normalizeDomain(string $domain): string
+    {
+        $domain = strtolower(trim($domain));
+
+        if (str_starts_with($domain, 'www.')) {
+            $domain = substr($domain, 4);
+        }
+
+        return $domain;
     }
 
     /**

@@ -376,6 +376,61 @@ get_php_fpm_metrics() {
 	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$pool" "$process_manager" "$start_since" "$accepted_conn" "$listen_queue" "$idle_processes" "$active_processes" "$total_processes" "$max_children_reached" "$slow_requests"
 }
 
+#
+# Sites Configuration Detection
+# ----
+
+get_sites_config() {
+	local sites_dir="/etc/caddy/conf.d/sites"
+
+	if [[ ! -d "$sites_dir" ]]; then
+		return
+	fi
+
+	for config_file in "$sites_dir"/*.caddy; do
+		[[ -f "$config_file" ]] || continue
+
+		local domain
+		domain=$(basename "$config_file" .caddy)
+
+		# Read file content
+		local content
+		content=$(cat "$config_file")
+
+		# PHP Version
+		local php_version="unknown"
+		if [[ $content =~ php([0-9]+\.[0-9]+)-fpm\.sock ]]; then
+			php_version="${BASH_REMATCH[1]}"
+		fi
+
+		# WWW Mode
+		local www_mode="unknown"
+		if [[ $content =~ "Redirect www -> root" ]]; then
+			www_mode="redirect-to-root"
+		elif [[ $content =~ "Redirect root -> www" ]]; then
+			www_mode="redirect-to-www"
+		fi
+
+		# HTTPS Status
+		local https_enabled="true"
+		if [[ $www_mode == "redirect-to-root" ]]; then
+			if [[ $content =~ http://${domain} ]]; then
+				https_enabled="false"
+			fi
+		elif [[ $www_mode == "redirect-to-www" ]]; then
+			if [[ $content =~ http://www.${domain} ]]; then
+				https_enabled="false"
+			fi
+		else
+			if [[ $content =~ http://${domain} || $content =~ http://www.${domain} ]]; then
+				https_enabled="false"
+			fi
+		fi
+
+		printf '%s\t%s\t%s\t%s\n' "$domain" "$php_version" "$www_mode" "$https_enabled"
+	done
+}
+
 # ----
 # Main Execution
 # ----
@@ -533,6 +588,34 @@ main() {
 	if [[ $has_ports == false ]]; then
 		if ! echo "  {}" >> "$DEPLOYER_OUTPUT_FILE"; then
 			echo "Error: Failed to write empty ports section to $DEPLOYER_OUTPUT_FILE" >&2
+			exit 1
+		fi
+	fi
+
+	echo "→ Detecting sites configuration..."
+	local sites_config_yaml="" has_sites_config=false
+
+	while IFS=$'\t' read -r domain php_ver mode https_status; do
+		has_sites_config=true
+		sites_config_yaml+="  ${domain}:
+    php_version: ${php_ver}
+    www_mode: ${mode}
+    https_enabled: ${https_status}
+"
+	done < <(get_sites_config)
+
+	if [[ $has_sites_config == true ]]; then
+		if ! echo "sites_config:" >> "$DEPLOYER_OUTPUT_FILE"; then
+			echo "Error: Failed to write sites_config header" >&2
+			exit 1
+		fi
+		if ! echo "$sites_config_yaml" >> "$DEPLOYER_OUTPUT_FILE"; then
+			echo "Error: Failed to write sites_config body" >&2
+			exit 1
+		fi
+	else
+		if ! echo "sites_config: {}" >> "$DEPLOYER_OUTPUT_FILE"; then
+			echo "Error: Failed to write empty sites_config" >&2
 			exit 1
 		fi
 	fi

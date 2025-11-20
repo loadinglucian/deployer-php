@@ -38,7 +38,8 @@ class SiteAddCommand extends BaseCommand
             ->addOption('repo', null, InputOption::VALUE_REQUIRED, 'Git repository URL')
             ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'Git branch name')
             ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name')
-            ->addOption('php-version', null, InputOption::VALUE_REQUIRED, 'PHP version to use');
+            ->addOption('php-version', null, InputOption::VALUE_REQUIRED, 'PHP version to use')
+            ->addOption('www-mode', null, InputOption::VALUE_REQUIRED, 'WWW handling mode (redirect-to-root, redirect-to-www)');
     }
 
     // ----
@@ -106,6 +107,7 @@ class SiteAddCommand extends BaseCommand
             'repo' => $repo,
             'branch' => $branch,
             'phpVersion' => $phpVersion,
+            'wwwMode' => $wwwMode,
         ] = $siteInfo;
 
         //
@@ -134,6 +136,7 @@ class SiteAddCommand extends BaseCommand
                 'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_SITE_DOMAIN' => $domain,
                 'DEPLOYER_PHP_VERSION' => $phpVersion,
+                'DEPLOYER_WWW_MODE' => $wwwMode,
             ],
             true
         );
@@ -162,11 +165,19 @@ class SiteAddCommand extends BaseCommand
         // Display next steps
         // ----
 
+        $displayUrl = ($wwwMode === 'redirect-to-www')
+            ? 'http://www.' . $domain
+            : 'http://' . $domain;
+
         $this->io->writeln([
             'Next steps:',
-            '  • Site is accessible at <fg=cyan>https://' . $domain . '</>',
-            '  • Update <fg=cyan>DNS records</> to point ' . $domain . ' to <fg=cyan>' . $server->host . '</>',
+            '  • Site is accessible at <fg=cyan>' . $displayUrl . '</>',
+            '  • Update <fg=cyan>DNS records</>:',
+            '      - Point <fg=cyan>@</> (root) to <fg=cyan>' . $server->host . '</>',
+            '      - Point <fg=cyan>www</> to <fg=cyan>' . $server->host . '</>',
+            '  • Run <fg=cyan>site:https</> to enable HTTPS once you have your DNS records set up',
             '  • Deploy your application with <fg=cyan>site:deploy</>',
+            '',
         ]);
 
         //
@@ -179,6 +190,7 @@ class SiteAddCommand extends BaseCommand
             'branch' => $branch,
             'server' => $server->name,
             'php-version' => $phpVersion,
+            'www-mode' => $wwwMode,
         ]);
 
         return Command::SUCCESS;
@@ -293,7 +305,7 @@ class SiteAddCommand extends BaseCommand
      * Gather site details from user input or CLI options.
      *
      * @param array<string, mixed> $info Server information from serverInfo()
-     * @return array{domain: string, repo: string, branch: string, phpVersion: string}|null
+     * @return array{domain: string, repo: string, branch: string, phpVersion: string, wwwMode: string}|null
      */
     protected function gatherSiteInfo(array $info): ?array
     {
@@ -312,6 +324,26 @@ class SiteAddCommand extends BaseCommand
         if ($domain === null) {
             return null;
         }
+
+        // Normalize immediately after input
+        $domain = $this->normalizeDomain($domain);
+
+        //
+        // Determine WWW handling
+        // ----
+
+        /** @var string $wwwMode */
+        $wwwMode = $this->io->getOptionOrPrompt(
+            'www-mode',
+            fn () => $this->io->promptSelect(
+                label: "How should 'www.{$domain}' be handled?",
+                options: [
+                    'redirect-to-root' => 'Redirect www to non-www',
+                    'redirect-to-www' => 'Redirect non-www to www',
+                ],
+                default: 'redirect-to-root'
+            )
+        );
 
         //
         // Gather git details
@@ -370,6 +402,7 @@ class SiteAddCommand extends BaseCommand
             'repo' => $repo,
             'branch' => $branch,
             'phpVersion' => $phpVersion,
+            'wwwMode' => $wwwMode,
         ];
     }
 }

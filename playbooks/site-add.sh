@@ -31,6 +31,7 @@ export DEBIAN_FRONTEND=noninteractive
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 [[ -z $DEPLOYER_SITE_DOMAIN ]] && echo "Error: DEPLOYER_SITE_DOMAIN required" && exit 1
 [[ -z $DEPLOYER_PHP_VERSION ]] && echo "Error: DEPLOYER_PHP_VERSION required" && exit 1
+[[ -z $DEPLOYER_WWW_MODE ]] && echo "Error: DEPLOYER_WWW_MODE required" && exit 1
 export DEPLOYER_PERMS
 
 # Shared helpers are automatically inlined when executing playbooks remotely
@@ -51,7 +52,7 @@ setup_site_directories() {
 	local domain=$1
 	local site_path="/home/deployer/sites/${domain}"
 
-	echo "→ Creating directory structure for ${domain}..."
+	echo "→ Creating directory structure..."
 
 	# Create main site directory
 	if ! run_cmd test -d "$site_path"; then
@@ -102,11 +103,15 @@ setup_demo_page() {
 	local domain=$1
 	local index_file="/home/deployer/sites/${domain}/current/public/index.php"
 
-	echo "→ Creating default page for ${domain}..."
+	echo "→ Creating default page..."
 
 	if ! run_cmd test -f "$index_file"; then
 		if ! run_cmd tee "$index_file" > /dev/null <<- 'EOF'; then
-			<?php echo 'Run <strong>site:deploy</strong> to deploy your application';
+			<?php
+			echo '<ul>';
+			echo '<li>Run <strong>site:https</strong> to enable HTTPS</li>';
+			echo '<li>Deploy your application with <strong>site:deploy</strong></li>';
+			echo '</ul>';
 		EOF
 			echo "Error: Failed to create index.php" >&2
 			exit 1
@@ -136,8 +141,9 @@ setup_demo_page() {
 configure_caddy_vhost() {
 	local domain=$1
 	local site_path="/home/deployer/sites/${domain}"
+	local www_mode=$DEPLOYER_WWW_MODE
 
-	echo "→ Creating Caddy configuration for ${domain}..."
+	echo "→ Creating Caddy configuration..."
 
 	# Use specified PHP version
 	local php_version=$DEPLOYER_PHP_VERSION
@@ -160,31 +166,68 @@ configure_caddy_vhost() {
 		exit 1
 	fi
 
+	# Generate Caddy configuration content
+	local caddy_config=""
+
+	# Common site block configuration
+	read -r -d '' site_block_config <<- EOF
+		root * ${site_path}/current/public
+		encode gzip
+
+		log {
+			output file /var/log/caddy/${domain}-access.log {
+				roll_size 100mb
+				roll_keep 5
+				roll_keep_for 720h
+			}
+			format json
+		}
+
+		# Serve PHP files through FPM
+		php_fastcgi unix//${php_fpm_socket}
+
+		# Serve static files directly (more efficient than passing through PHP-FPM)
+		file_server
+	EOF
+
+	# Build configuration based on WWW mode
+	case $www_mode in
+		redirect-to-root)
+			# Redirect www to non-www
+			read -r -d '' caddy_config <<- EOF
+				# Site: ${domain} (Redirect www -> root)
+				www.${domain} {
+					redir http://${domain}{uri} permanent
+				}
+
+				http://${domain} {
+					${site_block_config}
+				}
+			EOF
+			;;
+		redirect-to-www)
+			# Redirect non-www to www
+			read -r -d '' caddy_config <<- EOF
+				# Site: ${domain} (Redirect root -> www)
+				${domain} {
+					redir http://www.${domain}{uri} permanent
+				}
+
+				http://www.${domain} {
+					${site_block_config}
+				}
+			EOF
+			;;
+		*)
+			echo "Error: Invalid WWW mode: ${www_mode}" >&2
+			exit 1
+			;;
+	esac
+
 	# Create vhost configuration file
 	local vhost_file="/etc/caddy/conf.d/sites/${domain}.caddy"
 
-	if ! run_cmd tee "$vhost_file" > /dev/null <<- EOF; then
-		# Site: ${domain}
-		${domain} {
-			root * ${site_path}/current/public
-			encode gzip
-
-			log {
-				output file /var/log/caddy/${domain}-access.log {
-					roll_size 100mb
-					roll_keep 5
-					roll_keep_for 720h
-				}
-				format json
-			}
-
-			# Serve PHP files through FPM
-			php_fastcgi unix//${php_fpm_socket}
-
-			# Serve static files directly (more efficient than passing through PHP-FPM)
-			file_server
-		}
-	EOF
+	if ! echo "$caddy_config" | run_cmd tee "$vhost_file" > /dev/null; then
 		echo "Error: Failed to create Caddy configuration" >&2
 		exit 1
 	fi
