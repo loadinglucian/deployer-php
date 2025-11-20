@@ -332,18 +332,28 @@ class SiteAddCommand extends BaseCommand
         // Determine WWW handling
         // ----
 
-        /** @var string $wwwMode */
-        $wwwMode = $this->io->getOptionOrPrompt(
+        $wwwModes = [
+            'redirect-to-root' => 'Redirect www to non-www',
+            'redirect-to-www' => 'Redirect non-www to www',
+        ];
+
+        /** @var string|null $wwwMode */
+        $wwwMode = $this->io->getValidatedOptionOrPrompt(
             'www-mode',
-            fn () => $this->io->promptSelect(
+            fn ($validate) => $this->io->promptSelect(
                 label: "How should 'www.{$domain}' be handled?",
-                options: [
-                    'redirect-to-root' => 'Redirect www to non-www',
-                    'redirect-to-www' => 'Redirect non-www to www',
-                ],
-                default: 'redirect-to-root'
-            )
+                options: $wwwModes,
+                default: 'redirect-to-root',
+                validate: $validate
+            ),
+            fn ($value) => in_array($value, array_keys($wwwModes), true)
+                ? null
+                : sprintf("Invalid WWW mode '%s'. Allowed: %s", is_scalar($value) ? $value : gettype($value), implode(', ', array_keys($wwwModes)))
         );
+
+        if ($wwwMode === null) {
+            return null;
+        }
 
         //
         // Gather git details
