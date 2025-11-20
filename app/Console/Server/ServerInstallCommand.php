@@ -167,7 +167,7 @@ class ServerInstallCommand extends BaseCommand
         );
 
         if (is_int($deployerResult)) {
-            $this->io->error('Deployer user setup failed');
+            $this->nay('Deployer user setup failed');
 
             return $deployerResult;
         }
@@ -191,7 +191,7 @@ class ServerInstallCommand extends BaseCommand
         );
 
         if (is_int($demoResult)) {
-            $this->io->error('Demo site setup failed');
+            $this->nay('Demo site setup failed');
 
             return Command::FAILURE;
         }
@@ -280,13 +280,22 @@ class ServerInstallCommand extends BaseCommand
         // ----
 
         if (!isset($packageList['php']) || !is_array($packageList['php']) || empty($packageList['php'])) {
-            $this->io->error('No PHP versions available in package list');
+            $this->nay('No PHP versions available in package list');
 
             return Command::FAILURE;
         }
 
         $phpVersions = array_keys($packageList['php']);
+
+        // Filter for PHP 8.x only
+        $phpVersions = array_filter($phpVersions, fn ($v) => str_starts_with((string) $v, '8.'));
         rsort($phpVersions, SORT_NATURAL); // Newest first
+
+        if (empty($phpVersions)) {
+            $this->nay('No PHP 8.x versions available in package list');
+
+            return Command::FAILURE;
+        }
 
         //
         // Extract installed PHP versions
@@ -310,7 +319,7 @@ class ServerInstallCommand extends BaseCommand
         // Prompt for version to install
         // ----
 
-        $defaultVersion = in_array('8.4', $phpVersions) ? '8.4' : $phpVersions[0];
+        $defaultVersion = in_array('8.5', $phpVersions) ? '8.5' : $phpVersions[0];
         $phpVersion = (string) $this->io->getOptionOrPrompt(
             'php-version',
             fn () => $this->io->promptSelect(
@@ -322,7 +331,7 @@ class ServerInstallCommand extends BaseCommand
 
         // Validate CLI-provided version exists in available versions
         if (!in_array($phpVersion, $phpVersions, true)) {
-            $this->io->error(
+            $this->nay(
                 "PHP version {$phpVersion} is not available. Available versions: " . implode(', ', $phpVersions)
             );
 
@@ -347,7 +356,7 @@ class ServerInstallCommand extends BaseCommand
         }
 
         if (empty($availableExtensions)) {
-            $this->io->error("No extensions available for PHP {$phpVersion}");
+            $this->nay("No extensions available for PHP {$phpVersion}");
 
             return Command::FAILURE;
         }
@@ -374,7 +383,7 @@ class ServerInstallCommand extends BaseCommand
         }
 
         if (!is_array($selectedExtensions)) {
-            $this->io->error('Invalid PHP extensions selection');
+            $this->nay('Invalid PHP extensions selection');
 
             return Command::FAILURE;
         }
@@ -382,7 +391,7 @@ class ServerInstallCommand extends BaseCommand
         // Validate all selected extensions exist for this PHP version
         $unknownExtensions = array_diff($selectedExtensions, $availableExtensions);
         if ($unknownExtensions !== []) {
-            $this->io->error(
+            $this->nay(
                 'Unknown PHP extensions for PHP ' . $phpVersion . ': ' . implode(', ', $unknownExtensions)
             );
 
@@ -390,7 +399,7 @@ class ServerInstallCommand extends BaseCommand
         }
 
         if ($selectedExtensions === []) {
-            $this->io->error('At least one extension must be selected');
+            $this->nay('At least one extension must be selected');
 
             return Command::FAILURE;
         }
@@ -451,7 +460,7 @@ class ServerInstallCommand extends BaseCommand
         );
 
         if (is_int($result)) {
-            $this->io->error('PHP installation failed');
+            $this->nay('PHP installation failed');
 
             return Command::FAILURE;
         }

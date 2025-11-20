@@ -147,37 +147,6 @@ setup_deployer() {
 }
 
 #
-# Configure passwordless sudo for deployer user
-# ----
-
-configure_deployer_sudo() {
-	local sudoers_file="/etc/sudoers.d/deployer"
-
-	echo "→ Configuring sudo permissions..."
-
-	if ! run_cmd tee "$sudoers_file" > /dev/null <<- 'EOF'; then
-		deployer ALL=(ALL) NOPASSWD: systemctl reload caddy
-		deployer ALL=(ALL) NOPASSWD: systemctl restart caddy
-		deployer ALL=(ALL) NOPASSWD: systemctl reload php*-fpm
-		deployer ALL=(ALL) NOPASSWD: systemctl restart php*-fpm
-	EOF
-		echo "Error: Failed to write sudoers configuration" >&2
-		exit 1
-	fi
-
-	if ! run_cmd chmod 440 "$sudoers_file"; then
-		echo "Error: Failed to set permissions on sudoers file" >&2
-		exit 1
-	fi
-
-	if ! run_cmd visudo -c -f "$sudoers_file"; then
-		echo "Error: sudoers validation failed" >&2
-		run_cmd rm -f "$sudoers_file"
-		exit 1
-	fi
-}
-
-#
 # Ensure proper permissions on deploy directories
 # ----
 
@@ -217,7 +186,6 @@ main() {
 	# Execute deployer setup tasks
 	setup_deployer "$deployer_home"
 	setup_deploy_directories "$deployer_home"
-	configure_deployer_sudo
 
 	# Get deploy public key
 	if ! deploy_public_key=$(run_cmd cat "${deployer_home}/.ssh/id_ed25519.pub" 2>&1); then
