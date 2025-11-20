@@ -425,19 +425,16 @@ trait ServersTrait
         // Display Sites Configuration if available
         if (isset($info['sites_config']) && is_array($info['sites_config']) && count($info['sites_config']) > 0) {
             $sitesItems = [];
-            foreach ($info['sites_config'] as $domain => $config) {
-                if (! is_array($config)) {
+            foreach (array_keys($info['sites_config']) as $domain) {
+                $config = $this->getSiteConfig($info, (string) $domain);
+
+                if ($config === null) {
                     continue;
                 }
 
-                /** @var mixed $phpVal */
-                $phpVal = $config['php_version'] ?? '?';
-                /** @var mixed $modeVal */
-                $modeVal = $config['www_mode'] ?? '?';
-
-                $php = is_scalar($phpVal) ? (string) $phpVal : '?';
-                $mode = is_scalar($modeVal) ? (string) $modeVal : '?';
-                $https = filter_var($config['https_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? '<fg=green>HTTPS</>' : '<fg=yellow>HTTP</>';
+                $php = $config['php_version'] === 'unknown' ? '?' : $config['php_version'];
+                $mode = $config['www_mode'] === 'unknown' ? '?' : $config['www_mode'];
+                $https = $config['https_enabled'] ? '<fg=green>HTTPS</>' : '<fg=yellow>HTTP</>';
 
                 $sitesItems[] = "{$domain}: PHP {$php}, {$mode}, {$https}";
             }
