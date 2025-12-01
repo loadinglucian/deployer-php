@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\DTOs;
+namespace PHPDeployer\DTOs;
 
 readonly class ServerDTO
 {
+    /** @param array<string, mixed>|null $info */
     public function __construct(
         public string $name,
         public string $host,
@@ -14,6 +15,26 @@ readonly class ServerDTO
         public ?string $privateKeyPath = null,
         public ?string $provider = null,
         public ?int $dropletId = null, // DigitalOcean droplet ID
+        public ?array $info = null,
     ) {
+    }
+
+    /**
+     * Return a new instance with the provided info.
+     *
+     * @param array<string, mixed> $info
+     */
+    public function withInfo(array $info): self
+    {
+        return new self(
+            name: $this->name,
+            host: $this->host,
+            port: $this->port,
+            username: $this->username,
+            privateKeyPath: $this->privateKeyPath,
+            provider: $this->provider,
+            dropletId: $this->dropletId,
+            info: $info,
+        );
     }
 }

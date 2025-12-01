@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Services\DigitalOcean;
+namespace PHPDeployer\Services\DigitalOcean;
 
-use Bigpixelrocket\DeployerPHP\Enums\Distribution;
 use DigitalOceanV2\Entity\Image as ImageEntity;
 use DigitalOceanV2\Entity\Region as RegionEntity;
 use DigitalOceanV2\Entity\Size as SizeEntity;
+use PHPDeployer\Enums\Distribution;
 
 /**
  * DigitalOcean account data service.
@@ -41,6 +41,8 @@ class DigitalOceanAccountService extends BaseDigitalOceanService
                 }
             }
 
+            asort($options);
+
             return $options;
         } catch (\Throwable $e) {
             throw new \RuntimeException('Failed to fetch regions: ' . $e->getMessage(), 0, $e);
@@ -60,7 +62,7 @@ class DigitalOceanAccountService extends BaseDigitalOceanService
             $sizeApi = $client->size();
             $sizes = $sizeApi->getAll();
 
-            $options = [];
+            $sizeData = [];
             foreach ($sizes as $size) {
                 /** @var SizeEntity $size */
                 if ($size->available) {
@@ -69,8 +71,20 @@ class DigitalOceanAccountService extends BaseDigitalOceanService
                     $disk = $size->disk;
                     $price = $size->priceMonthly;
 
-                    $options[$size->slug] = "{$size->slug} - {$vcpus} vCPU, {$memory}GB RAM, {$disk}GB SSD (\${$price}/mo)";
+                    $sizeData[] = [
+                        'slug' => $size->slug,
+                        'price' => $price,
+                        'label' => "{$size->slug} - {$vcpus} vCPU, {$memory}GB RAM, {$disk}GB SSD (\${$price}/mo)",
+                    ];
                 }
+            }
+
+            // Sort by price ascending
+            usort($sizeData, fn (array $a, array $b) => $a['price'] <=> $b['price']);
+
+            $options = [];
+            foreach ($sizeData as $data) {
+                $options[$data['slug']] = $data['label'];
             }
 
             return $options;

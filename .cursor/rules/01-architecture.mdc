@@ -35,7 +35,7 @@ Always add `use` statements for vendor packages and project classes. Root namesp
 ```php
 // ✅ CORRECT
 use Symfony\Component\Filesystem\Filesystem;
-use Bigpixelrocket\DeployerPHP\Services\IOService;
+use PHPDeployer\Services\IOService;
 
 $fs = new Filesystem();
 throw new \InvalidArgumentException('Error');

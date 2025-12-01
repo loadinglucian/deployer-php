@@ -16,15 +16,18 @@ All console output flows through custom methods in BaseCommand for consistent TU
 
 ```php
 // Output
-$this->writeln(['Multiple', 'lines']);
-$this->io->hr();
-$this->io->h1('Section Heading');
+$this->out(['Multiple', 'lines']);
+$this->hr();
+$this->h1('Section Heading');
+$this->displayDeets(['Key' => 'value']);
 
 // Status messages
-$this->success('Operation completed');     // Green checkmark
-$this->error('Operation failed');          // Red X
-$this->warning('Skipping step');           // Yellow warning
-$this->info('Configuration loaded');       // Cyan info
+$this->yay('Operation completed');         // ✓ checkmark
+$this->nay('Operation failed');            // ✗ red X
+$this->warn('Skipping step');              // ! warning
+$this->info('Configuration loaded');       // ℹ info
+$this->ul(['Item 1', 'Item 2']);           // • bullet list
+$this->ol(['Step 1', 'Step 2']);           // 1. numbered list
 ```
 
 **Missing a method?** Add to BaseCommand with modern styling.
@@ -34,7 +37,7 @@ $this->info('Configuration loaded');       // Cyan info
 - Base: BaseCommand.php
 - Output: ConsoleOutputTrait.php
 - Input: ConsoleInputTrait.php
-- Methods: `writeln()`, `info()`, `hr()`, `h1()`, `success()`, `error()`, `warning()`, `getOptionOrPrompt()`, `getValidatedOptionOrPrompt()`, `promptText()`, `promptPassword()`, `promptConfirm()`, `promptSelect()`, `promptMultiselect()`, `promptSuggest()`, `promptSearch()`, `promptPause()`, `promptSpin()`, `showCommandReplay()`
+- Methods: `out()`, `hr()`, `h1()`, `info()`, `yay()`, `nay()`, `warn()`, `ul()`, `ol()`, `displayDeets()`, `commandReplay()`, `getOptionOrPrompt()`, `getValidatedOptionOrPrompt()`, `promptText()`, `promptPassword()`, `promptConfirm()`, `promptSelect()`, `promptMultiselect()`, `promptSuggest()`, `promptSearch()`, `promptPause()`, `promptSpin()`
 
 **Trait Organization:**
 
@@ -212,10 +215,10 @@ See: ServerDeleteCommand.php, ServerAddCommand.php
 
 ### Command Completion
 
-Always call `showCommandReplay()` before returning SUCCESS to teach non-interactive usage:
+Always call `commandReplay()` before returning SUCCESS to teach non-interactive usage:
 
 ```php
-$this->showCommandReplay('command:name', [
+$this->commandReplay('command:name', [
     'option1' => $value1,
     'option2' => $value2,
 ]);

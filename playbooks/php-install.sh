@@ -13,7 +13,7 @@
 # - Caddy configuration updates for PHP-FPM endpoints
 #
 # Note: User and group management (www-data to deployer group) is handled
-# by the install-deployer.sh playbook which runs after all services.
+# by the user-install.sh playbook which runs after all services.
 #
 # This playbook only supports Ubuntu and Debian distributions (debian family).
 # Both distributions use apt package manager and follow debian conventions.
@@ -67,6 +67,21 @@ install_php_packages() {
 		packages+=("php${DEPLOYER_PHP_VERSION}-${ext}")
 	done
 
+	# Install selected packages
+	if ! apt_get_with_retry install -y "${packages[@]}" 2>&1; then
+		echo "Error: Failed to install PHP ${DEPLOYER_PHP_VERSION} packages" >&2
+		exit 1
+	fi
+}
+
+#
+# Composer Installation
+# ----
+
+#
+# Install Composer if not present
+
+install_composer() {
 	# Ensure composer is installed if not already present
 	if ! command -v composer > /dev/null 2>&1; then
 		echo "→ Installing Composer..."
@@ -87,12 +102,6 @@ install_php_packages() {
 			echo "Error: Composer installation failed (command not found)" >&2
 			exit 1
 		fi
-	fi
-
-	# Install selected packages
-	if ! apt_get_with_retry install -y "${packages[@]}" 2>&1; then
-		echo "Error: Failed to install PHP ${DEPLOYER_PHP_VERSION} packages" >&2
-		exit 1
 	fi
 }
 
@@ -250,6 +259,7 @@ main() {
 	install_php_packages
 	configure_php_fpm
 	set_as_default
+	install_composer
 	update_caddy_config
 
 	# Write output YAML

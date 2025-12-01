@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Server;
+namespace PHPDeployer\Console\Server;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Traits\PlaybooksTrait;
+use PHPDeployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -45,34 +45,22 @@ class ServerInstallCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Install Server');
+        $this->h1('Install Server');
 
         //
-        // Select server & display details
+        // Select server
         // ----
 
         $server = $this->selectServer();
 
-        if (is_int($server)) {
-            return $server;
-        }
-
-        $this->displayServerDeets($server);
-
-        //
-        // Get server info (verifies SSH connection and validates distribution & permissions)
-        // ----
-
-        $info = $this->serverInfo($server);
-
-        if (is_int($info)) {
-            return $info;
+        if (is_int($server) || $server->info === null) {
+            return Command::FAILURE;
         }
 
         [
             'distro' => $distro,
             'permissions' => $permissions,
-        ] = $info;
+        ] = $server->info;
 
         /** @var string $distro */
         /** @var string $permissions */
@@ -90,7 +78,6 @@ class ServerInstallCommand extends BaseCommand
                 'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_GATHER_PHP' => 'true',
             ],
-            true
         );
 
         if (is_int($packageList)) {
@@ -103,13 +90,12 @@ class ServerInstallCommand extends BaseCommand
 
         $result = $this->executePlaybook(
             $server,
-            'install-base',
+            'base-install',
             'Installing base packages...',
             [
                 'DEPLOYER_DISTRO' => $distro,
                 'DEPLOYER_PERMS' => $permissions,
             ],
-            true
         );
 
         if (is_int($result)) {
@@ -120,7 +106,7 @@ class ServerInstallCommand extends BaseCommand
         // Install PHP
         // ----
 
-        $phpResult = $this->installPhp($server, $info, $packageList);
+        $phpResult = $this->installPhp($server, $server->info, $packageList);
 
         if (is_int($phpResult)) {
             return $phpResult;
@@ -138,12 +124,11 @@ class ServerInstallCommand extends BaseCommand
 
         $bunResult = $this->executePlaybook(
             $server,
-            'install-bun',
+            'bun-install',
             'Installing Bun...',
             [
                 'DEPLOYER_PERMS' => $permissions,
             ],
-            true
         );
 
         if (is_int($bunResult)) {
@@ -156,77 +141,39 @@ class ServerInstallCommand extends BaseCommand
 
         $deployerResult = $this->executePlaybook(
             $server,
-            'install-deployer',
+            'user-install',
             'Setting up deployer user...',
             [
                 'DEPLOYER_DISTRO' => $distro,
                 'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_SERVER_NAME' => $server->name,
             ],
-            true
         );
 
         if (is_int($deployerResult)) {
-            $this->nay('Deployer user setup failed');
-
             return $deployerResult;
         }
 
-        $this->yay('Deployer user setup successful');
+        /** @var string|null $deployKey */
+        $deployKey = $deployerResult['deploy_public_key'] ?? null;
 
-        //
-        // Setup demo site
-        // ----
-
-        /** @var string $permissions */
-        $demoResult = $this->executePlaybook(
-            $server,
-            'demo-site',
-            'Setting up demo site...',
-            [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-            ],
-            true
-        );
-
-        if (is_int($demoResult)) {
-            $this->nay('Demo site setup failed');
+        if ($deployKey === null) {
+            $this->nay('Failed to retrieve deploy key');
 
             return Command::FAILURE;
         }
 
-        $this->yay('Demo site setup successful');
+        $this->yay('Server installation completed successfully');
 
-        //
-        // Verify installation
-        // ----
+        $this->ul([
+            'Run <|cyan>site:add</> to add a new site',
+            'Add the following <|yellow>public key</> to your Git provider (GitHub, GitLab, etc.) to enable deployments:',
+        ]);
 
-        // IPv6 addresses must be wrapped in brackets for URLs
-        $host = $server->host;
-        if (str_contains($host, ':')) {
-            // Any IPv6 literal must be wrapped in brackets
-            $url = "http://[{$host}]";
-        } else {
-            $url = "http://{$host}";
-        }
-        /** @var string|null $deployKey */
-        $deployKey = $deployerResult['deploy_public_key'] ?? null;
-
-        $verification = $this->io->promptSpin(
-            fn () => $this->verifyInstallation($url, $deployKey),
-            'Verifying installation...'
-        );
-
-        if ($verification['status'] === 'success') {
-            $this->yay($verification['message']);
-        } else {
-            $this->io->warning($verification['message']);
-        }
-
-        if ($verification['lines'] !== []) {
-            $this->io->writeln($verification['lines']);
-        }
+        $this->io->write([
+            '',
+            '<fg=yellow>' . $deployKey . '</>',
+        ], true);
 
         //
         // Show command replay
@@ -242,7 +189,7 @@ class ServerInstallCommand extends BaseCommand
             $replayOptions['php-default'] = $phpDefault;
         }
 
-        $this->showCommandReplay('server:install', $replayOptions);
+        $this->commandReplay('server:install', $replayOptions);
 
         return Command::SUCCESS;
     }
@@ -447,8 +394,8 @@ class ServerInstallCommand extends BaseCommand
 
         $result = $this->executePlaybook(
             $server,
-            'install-php',
-            "Installing PHP {$phpVersion}...",
+            'php-install',
+            "Installing PHP...",
             [
                 'DEPLOYER_DISTRO' => $distro,
                 'DEPLOYER_PERMS' => $permissions,
@@ -456,7 +403,6 @@ class ServerInstallCommand extends BaseCommand
                 'DEPLOYER_PHP_SET_DEFAULT' => $setAsDefault ? 'true' : 'false',
                 'DEPLOYER_PHP_EXTENSIONS' => implode(',', $selectedExtensions),
             ],
-            true
         );
 
         if (is_int($result)) {
@@ -464,9 +410,6 @@ class ServerInstallCommand extends BaseCommand
 
             return Command::FAILURE;
         }
-
-        $defaultStatus = $setAsDefault ? ' (set as default)' : '';
-        $this->yay("Installed PHP {$phpVersion} successfully{$defaultStatus}");
 
         return [
             'status' => Command::SUCCESS,
@@ -476,65 +419,4 @@ class ServerInstallCommand extends BaseCommand
             'php_extensions' => implode(',', $selectedExtensions),
         ];
     }
-
-    //
-    // HTTP Verification
-    // ----
-
-    /**
-     * Verify demo site is responding with expected content.
-     *
-     * @return array{status: 'success'|'warning', message: string, lines: array<int, string>}
-     */
-    private function verifyInstallation(string $url, ?string $deployKey): array
-    {
-        $result = $this->http->verifyUrl($url);
-
-        if (!$result['success']) {
-            // Network errors return status_code: 0
-            if (0 === $result['status_code']) {
-                return [
-                    'status' => 'warning',
-                    'message' => "Could not connect to demo site: {$result['body']}",
-                    'lines' => [],
-                ];
-            }
-
-            // HTTP protocol errors (got response but wrong status code)
-            return [
-                'status' => 'warning',
-                'message' => "Demo site returned HTTP {$result['status_code']} (expected 200)",
-                'lines' => [],
-            ];
-        }
-
-        if (!str_contains($result['body'], 'hello, world')) {
-            return [
-                'status' => 'warning',
-                'message' => 'Demo site is responding but content verification failed',
-                'lines' => [],
-            ];
-        }
-
-        $nextSteps = [
-            'Next steps:',
-            '  • Caddy running at <fg=cyan>' . $url . '</>',
-            '  • Run <fg=cyan>site:add</> to deploy your first application',
-        ];
-
-        if ($deployKey !== null) {
-            $nextSteps[] = '  • Add this key to your Git provider (GitHub, GitLab, etc.) to enable deployments:';
-            $nextSteps[] = '';
-            $nextSteps[] = '<fg=cyan>' . $deployKey . '</>';
-        }
-
-        $nextSteps[] = '';
-
-        return [
-            'status' => 'success',
-            'message' => 'Server installation completed successfully',
-            'lines' => $nextSteps,
-        ];
-    }
-
 }

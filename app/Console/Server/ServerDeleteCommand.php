@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Server;
+namespace PHPDeployer\Console\Server;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\Traits\DigitalOceanTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\Traits\DigitalOceanTrait;
+use PHPDeployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -15,7 +15,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'server:delete',
-    description: 'Delete a server from the inventory'
+    description: 'Delete a server from inventory'
 )]
 class ServerDeleteCommand extends BaseCommand
 {
@@ -44,7 +44,7 @@ class ServerDeleteCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Delete Server');
+        $this->h1('Delete Server');
 
         //
         // Select server & display details
@@ -56,30 +56,9 @@ class ServerDeleteCommand extends BaseCommand
             return $server;
         }
 
-        $this->displayServerDeets($server);
-
-        //
-        // Get associated sites
-        // ----
+        $isDigitalOceanServer = $server->provider === 'digitalocean' && $server->dropletId !== null;
 
         $serverSites = $this->sites->findByServer($server->name);
-
-        //
-        // Initialize provider API
-        // ----
-
-        $isDigitalOceanServer = $this->isDigitalOceanServer($server);
-        if ($isDigitalOceanServer && Command::FAILURE === $this->initializeDigitalOceanAPI()) {
-            $this->nay('Cannot delete server: DigitalOcean API authentication failed.');
-            $this->io->writeln([
-                '',
-                'You must authenticate with DigitalOcean to delete provisioned servers.',
-                'The server will not be removed from inventory to prevent orphaned cloud resources.',
-                '',
-            ]);
-
-            return Command::FAILURE;
-        }
 
         //
         // Prepare site deletion info
@@ -99,33 +78,35 @@ class ServerDeleteCommand extends BaseCommand
         // ----
 
         if ($isDigitalOceanServer) {
-            $this->io->warning('This is a DigitalOcean server.');
-            $this->io->writeln([
-                "  Droplet ID: <fg=gray>{$server->dropletId}</>",
-                '',
-            ]);
-
-            $this->io->warning('This will:');
+            $this->info('This is a DigitalOcean droplet (ID: ' . $server->dropletId . ')');
 
             $messages = [
-                '  • Destroy the droplet on DigitalOcean',
-                '  • Remove the server from inventory',
+                'Destroy the droplet on DigitalOcean',
+                'Remove the server from inventory',
             ];
 
             if ($hasSites) {
-                $messages[] = "  • Delete {$siteCount} associated site(s): {$sitesList}";
+                $messages[] = "Delete {$siteCount} associated site(s): {$sitesList}";
             }
 
-            $messages[] = '';
-
-            $this->io->writeln($messages);
+            $this->info('This will:');
+            $this->ul($messages);
         } elseif ($hasSites) {
-            $this->io->warning('This will:');
-            $this->io->writeln([
-                '  • Remove the server from inventory',
-                "  • Delete {$siteCount} associated site(s): {$sitesList}",
-                '',
+            $this->info('This will:');
+            $this->ul([
+                'Remove the server from inventory',
+                "Delete {$siteCount} associated site(s): {$sitesList}",
             ]);
+        }
+
+        //
+        // Initialize provider API
+        // ----
+
+        if ($isDigitalOceanServer && Command::FAILURE === $this->initializeDigitalOceanAPI()) {
+            $this->nay('Cannot delete server: DigitalOcean API authentication failed.');
+
+            return Command::FAILURE;
         }
 
         //
@@ -158,8 +139,7 @@ class ServerDeleteCommand extends BaseCommand
         );
 
         if (!$confirmed) {
-            $this->io->warning('Cancelled deleting server');
-            $this->io->writeln('');
+            $this->warn('Cancelled deleting server');
 
             return Command::SUCCESS;
         }
@@ -181,7 +161,7 @@ class ServerDeleteCommand extends BaseCommand
                 $destroyed = true;
             } catch (\RuntimeException $e) {
                 $this->nay($e->getMessage());
-                $this->io->writeln('');
+                $this->out('');
 
                 $continueAnyway = $this->io->promptConfirm(
                     label: 'Remove from inventory anyway?',
@@ -216,11 +196,9 @@ class ServerDeleteCommand extends BaseCommand
         }
 
         if (!$destroyed) {
-            $this->io->warning('Your server may still be running and incurring costs!');
-            $this->io->writeln([
-                '',
+            $this->info('Your server may still be running and incurring costs:');
+            $this->out([
                 'Check with your cloud provider to ensure it is fully terminated.',
-                '',
             ]);
         }
 
@@ -228,7 +206,7 @@ class ServerDeleteCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->showCommandReplay('server:delete', [
+        $this->commandReplay('server:delete', [
             'server' => $server->name,
             'yes' => $confirmed,
             'force' => true,

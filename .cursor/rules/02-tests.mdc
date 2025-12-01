@@ -8,7 +8,7 @@ All rules MANDATORY.
 
 **Philosophy:** "A test that never fails is not a test, it's a lie."
 
-**Framework:** Pest exclusively, `it()` syntax, 80%+ coverage
+**Framework:** Pest exclusively, `it()` syntax, 70%+ coverage
 
 ### Running Tests
 

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Server;
+namespace PHPDeployer\Console\Server;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
-use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\Traits\ServersTrait;
+use PHPDeployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -29,7 +29,7 @@ class ServerListCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('List Servers');
+        $this->h1('List Servers');
 
         //
         // Get all servers
@@ -45,15 +45,8 @@ class ServerListCommand extends BaseCommand
         // Display servers
         // ----
 
-        foreach ($allServers as $count => $server) {
+        foreach ($allServers as $server) {
             $this->displayServerDeets($server);
-
-            if ($count < count($allServers) - 1) {
-                $this->io->writeln([
-                        '  ───',
-                        '',
-                    ]);
-            }
         }
 
         return Command::SUCCESS;

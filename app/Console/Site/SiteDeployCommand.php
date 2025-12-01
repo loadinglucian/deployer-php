@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Site;
+namespace PHPDeployer\Console\Site;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
-use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
-use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\DTOs\SiteDTO;
+use PHPDeployer\Traits\PlaybooksTrait;
+use PHPDeployer\Traits\ServersTrait;
+use PHPDeployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -56,7 +56,7 @@ class SiteDeployCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Deploy Site');
+        $this->h1('Deploy Site');
 
         //
         // Select site & display details
@@ -83,12 +83,12 @@ class SiteDeployCommand extends BaseCommand
         }
 
         if ($missingHooks !== []) {
-            $this->io->warning('Missing deployment hooks in repository:');
+            $this->warn('Missing deployment hooks in repository:');
             foreach ($missingHooks as $hook) {
-                $this->io->writeln('  • ' . $hook);
+                $this->out('  • ' . $hook);
             }
 
-            $this->io->writeln([
+            $this->out([
                 '  • Run <fg=cyan>scaffold:hooks</> to create them',
                 '  • Or continue deployment anyway...',
                 '',
@@ -103,7 +103,7 @@ class SiteDeployCommand extends BaseCommand
                 return Command::FAILURE;
             }
 
-            $this->io->writeln('');
+            $this->out('');
         }
 
         //
@@ -119,15 +119,16 @@ class SiteDeployCommand extends BaseCommand
         // Get server info (verifies SSH and validates distro & permissions)
         // ----
 
-        $info = $this->serverInfo($server);
-        if (is_int($info)) {
-            return $info;
+        $server = $this->serverInfo($server);
+
+        if (is_int($server) || $server->info === null) {
+            return Command::FAILURE;
         }
 
         [
             'distro' => $distro,
             'permissions' => $permissions,
-        ] = $info;
+        ] = $server->info;
 
         /** @var string $distro */
         /** @var string $permissions */
@@ -148,11 +149,12 @@ class SiteDeployCommand extends BaseCommand
 
         $branch = $site->branch;
         $keepReleases = $this->resolveKeepReleases($input);
+
         if ($keepReleases === null) {
             return Command::FAILURE;
         }
 
-        $phpVersion = $this->resolvePhpVersion($info);
+        $phpVersion = $this->resolvePhpVersion($server->info);
         if ($phpVersion === null) {
             return Command::FAILURE;
         }
@@ -171,8 +173,8 @@ class SiteDeployCommand extends BaseCommand
         );
 
         if (! $confirmed) {
-            $this->io->warning('Deployment cancelled.');
-            $this->io->writeln('');
+            $this->warn('Deployment cancelled.');
+            $this->out('');
 
             return Command::SUCCESS;
         }
@@ -208,7 +210,7 @@ class SiteDeployCommand extends BaseCommand
         $this->yay('Deployment completed');
         $this->displayDeploymentSummary($result, $branch, (string) $phpVersion);
 
-        $this->io->writeln([
+        $this->out([
             'Next steps:',
             '  • Run <fg=cyan>site:shared:push</> to upload shared files (e.g. .env)',
             '  • View deployment logs with <fg=cyan>server:logs</>',
@@ -219,7 +221,7 @@ class SiteDeployCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->showCommandReplay('site:deploy', [
+        $this->commandReplay('site:deploy', [
             'domain' => $site->domain,
             'keep-releases' => $keepReleases,
             'yes' => true,
@@ -256,8 +258,8 @@ class SiteDeployCommand extends BaseCommand
             $lines['Current Symlink'] = $result['current_path'];
         }
 
-        $this->io->displayDeets($lines);
-        $this->io->writeln('');
+        $this->displayDeets($lines);
+        $this->out('');
     }
 
     private function resolveKeepReleases(InputInterface $input): ?int

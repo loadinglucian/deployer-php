@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Enums;
+namespace PHPDeployer\Enums;
 
 /**
  * Distribution families for server provisioning.

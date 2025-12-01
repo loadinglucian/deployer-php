@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Services\DigitalOcean;
+namespace PHPDeployer\Services\DigitalOcean;
 
-use Bigpixelrocket\DeployerPHP\Services\FilesystemService;
+use PHPDeployer\Services\FilesystemService;
 
 /**
  * DigitalOcean SSH key management service.

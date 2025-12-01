@@ -2,29 +2,29 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP;
+namespace PHPDeployer;
 
-use Bigpixelrocket\DeployerPHP\Console\HelloCommand;
-use Bigpixelrocket\DeployerPHP\Console\Key\KeyAddDigitalOceanCommand;
-use Bigpixelrocket\DeployerPHP\Console\Key\KeyDeleteDigitalOceanCommand;
-use Bigpixelrocket\DeployerPHP\Console\Key\KeyListDigitalOceanCommand;
-use Bigpixelrocket\DeployerPHP\Console\ScaffoldHooksCommand;
-use Bigpixelrocket\DeployerPHP\Console\Server\ServerAddCommand;
-use Bigpixelrocket\DeployerPHP\Console\Server\ServerDeleteCommand;
-use Bigpixelrocket\DeployerPHP\Console\Server\ServerInfoCommand;
-use Bigpixelrocket\DeployerPHP\Console\Server\ServerInstallCommand;
-use Bigpixelrocket\DeployerPHP\Console\Server\ServerListCommand;
-use Bigpixelrocket\DeployerPHP\Console\Server\ServerLogsCommand;
-use Bigpixelrocket\DeployerPHP\Console\Server\ServerProvisionDigitalOceanCommand;
-use Bigpixelrocket\DeployerPHP\Console\Server\ServerRunCommand;
-use Bigpixelrocket\DeployerPHP\Console\Site\SiteAddCommand;
-use Bigpixelrocket\DeployerPHP\Console\Site\SiteDeleteCommand;
-use Bigpixelrocket\DeployerPHP\Console\Site\SiteDeployCommand;
-use Bigpixelrocket\DeployerPHP\Console\Site\SiteHttpsCommand;
-use Bigpixelrocket\DeployerPHP\Console\Site\SiteListCommand;
-use Bigpixelrocket\DeployerPHP\Console\Site\SiteSharedPullCommand;
-use Bigpixelrocket\DeployerPHP\Console\Site\SiteSharedPushCommand;
-use Bigpixelrocket\DeployerPHP\Services\VersionService;
+use PHPDeployer\Console\HelloCommand;
+use PHPDeployer\Console\Key\KeyAddDigitalOceanCommand;
+use PHPDeployer\Console\Key\KeyDeleteDigitalOceanCommand;
+use PHPDeployer\Console\Key\KeyListDigitalOceanCommand;
+use PHPDeployer\Console\ScaffoldHooksCommand;
+use PHPDeployer\Console\Server\ServerAddCommand;
+use PHPDeployer\Console\Server\ServerDeleteCommand;
+use PHPDeployer\Console\Server\ServerInfoCommand;
+use PHPDeployer\Console\Server\ServerInstallCommand;
+use PHPDeployer\Console\Server\ServerListCommand;
+use PHPDeployer\Console\Server\ServerLogsCommand;
+use PHPDeployer\Console\Server\ServerProvisionDigitalOceanCommand;
+use PHPDeployer\Console\Server\ServerRunCommand;
+use PHPDeployer\Console\Site\SiteAddCommand;
+use PHPDeployer\Console\Site\SiteDeleteCommand;
+use PHPDeployer\Console\Site\SiteDeployCommand;
+use PHPDeployer\Console\Site\SiteHttpsCommand;
+use PHPDeployer\Console\Site\SiteListCommand;
+use PHPDeployer\Console\Site\SiteSharedPullCommand;
+use PHPDeployer\Console\Site\SiteSharedPushCommand;
+use PHPDeployer\Services\VersionService;
 use Symfony\Component\Console\Application as SymfonyApplication;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -107,23 +107,13 @@ final class SymfonyApp extends SymfonyApplication
     {
         $version = $this->getVersion();
 
-        // Simple, compact banner
-        $banner = [
-            '',
-            '<fg=cyan;options=bold>╭────────</><fg=blue;options=bold>──────────</><fg=bright-blue;options=bold>──────────</><fg=magenta;options=bold>──────────</><fg=gray;options=bold>─────────</>',
-            '  <fg=cyan;options=bold>┌┬┐┌─┐┌─┐┬  ┌─┐┬ ┬┌─┐┬─┐</>',
-            '  <fg=cyan;options=bold> ││├┤ ├─┘│  │ │└┬┘├┤ ├┬┘</>',
-            '  <fg=blue;options=bold>─┴┘└─┘┴  ┴─┘└─┘ ┴ └─┘┴└─PHP</> <fg=bright-blue;options=bold>'.$version.'</>',
-            '',
-            '  The Server & Site Deployment Tool for PHP',
-            '<fg=cyan;options=bold>╰────────</><fg=blue;options=bold>──────────</><fg=bright-blue;options=bold>──────────</><fg=magenta;options=bold>──────────</><fg=gray;options=bold>─────────</>',
-            '',
-        ];
-
-        // Display the banner
-        foreach ($banner as $line) {
-            $this->io->writeln($line);
-        }
+        $this->io->writeln(
+            [
+                '',
+                '<fg=cyan;options=bold>▒ PHP Deployer</> <fg=bright-blue;options=bold>•</> '.$version.' <fg=magenta;options=bold>•</> Server & Site Deployment for PHP',
+                '<fg=cyan;options=bold>▒ ━━━━━━━━━━━━━━━</><fg=bright-blue;options=bold>━━━━━━━━━━━━━━━</><fg=magenta;options=bold>━━━━━━━━━━━━━━━</><fg=gray;options=bold>━━━━━━━━━━━━━━━</>',
+            ]
+        );
     }
 
     /**
@@ -140,7 +130,7 @@ final class SymfonyApp extends SymfonyApplication
             ScaffoldHooksCommand::class,
 
             //
-            // Key management
+            // Provider key management
 
             KeyAddDigitalOceanCommand::class,
             KeyDeleteDigitalOceanCommand::class,

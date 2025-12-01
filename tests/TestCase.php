@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Tests;
+namespace PHPDeployer\Tests;
 
 use PHPUnit\Framework\TestCase as BaseTestCase;
 

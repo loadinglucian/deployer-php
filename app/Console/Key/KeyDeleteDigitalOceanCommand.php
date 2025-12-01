@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Key;
+namespace PHPDeployer\Console\Key;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\Traits\DigitalOceanTrait;
-use Bigpixelrocket\DeployerPHP\Traits\KeysTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\Traits\DigitalOceanTrait;
+use PHPDeployer\Traits\KeysTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -44,7 +44,7 @@ class KeyDeleteDigitalOceanCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Delete a public SSH key from DigitalOcean');
+        $this->h1('Delete a public SSH key from DigitalOcean');
 
         //
         // Retrieve DigitalOcean account data
@@ -73,14 +73,13 @@ class KeyDeleteDigitalOceanCommand extends BaseCommand
         // Display key
         // ----
 
-        $this->io->hr();
-
-        $this->io->displayDeets([
+        $this->displayDeets([
             'ID' => (string) $keyId,
             'Name' => $keyDescription,
         ]);
 
-        $this->io->writeln('');
+        $this->out('───');
+        $this->io->write('', true);
 
         //
         // Confirm deletion with extra safety
@@ -90,8 +89,6 @@ class KeyDeleteDigitalOceanCommand extends BaseCommand
         $forceSkip = $input->getOption('force') ?? false;
 
         if (!$forceSkip) {
-            $this->io->writeln('');
-
             $typedKeyId = $this->io->promptText(
                 label: "Type the key ID '{$keyId}' to confirm deletion:",
                 required: true
@@ -114,8 +111,7 @@ class KeyDeleteDigitalOceanCommand extends BaseCommand
         );
 
         if (!$confirmed) {
-            $this->io->warning('Cancelled deleting public SSH key');
-            $this->io->writeln('');
+            $this->warn('Cancelled deleting public SSH key');
 
             return Command::SUCCESS;
         }
@@ -141,7 +137,7 @@ class KeyDeleteDigitalOceanCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->showCommandReplay('key:delete:digitalocean', [
+        $this->commandReplay('key:delete:digitalocean', [
             'key' => (string) $keyId,
             'yes' => $confirmed,
             'force' => true,

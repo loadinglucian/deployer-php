@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Services;
+namespace PHPDeployer\Services;
 
 use Closure;
 
@@ -45,8 +45,47 @@ class IOService
         $this->io = new SymfonyStyle($input, $output);
     }
 
-    //
-    // Input Gathering
+    // ----
+    // Output Methods
+    // ----
+
+    /**
+     * Write-out multiple lines.
+     *
+     * @param string|iterable<string> $lines
+     */
+    public function out(string|iterable $lines): void
+    {
+        $writeLines = is_string($lines) ? [$lines] : $lines;
+        foreach ($writeLines as &$line) {
+            $line = str_replace('<|', '<fg=', $line);
+
+            // Add '▒' character in front of each line, preserving color
+            if (preg_match('/^(\s*<[^>]+>)(.*)$/', $line, $matches)) {
+                // Preserve existing color tags (like <fg=cyan>)
+                $line = $matches[1] . '▒ ' . $matches[2];
+            } else {
+                $line = '▒ ' . $line;
+            }
+        }
+
+        unset($line);
+        $this->io->write($writeLines, true);
+    }
+
+    /**
+     * This wrapper for Symfony's ConsoleOutput::write() method.
+     *
+     * @param string|iterable<string> $messages
+     * @param bool $newline Whether to add a newline after the messages
+     */
+    public function write(string|iterable $messages, bool $newline = false): void
+    {
+        $this->io->write($messages, $newline);
+    }
+
+    // ----
+    // Input methods
     // ----
 
     /**
@@ -177,7 +216,7 @@ class IOService
             $error = $validator($value);
             if ($error !== null) {
                 $this->error($error);
-                $this->writeln('');
+                $this->out('');
 
                 return null;
             }
@@ -439,130 +478,4 @@ class IOService
             message: $message
         );
     }
-
-    //
-    // Output Methods
-    // ----
-
-    /**
-     * Write output without newline.
-     *
-     * Used for streaming output where content arrives in chunks.
-     * For complete lines, use writeln() instead.
-     */
-    public function write(string $text): void
-    {
-        $this->io->write($text);
-    }
-
-    /**
-     * Write-out multiple lines.
-     *
-     * @param array<int, string> $lines
-     */
-    public function writeln(string|array $lines): void
-    {
-        $writeLines = is_array($lines) ? $lines : [$lines];
-        foreach ($writeLines as $line) {
-            $this->io->writeln(' '.$line);
-        }
-    }
-
-    /**
-     * Display an info message with cyan info symbol.
-     */
-    public function info(string $message): void
-    {
-        $this->writeln("<fg=cyan>ℹ {$message}</>");
-    }
-
-    /**
-     * Display a success message with green checkmark.
-     */
-    public function success(string $message): void
-    {
-        $this->writeln("<fg=green>✓ {$message}</>");
-    }
-
-    /**
-     * Display a warning message with yellow warning symbol.
-     */
-    public function warning(string $message): void
-    {
-        $this->writeln("<fg=yellow>⚠ {$message}</>");
-    }
-
-    /**
-     * Display an error message with red X.
-     */
-    public function error(string $message): void
-    {
-        $this->writeln("<fg=red>✗ {$message}</>");
-    }
-
-    /**
-     * Write-out a heading.
-     */
-    public function h1(string $text): void
-    {
-        $this->writeln([
-            '<fg=bright-blue>▸ </><fg=cyan;options=bold>'.$text.'</>',
-            '',
-        ]);
-    }
-
-    /**
-     * Write-out a separator line.
-     */
-    public function hr(): void
-    {
-        $this->writeln([
-            '<fg=cyan;options=bold>╭────────</><fg=blue;options=bold>──────────</><fg=bright-blue;options=bold>──────────</><fg=magenta;options=bold>──────────</><fg=gray;options=bold>─────────</>',
-            '',
-        ]);
-    }
-
-    /**
-     * Display key-value details with aligned formatting.
-     *
-     * Formats key-value pairs with proper alignment and gray styling for values.
-     *
-     * @param array<string, string|int|float|bool|null|array<int, string>> $details Key-value pairs to display
-     *
-     * @example
-     * $this->io->displayDeets([
-     *     'Name' => 'production-web-01',
-     *     'Host' => '192.168.1.100',
-     *     'Port' => 22,
-     * ]);
-     * // Output:
-     * //   Name: production-web-01
-     * //   Host: 192.168.1.100
-     * //   Port: 22
-     */
-    public function displayDeets(array $details): void
-    {
-        if (empty($details)) {
-            return;
-        }
-
-        // Find longest key for alignment
-        $maxLength = max(array_map(strlen(...), array_keys($details)));
-
-        $lines = [];
-        foreach ($details as $key => $value) {
-            $paddedKey = str_pad($key.':', $maxLength + 1);
-            if (is_array($value)) {
-                $lines[] = "  {$paddedKey}";
-                foreach ($value as $item) {
-                    $lines[] = "    <fg=gray>• {$item}</>";
-                }
-            } else {
-                $lines[] = "  {$paddedKey} <fg=gray>{$value}</>";
-            }
-        }
-
-        $this->writeln($lines);
-    }
-
 }

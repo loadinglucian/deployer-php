@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
+use PHPDeployer\Contracts\BaseCommand;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 

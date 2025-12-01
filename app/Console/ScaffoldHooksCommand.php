@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console;
+namespace PHPDeployer\Console;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
+use PHPDeployer\Contracts\BaseCommand;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -36,7 +36,7 @@ class ScaffoldHooksCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Scaffold Deployment Hooks');
+        $this->h1('Scaffold Deployment Hooks');
 
         //
         // Get destination directory
@@ -74,7 +74,7 @@ class ScaffoldHooksCommand extends BaseCommand
 
         $this->yay('Created deployment hooks in the destination directory');
 
-        $this->showCommandReplay('scaffold:hooks', [
+        $this->commandReplay('scaffold:hooks', [
             'destination' => $destinationDir,
         ]);
 
@@ -102,6 +102,8 @@ class ScaffoldHooksCommand extends BaseCommand
         }
 
         $entries = scandir($scaffoldsPath) ?: [];
+        $status = [];
+
         foreach ($entries as $entry) {
             $source = $scaffoldsPath.'/'.$entry;
             $target = $destination.'/'.$entry;
@@ -117,9 +119,10 @@ class ScaffoldHooksCommand extends BaseCommand
                 $skipped = false;
             }
 
-            $this->io->writeln('<fg=gray>' . ($skipped ? 'skipped' : 'created') . '</> ' . $entry);
+            $status[$entry] = $skipped ? 'skipped' : 'created';
         }
 
-        $this->io->writeln('');
+        $this->displayDeets($status);
+        $this->out('');
     }
 }

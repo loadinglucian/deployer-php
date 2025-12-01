@@ -124,18 +124,7 @@ Use `$container->build(Class::class)` for all object creation.
 Exceptions: DTOs, value objects, pure data structures.
 ```
 
-## Rule Density Guidelines
-
-**Target ratios (lines of rules per file):**
-
-- Meta/philosophy: 30-50 lines
-- Architecture/patterns: 80-120 lines
-- Testing: 80-120 lines
-- Console/CLI: 180-220 lines
-- Language style (Bash/PHP): 60-100 lines
-- Project-specific (Playbooks): 100-140 lines
-
-**Token budget awareness:**
+## Token Budget Awareness
 
 - AI agents may have 8K-32K context windows
 - Rules should consume <20% of available tokens

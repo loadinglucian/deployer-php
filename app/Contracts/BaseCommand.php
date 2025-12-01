@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Contracts;
+namespace PHPDeployer\Contracts;
 
-use Bigpixelrocket\DeployerPHP\Container;
-use Bigpixelrocket\DeployerPHP\Repositories\ServerRepository;
-use Bigpixelrocket\DeployerPHP\Repositories\SiteRepository;
-use Bigpixelrocket\DeployerPHP\Services\DigitalOceanService;
-use Bigpixelrocket\DeployerPHP\Services\EnvService;
-use Bigpixelrocket\DeployerPHP\Services\FilesystemService;
-use Bigpixelrocket\DeployerPHP\Services\GitService;
-use Bigpixelrocket\DeployerPHP\Services\HttpService;
-use Bigpixelrocket\DeployerPHP\Services\InventoryService;
-use Bigpixelrocket\DeployerPHP\Services\IOService;
-use Bigpixelrocket\DeployerPHP\Services\ProcessService;
-use Bigpixelrocket\DeployerPHP\Services\SSHService;
+use PHPDeployer\Container;
+use PHPDeployer\Repositories\ServerRepository;
+use PHPDeployer\Repositories\SiteRepository;
+use PHPDeployer\Services\DigitalOceanService;
+use PHPDeployer\Services\EnvService;
+use PHPDeployer\Services\FilesystemService;
+use PHPDeployer\Services\GitService;
+use PHPDeployer\Services\HttpService;
+use PHPDeployer\Services\InventoryService;
+use PHPDeployer\Services\IOService;
+use PHPDeployer\Services\ProcessService;
+use PHPDeployer\Services\SSHService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -141,52 +141,160 @@ abstract class BaseCommand extends Command
         // Display env and inventory statuses
 
         $envStatus = $this->env->getEnvFileStatus();
-        $color = str_starts_with($envStatus, 'No .env') ? 'yellow' : 'gray';
-        $this->io->writeln([
-            ' <fg=cyan>Environment:</> ',
-            " <fg={$color}>{$envStatus}</>",
-            '',
-        ]);
-
         $inventoryStatus = $this->inventory->getInventoryFileStatus();
-        $this->io->writeln([
-            ' <fg=cyan>Inventory:</> ',
-            ' <fg=gray>'.$inventoryStatus.'</>',
-            '',
+
+        $this->out([
+            "<|gray>Env: {$envStatus}</>",
+            "<|gray>Inventory: {$inventoryStatus}</>",
         ]);
 
         return Command::SUCCESS;
     }
 
     // ----
-    // Helper Methods
+    // IO Helpers
     // ----
 
     /**
-     * Display a heading with a horizontal rule and title.
+     * Write-out a separator line.
      */
-    protected function heading(string $text): void
+    protected function hr(): void
     {
-        $this->io->hr();
-        $this->io->h1($text);
+        $this->out(
+            '────────────────────────────────────────────────────────────',
+        );
     }
 
     /**
-     * Display a success message.
+     * Write-out a main heading.
+     */
+    protected function h1(string $text): void
+    {
+        $this->out([
+            '',
+            "# {$text}",
+        ]);
+
+        $this->hr();
+    }
+
+    /**
+     * Write-out a secondary heading.
+     */
+    protected function h2(string $text): void
+    {
+        $h2 = "## {$text}";
+        $underline = str_repeat('─', strlen($h2));
+
+        $this->out([
+            $h2,
+            $underline,
+        ]);
+    }
+
+    /**
+     * Display an info message with info symbol.
+     */
+    protected function info(string $message): void
+    {
+        $this->out("ℹ {$message}");
+    }
+
+    /**
+     * Display a message with a checkmark.
      */
     protected function yay(string $message): void
     {
-        $this->io->success($message);
-        $this->io->writeln('');
+        $this->out("✓ {$message}");
     }
 
     /**
-     * Display an error message.
+     * Display a message with a warning symbol.
+     */
+    protected function warn(string $message): void
+    {
+        $this->out("! {$message}");
+    }
+
+    /**
+     * Display a message with an error symbol.
      */
     protected function nay(string $message): void
     {
-        $this->io->error($message);
-        $this->io->writeln('');
+        $this->out("<|red>✗ {$message}</>");
+    }
+
+    /**
+     * Display a list of items with a bullet point.
+     *
+     * @param string|iterable<string> $lines
+     */
+    protected function ul(string|iterable $lines): void
+    {
+        $writeLines = is_string($lines) ? [$lines] : $lines;
+        foreach ($writeLines as &$line) {
+            $line = "• {$line}";
+        }
+        unset($line);
+        $this->out($writeLines);
+    }
+
+    /**
+     * Display a list of items with numbers.
+     *
+     * @param string|iterable<string> $lines
+     */
+    protected function ol(string|iterable $lines): void
+    {
+        $writeLines = is_string($lines) ? [$lines] : $lines;
+        $counter = 1;
+        foreach ($writeLines as &$line) {
+            $line = "{$counter}. {$line}";
+            $counter++;
+        }
+        unset($line);
+        $this->out($writeLines);
+    }
+
+    /**
+     * This wrapper for Symfony's ConsoleOutput::out() method.
+     *
+     * @param string|iterable<string> $lines
+     */
+    protected function out(string|iterable $lines): void
+    {
+        $this->io->out($lines);
+    }
+
+    /**
+     * Display key-value details with aligned formatting.
+     *
+     * Formats key-value pairs with proper alignment and gray styling for values.
+     *
+     * @param array<string, mixed> $details Key-value pairs to display
+     * @param bool $ul Whether to use a bullet point list
+     */
+    protected function displayDeets(array $details, bool $ul = false): void
+    {
+        if (empty($details)) {
+            return;
+        }
+
+        // Find longest key for alignment
+        $maxLength = max(array_map(strlen(...), array_keys($details)));
+
+        foreach ($details as $key => $value) {
+            $paddedKey = str_pad($key.':', $maxLength + 1);
+            if (is_array($value)) {
+                $this->out("{$paddedKey}");
+                /** @var array<string, mixed> $value */
+                $this->displayDeets($value, true);
+                continue;
+            }
+
+            /** @var string|int|float|bool|null $value */
+            $this->out(($ul ? '• ' : '') . "{$paddedKey} <fg=gray>{$value}</>");
+        }
     }
 
     /**
@@ -194,7 +302,7 @@ abstract class BaseCommand extends Command
      *
      * @param array<string, mixed> $options Array of option name => value pairs
      */
-    protected function showCommandReplay(string $commandName, array $options): void
+    protected function commandReplay(string $commandName, array $options): void
     {
         //
         // Build command options
@@ -229,16 +337,19 @@ abstract class BaseCommand extends Command
         //
         // Display command hint
 
-        $this->io->write('<fg=gray>');
-        $this->io->writeln("\$ vendor/bin/deployer {$commandName} \\");
+        $hasParts = count($parts) > 1;
+
+        $this->io->write([
+            '<fg=gray>',
+            "\$> vendor/bin/deployer {$commandName} " . ($hasParts ? ' \\' : ''),
+        ], true);
 
         foreach ($parts as $index => $part) {
             $last = $index === count($parts) - 1;
             $suffix = $last ? '' : ' \\';
-            $this->io->writeln(sprintf('  %s%s', $part, $suffix));
+            $this->io->write(sprintf('  %s%s', $part, $suffix), true);
         }
 
         $this->io->write('</>');
-        $this->io->writeln('');
     }
 }

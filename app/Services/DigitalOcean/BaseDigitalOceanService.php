@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Services\DigitalOcean;
+namespace PHPDeployer\Services\DigitalOcean;
 
 use DigitalOceanV2\Client;
 

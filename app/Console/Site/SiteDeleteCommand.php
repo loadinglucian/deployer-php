@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Site;
+namespace PHPDeployer\Console\Site;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
-use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\Traits\PlaybooksTrait;
+use PHPDeployer\Traits\ServersTrait;
+use PHPDeployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'site:delete',
-    description: 'Remove a site from the server and delete it from the inventory'
+    description: 'Remove a site from the server and delete it from inventory'
 )]
 class SiteDeleteCommand extends BaseCommand
 {
@@ -46,7 +46,7 @@ class SiteDeleteCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Delete Site');
+        $this->h1('Delete Site');
 
         //
         // Select site & display details
@@ -68,7 +68,7 @@ class SiteDeleteCommand extends BaseCommand
         $forceSkip = $input->getOption('force') ?? false;
 
         if (!$forceSkip) {
-            $this->io->writeln('');
+            $this->out('');
 
             $typedDomain = $this->io->promptText(
                 label: "Type the site domain '{$site->domain}' to confirm deletion:",
@@ -92,8 +92,8 @@ class SiteDeleteCommand extends BaseCommand
         );
 
         if (!$confirmed) {
-            $this->io->warning('Cancelled deleting site');
-            $this->io->writeln('');
+            $this->warn('Cancelled deleting site');
+            $this->out('');
 
             return Command::SUCCESS;
         }
@@ -106,23 +106,23 @@ class SiteDeleteCommand extends BaseCommand
         $server = $this->servers->findByName($site->server);
 
         if ($server === null) {
-            $this->io->warning("Server '{$site->server}' not found in inventory");
-            $this->io->writeln([
+            $this->warn("Server '{$site->server}' not found in inventory");
+            $this->out([
                 '',
                 '<fg=yellow>The server may have been deleted.</>',
                 '',
             ]);
         } else {
             // Get server info (verifies SSH connection)
-            $info = $this->serverInfo($server);
+            $server = $this->serverInfo($server);
 
-            if (is_int($info)) {
-                $this->io->warning('Could not connect to server');
+            if (is_int($server) || $server->info === null) {
+                $this->warn('Could not connect to server');
             } else {
                 [
                     'distro' => $distro,
                     'permissions' => $permissions,
-                ] = $info;
+                ] = $server->info;
 
                 /** @var string $distro */
                 /** @var string $permissions */
@@ -141,7 +141,7 @@ class SiteDeleteCommand extends BaseCommand
                 );
 
                 if (is_int($result)) {
-                    $this->io->warning('Failed to remove site from server');
+                    $this->warn('Failed to remove site from server');
                 } else {
                     $removedFromServer = true;
                 }
@@ -183,7 +183,7 @@ class SiteDeleteCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->showCommandReplay('site:delete', [
+        $this->commandReplay('site:delete', [
             'domain' => $site->domain,
             'yes' => $confirmed,
             'force' => true,

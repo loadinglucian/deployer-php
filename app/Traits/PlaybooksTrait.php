@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Traits;
+namespace PHPDeployer\Traits;
 
-use Bigpixelrocket\DeployerPHP\Container;
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Exceptions\SSHTimeoutException;
-use Bigpixelrocket\DeployerPHP\Services\FilesystemService;
-use Bigpixelrocket\DeployerPHP\Services\IOService;
-use Bigpixelrocket\DeployerPHP\Services\SSHService;
+use PHPDeployer\Container;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Exceptions\SSHTimeoutException;
+use PHPDeployer\Services\FilesystemService;
+use PHPDeployer\Services\IOService;
+use PHPDeployer\Services\SSHService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Yaml\Yaml;
 
@@ -26,6 +26,32 @@ use Symfony\Component\Yaml\Yaml;
 trait PlaybooksTrait
 {
     /**
+     * Execute a playbook on a server silently.
+     *
+     * @param ServerDTO $server
+     * @param string $playbookName Playbook name without .sh extension (e.g., 'server-info', 'php-install', etc)
+     * @param string $spinnerMessage Message to display while executing the playbook
+     * @param array<string, string> $playbookVars Playbook variables to pass to the playbook (don't pass sensitive data)
+     * @return array<string, mixed>|int Returns parsed YAML on success or Command::FAILURE on error
+     */
+    protected function executePlaybookSilently(
+        ServerDTO $server,
+        string $playbookName,
+        string $spinnerMessage,
+        array $playbookVars = [],
+    ): array|int {
+        $capture = '';
+
+        return $this->executePlaybook(
+            $server,
+            $playbookName,
+            $spinnerMessage,
+            $playbookVars,
+            $capture
+        );
+    }
+
+    /**
      * Execute a playbook on a server.
      *
      * Handles SSH execution, error display, and YAML parsing.
@@ -37,18 +63,24 @@ trait PlaybooksTrait
      *   - DEPLOYER_DISTRO: Exact distribution (ubuntu|debian) - caller must provide via $playbookVars
      *   - DEPLOYER_PERMS: User permissions (root|sudo|none) - caller must provide via $playbookVars
      *
-     * @param string $playbookName Playbook name without .sh extension (e.g., 'server-info', 'install-php', etc)
+     * @param ServerDTO $server
+     * @param string $playbookName Playbook name without .sh extension (e.g., 'server-info', 'php-install', etc)
+     * @param string $statusMessage Message to display while executing the playbook
      * @param array<string, string> $playbookVars Playbook variables to pass to the playbook (don't pass sensitive data)
-     * @param bool $streamOutput Stream output in real-time (true) or show spinner and display all at end (false)
+     * @param string|null $capture Variable passed by reference to capture raw output. If null, output is streamed to console. If provided, output is captured silently.
      * @return array<string, mixed>|int Returns parsed YAML on success or Command::FAILURE on error
      */
     protected function executePlaybook(
         ServerDTO $server,
         string $playbookName,
-        string $spinnerMessage,
+        string $statusMessage,
         array $playbookVars = [],
-        bool $streamOutput = false
+        ?string &$capture = null
     ): array|int {
+
+        //
+        // Prepare playbook
+
         $projectRoot = dirname(__DIR__, 2);
         $playbookPath = $projectRoot . '/playbooks/' . $playbookName . '.sh';
         $scriptContents = $this->fs->readFile($playbookPath);
@@ -82,40 +114,43 @@ trait PlaybooksTrait
             $scriptContents
         );
 
-        // Execute command
+        //
+        // Execution and ouput
+
         try {
-            if ($streamOutput) {
-                // Streaming output in real-time
-                $this->io->writeln([
-                    '<fg=cyan>'.$spinnerMessage.'</>',
-                    '',
-                ]);
+            if (null === $capture) {
+                // Streaming output in real time
+                $this->out('$> ' . $statusMessage);
 
                 $result = $this->ssh->executeCommand(
                     $server,
                     $scriptWithVars,
                     fn (string $chunk) => $this->io->write($chunk)
                 );
+
+                $this->out('───');
             } else {
-                // No streaming, use spinner and display output at end
+                // No streaming, use spinner and capture output later
                 $result = $this->io->promptSpin(
                     callback: fn () => $this->ssh->executeCommand(
                         $server,
                         $scriptWithVars
                     ),
-                    message: $spinnerMessage
+                    message: $statusMessage
                 );
-
-                $output = trim((string) $result['output']);
-                if (!empty($output)) {
-                    $this->io->writeln(explode("\n", $output));
-                }
             }
 
-            $this->io->writeln(''); // Empty line after output
+            // Display output when capturing only if there was an error
+            if (null !== $capture && 0 !== $result['exit_code']) {
+                $this->out('$>');
+                $this->out(explode("\n", (string) $result['output']));
+                $this->out('───');
+            }
+
+            $capture = trim((string) $result['output']);
         } catch (SSHTimeoutException $e) {
             $this->nay($e->getMessage());
-            $this->io->writeln([
+            $this->out([
                 '',
                 '<fg=yellow>The process took longer than expected to complete. Either:</>',
                 '  • Server has a slow network connection',
@@ -137,7 +172,7 @@ trait PlaybooksTrait
 
         // Check exit code
         if ($result['exit_code'] !== 0) {
-            $this->nay('Playbook execution failed');
+            $this->nay('Execution failed');
 
             return Command::FAILURE;
         }
@@ -151,7 +186,7 @@ trait PlaybooksTrait
                     null,
                     30
                 ),
-                message: $spinnerMessage
+                message: $statusMessage
             );
 
             $yamlContent = trim((string) $yamlResult['output']);
@@ -177,7 +212,7 @@ trait PlaybooksTrait
             return $parsed;
         } catch (\Throwable $e) {
             $this->nay($e->getMessage());
-            $this->io->writeln([
+            $this->out([
                 '<fg=red>'.$yamlContent.'</>',
                 '',
             ]);
@@ -185,5 +220,4 @@ trait PlaybooksTrait
             return Command::FAILURE;
         }
     }
-
 }

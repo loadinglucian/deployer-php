@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Traits;
+namespace PHPDeployer\Traits;
 
-use Bigpixelrocket\DeployerPHP\Services\FilesystemService;
+use PHPDeployer\Services\FilesystemService;
 
 /**
  * Reusable SSH key things.

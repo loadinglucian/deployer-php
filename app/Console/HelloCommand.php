@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console;
+namespace PHPDeployer\Console;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
+use PHPDeployer\Contracts\BaseCommand;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

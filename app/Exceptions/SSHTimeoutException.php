@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Exceptions;
+namespace PHPDeployer\Exceptions;
 
 /**
  * Exception thrown when SSH command execution times out.
