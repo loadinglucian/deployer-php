@@ -3,12 +3,12 @@
 #
 # Deployer User Setup Playbook
 #
-# Creates deployer user, generates SSH keys, and configures permissions
+# Creates deployer user, sets up SSH keys, and configures permissions
 # ----
 #
 # This playbook handles all deployer user-related configuration including:
 # - User creation with home directory
-# - SSH key pair generation for git deployments
+# - SSH key pair generation or custom key installation
 # - Group memberships (adding caddy and www-data to deployer group)
 # - Directory permissions for deployer home
 #
@@ -16,6 +16,14 @@
 #   DEPLOYER_OUTPUT_FILE - Output file path
 #   DEPLOYER_PERMS       - Permissions: root|sudo
 #   DEPLOYER_SERVER_NAME - Server name for deploy key generation
+#
+# Optional Environment Variables:
+#   DEPLOYER_KEY_PRIVATE - Base64-encoded private key (if provided, overwrites existing)
+#   DEPLOYER_KEY_PUBLIC  - Base64-encoded public key (if provided, overwrites existing)
+#
+# Idempotency:
+#   - Custom keys (provided): Always overwrite existing keys
+#   - Auto-generate (not provided): Skip if keys already exist
 #
 # Returns YAML with:
 #   - status: success
@@ -106,22 +114,42 @@ setup_deployer() {
 	local private_key="${deployer_ssh_dir}/id_ed25519"
 	local public_key="${deployer_ssh_dir}/id_ed25519.pub"
 
+	# Ensure .ssh directory exists
 	if ! run_cmd test -d "$deployer_ssh_dir"; then
-		echo "→ Creating .ssh directory..."
+		echo "→ Creating ${deployer_ssh_dir} directory..."
 		if ! run_cmd mkdir -p "$deployer_ssh_dir"; then
 			echo "Error: Failed to create .ssh directory" >&2
 			exit 1
 		fi
 	fi
 
-	if ! run_cmd test -f "$private_key"; then
-		echo "→ Generating SSH key pair..."
-		if ! run_cmd ssh-keygen -t ed25519 -C "deployer@${DEPLOYER_SERVER_NAME}" -f "$private_key" -N ""; then
-			echo "Error: Failed to generate SSH key pair" >&2
+	# Handle SSH key setup based on whether custom keys are provided
+	if [[ -n ${DEPLOYER_KEY_PRIVATE:-} && -n ${DEPLOYER_KEY_PUBLIC:-} ]]; then
+		# Custom keys provided - always write (overwrite existing)
+		echo "→ Installing custom SSH key pair..."
+
+		# Write private key (decode from base64)
+		if ! echo "$DEPLOYER_KEY_PRIVATE" | base64 -d | run_cmd tee "$private_key" > /dev/null; then
+			echo "Error: Failed to write private key" >&2
+			exit 1
+		fi
+
+		# Write public key (decode from base64)
+		if ! echo "$DEPLOYER_KEY_PUBLIC" | base64 -d | run_cmd tee "$public_key" > /dev/null; then
+			echo "Error: Failed to write public key" >&2
 			exit 1
 		fi
 	else
-		echo "→ SSH key pair already exists"
+		# No custom keys - generate only if not exists (idempotent)
+		if ! run_cmd test -f "$private_key"; then
+			echo "→ Generating SSH key pair..."
+			if ! run_cmd ssh-keygen -t ed25519 -C "deployer@${DEPLOYER_SERVER_NAME}" -f "$private_key" -N ""; then
+				echo "Error: Failed to generate SSH key pair" >&2
+				exit 1
+			fi
+		else
+			echo "SSH key pair already exists, skipping generation"
+		fi
 	fi
 
 	# Set ownership and permissions

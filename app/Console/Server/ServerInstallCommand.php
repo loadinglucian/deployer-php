@@ -6,6 +6,7 @@ namespace PHPDeployer\Console\Server;
 
 use PHPDeployer\Contracts\BaseCommand;
 use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Traits\KeysTrait;
 use PHPDeployer\Traits\PlaybooksTrait;
 use PHPDeployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -20,6 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class ServerInstallCommand extends BaseCommand
 {
+    use KeysTrait;
     use PlaybooksTrait;
     use ServersTrait;
 
@@ -32,6 +34,8 @@ class ServerInstallCommand extends BaseCommand
         parent::configure();
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
+        $this->addOption('generate-deploy-key', null, InputOption::VALUE_NONE, 'Use server-generated deploy key');
+        $this->addOption('custom-deploy-key', null, InputOption::VALUE_REQUIRED, 'Path to custom deploy key (public key expected at same path + .pub)');
         $this->addOption('php-version', null, InputOption::VALUE_REQUIRED, 'PHP version to install');
         $this->addOption('php-default', null, InputOption::VALUE_NEGATABLE, 'Set as default PHP version');
         $this->addOption('php-extensions', null, InputOption::VALUE_REQUIRED, 'Comma-separated PHP extensions');
@@ -139,29 +143,15 @@ class ServerInstallCommand extends BaseCommand
         // Setup deployer user
         // ----
 
-        $deployerResult = $this->executePlaybook(
-            $server,
-            'user-install',
-            'Setting up deployer user...',
-            [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-                'DEPLOYER_SERVER_NAME' => $server->name,
-            ],
-        );
+        $deployKeyResult = $this->setupDeployerUser($input, $server, $distro, $permissions);
 
-        if (is_int($deployerResult)) {
-            return $deployerResult;
+        if (is_int($deployKeyResult)) {
+            return $deployKeyResult;
         }
 
-        /** @var string|null $deployKey */
-        $deployKey = $deployerResult['deploy_public_key'] ?? null;
-
-        if ($deployKey === null) {
-            $this->nay('Failed to retrieve deploy key');
-
-            return Command::FAILURE;
-        }
+        /** @var array{deploy_key_path: string|null, deploy_public_key: string} $deployKeyResult */
+        $deployKeyPath = $deployKeyResult['deploy_key_path'];
+        $deployPublicKey = $deployKeyResult['deploy_public_key'];
 
         $this->yay('Server installation completed successfully');
 
@@ -172,7 +162,7 @@ class ServerInstallCommand extends BaseCommand
 
         $this->io->write([
             '',
-            '<fg=yellow>' . $deployKey . '</>',
+            '<fg=yellow>' . $deployPublicKey . '</>',
         ], true);
 
         //
@@ -185,6 +175,12 @@ class ServerInstallCommand extends BaseCommand
             'php-extensions' => $phpExtensions,
         ];
 
+        if ($deployKeyPath !== null) {
+            $replayOptions['custom-deploy-key'] = $deployKeyPath;
+        } else {
+            $replayOptions['generate-deploy-key'] = true;
+        }
+
         if ($phpDefaultPrompted) {
             $replayOptions['php-default'] = $phpDefault;
         }
@@ -192,6 +188,122 @@ class ServerInstallCommand extends BaseCommand
         $this->commandReplay('server:install', $replayOptions);
 
         return Command::SUCCESS;
+    }
+
+    //
+    // Deployer User Setup
+    // ----
+
+    /**
+     * Setup deployer user and SSH deploy key.
+     *
+     * Handles deploy key generation or custom key upload based on user input.
+     * Custom keys always overwrite existing; auto-generated keys preserve existing.
+     *
+     * @return array{deploy_key_path: string|null, deploy_public_key: string}|int
+     */
+    private function setupDeployerUser(InputInterface $input, ServerDTO $server, string $distro, string $permissions): array|int
+    {
+        //
+        // Get deploy key configuration
+        // ----
+
+        /** @var bool $generateKey */
+        $generateKey = $input->getOption('generate-deploy-key');
+        /** @var string|null $customKeyPath */
+        $customKeyPath = $input->getOption('custom-deploy-key');
+
+        if ($generateKey && $customKeyPath !== null) {
+            $this->nay('Cannot use both --generate-deploy-key and --custom-deploy-key');
+
+            return Command::FAILURE;
+        }
+
+        if ($generateKey) {
+            $deployKeyPath = null;
+        } elseif ($customKeyPath !== null) {
+            $deployKeyPath = $customKeyPath;
+        } else {
+            // Interactive prompt
+            $choice = $this->io->promptSelect(
+                label: 'Deploy key:',
+                options: [
+                    'generate' => 'Use server-generated key pair',
+                    'custom' => 'Use your own key pair',
+                ],
+                default: 'generate'
+            );
+
+            if ($choice === 'generate') {
+                $deployKeyPath = null;
+            } else {
+                // Prompt for custom key path
+                $deployKeyPath = $this->io->promptText(
+                    label: 'Path to private key:',
+                    placeholder: '~/.ssh/deploy_key',
+                    required: true,
+                    hint: 'Public key expected at same path + .pub'
+                );
+            }
+        }
+
+        //
+        // Prepare playbook variables
+        // ----
+
+        $playbookVars = [
+            'DEPLOYER_DISTRO' => $distro,
+            'DEPLOYER_PERMS' => $permissions,
+            'DEPLOYER_SERVER_NAME' => $server->name,
+        ];
+
+        if ($deployKeyPath !== null && $deployKeyPath !== '') {
+            // Validate key pair
+            $validationError = $this->validateDeployKeyPairInput($deployKeyPath);
+
+            if ($validationError !== null) {
+                $this->nay($validationError);
+
+                return Command::FAILURE;
+            }
+
+            // Read and encode key contents
+            $expandedPath = $this->fs->expandPath($deployKeyPath);
+            $privateKeyContent = $this->fs->readFile($expandedPath);
+            $publicKeyContent = $this->fs->readFile($expandedPath . '.pub');
+
+            $playbookVars['DEPLOYER_KEY_PRIVATE'] = base64_encode($privateKeyContent);
+            $playbookVars['DEPLOYER_KEY_PUBLIC'] = base64_encode($publicKeyContent);
+        }
+
+        //
+        // Execute playbook
+        // ----
+
+        $deployerResult = $this->executePlaybook(
+            $server,
+            'user-install',
+            'Setting up deployer user...',
+            $playbookVars,
+        );
+
+        if (is_int($deployerResult)) {
+            return $deployerResult;
+        }
+
+        /** @var string|null $deployPublicKey */
+        $deployPublicKey = $deployerResult['deploy_public_key'] ?? null;
+
+        if ($deployPublicKey === null) {
+            $this->nay('Failed to retrieve deploy key');
+
+            return Command::FAILURE;
+        }
+
+        return [
+            'deploy_key_path' => $deployKeyPath,
+            'deploy_public_key' => $deployPublicKey,
+        ];
     }
 
     //

@@ -181,4 +181,96 @@ trait KeysTrait
 
         return null;
     }
+
+    /**
+     * Validate SSH private key file.
+     *
+     * - Checks if file exists (automatically expands tilde ~ to home directory)
+     * - Validates key format (PEM format with BEGIN/END markers)
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validatePrivateKeyPathInput(mixed $path): ?string
+    {
+        if (!is_string($path)) {
+            return 'Key path must be a string';
+        }
+
+        if (trim($path) === '') {
+            return 'Private key path cannot be empty';
+        }
+
+        try {
+            $expandedPath = $this->fs->expandPath($path);
+        } catch (\Throwable $e) {
+            return $e->getMessage();
+        }
+
+        if (!$this->fs->exists($expandedPath)) {
+            return "SSH private key file not found: {$path}";
+        }
+
+        try {
+            $key = $this->fs->readFile($expandedPath);
+            $key = trim((string) $key);
+
+            // Validate key format (should be PEM format with BEGIN marker)
+            $validPrefixes = [
+                '-----BEGIN OPENSSH PRIVATE KEY-----',
+                '-----BEGIN RSA PRIVATE KEY-----',
+                '-----BEGIN EC PRIVATE KEY-----',
+                '-----BEGIN DSA PRIVATE KEY-----',
+                '-----BEGIN PRIVATE KEY-----',
+            ];
+
+            $isValid = false;
+            foreach ($validPrefixes as $prefix) {
+                if (str_starts_with($key, $prefix)) {
+                    $isValid = true;
+                    break;
+                }
+            }
+
+            if (!$isValid) {
+                return 'Invalid SSH private key format';
+            }
+
+            // Check for DSA key (obsolete)
+            if (str_starts_with($key, '-----BEGIN DSA PRIVATE KEY-----')) {
+                return 'DSA keys are obsolete and insecure';
+            }
+        } catch (\Throwable) {
+            return 'Could not read SSH private key file';
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate deploy key pair (private key + corresponding public key).
+     *
+     * Validates both the private key and its corresponding public key file
+     * (expected at same path + '.pub').
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateDeployKeyPairInput(mixed $path): ?string
+    {
+        // First validate the private key
+        $privateKeyError = $this->validatePrivateKeyPathInput($path);
+        if ($privateKeyError !== null) {
+            return $privateKeyError;
+        }
+
+        // Then validate the corresponding public key
+        /** @var string $path */
+        $publicKeyPath = $path . '.pub';
+        $publicKeyError = $this->validateKeyPathInput($publicKeyPath);
+
+        if ($publicKeyError !== null) {
+            return "Public key not found or invalid: {$publicKeyPath}";
+        }
+
+        return null;
+    }
 }
