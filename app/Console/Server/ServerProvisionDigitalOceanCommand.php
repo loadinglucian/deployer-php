@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Server;
+namespace PHPDeployer\Console\Server;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Traits\DigitalOceanTrait;
-use Bigpixelrocket\DeployerPHP\Traits\KeysTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Traits\DigitalOceanTrait;
+use PHPDeployer\Traits\KeysTrait;
+use PHPDeployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -54,7 +54,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Provision DigitalOcean Droplet');
+        $this->h1('Provision DigitalOcean Droplet');
 
         //
         // Retrieve DigitalOcean account data
@@ -152,7 +152,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             $ipAddress = $this->digitalOcean->droplet->getDropletIp($dropletId);
 
             // Create server DTO
-            $server = new ServerDTO(
+            $server = $this->serverInfo(new ServerDTO(
                 name: $name,
                 host: $ipAddress,
                 port: 22,
@@ -160,19 +160,15 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
                 privateKeyPath: $privateKeyPath,
                 provider: 'digitalocean',
                 dropletId: $dropletId
-            );
+            ));
 
-            $this->displayServerDeets($server);
-
-            // Get server info (verifies SSH connection and validates distribution & permissions)
-            $info = $this->serverInfo($server);
-
-            if (is_int($info)) {
-                throw new \RuntimeException('Failed to validate server distribution');
+            if (is_int($server)) {
+                return Command::FAILURE;
             }
 
             // Add to inventory
             $this->servers->create($server);
+
             $this->yay('Server added to inventory');
 
             $shouldKeepDroplet = true;
@@ -192,7 +188,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->showCommandReplay('server:provision:digitalocean', [
+        $this->commandReplay('server:provision:digitalocean', [
             'name' => $name,
             'region' => $region,
             'size' => $size,
@@ -242,7 +238,9 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             fn ($validate) => $this->io->promptSelect(
                 label: 'Select region:',
                 options: $accountData['regions'],
-                hint: 'Choose the datacenter location'
+                hint: 'Choose the datacenter location',
+                default: '',
+                scroll: 15
             ),
             fn ($value) => $this->validateDigitalOceanRegion($value, $accountData['regions'])
         );
@@ -257,7 +255,9 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             fn ($validate) => $this->io->promptSelect(
                 label: 'Select droplet size:',
                 options: $accountData['sizes'],
-                hint: 'Choose CPU, RAM, and storage'
+                hint: 'Choose CPU, RAM, and storage',
+                default: '',
+                scroll: 15
             ),
             fn ($value) => $this->validateDigitalOceanDropletSize($value, $accountData['sizes'])
         );
@@ -272,7 +272,9 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             fn ($validate) => $this->io->promptSelect(
                 label: 'Select OS image:',
                 options: $accountData['images'],
-                hint: 'Supported Linux distributions'
+                hint: 'Supported Linux distributions',
+                default: 'ubuntu-24-04-x64',
+                scroll: 15
             ),
             fn ($value) => $this->validateDigitalOceanDropletImage($value, $accountData['images'])
         );
@@ -412,9 +414,9 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
                 'Rolling back droplet...'
             );
 
-            $this->io->warning('Rolled back droplet');
+            $this->warn('Rolled back droplet');
         } catch (\Throwable $cleanupError) {
-            $this->io->warning($cleanupError->getMessage());
+            $this->warn($cleanupError->getMessage());
         }
     }
 }

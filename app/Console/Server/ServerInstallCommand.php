@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Server;
+namespace PHPDeployer\Console\Server;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Traits\KeysTrait;
+use PHPDeployer\Traits\PlaybooksTrait;
+use PHPDeployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -20,6 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class ServerInstallCommand extends BaseCommand
 {
+    use KeysTrait;
     use PlaybooksTrait;
     use ServersTrait;
 
@@ -32,6 +34,8 @@ class ServerInstallCommand extends BaseCommand
         parent::configure();
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
+        $this->addOption('generate-deploy-key', null, InputOption::VALUE_NONE, 'Use server-generated deploy key');
+        $this->addOption('custom-deploy-key', null, InputOption::VALUE_REQUIRED, 'Path to custom deploy key (public key expected at same path + .pub)');
         $this->addOption('php-version', null, InputOption::VALUE_REQUIRED, 'PHP version to install');
         $this->addOption('php-default', null, InputOption::VALUE_NEGATABLE, 'Set as default PHP version');
         $this->addOption('php-extensions', null, InputOption::VALUE_REQUIRED, 'Comma-separated PHP extensions');
@@ -45,34 +49,22 @@ class ServerInstallCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Install Server');
+        $this->h1('Install Server');
 
         //
-        // Select server & display details
+        // Select server
         // ----
 
         $server = $this->selectServer();
 
-        if (is_int($server)) {
-            return $server;
-        }
-
-        $this->displayServerDeets($server);
-
-        //
-        // Get server info (verifies SSH connection and validates distribution & permissions)
-        // ----
-
-        $info = $this->serverInfo($server);
-
-        if (is_int($info)) {
-            return $info;
+        if (is_int($server) || $server->info === null) {
+            return Command::FAILURE;
         }
 
         [
             'distro' => $distro,
             'permissions' => $permissions,
-        ] = $info;
+        ] = $server->info;
 
         /** @var string $distro */
         /** @var string $permissions */
@@ -90,7 +82,6 @@ class ServerInstallCommand extends BaseCommand
                 'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_GATHER_PHP' => 'true',
             ],
-            true
         );
 
         if (is_int($packageList)) {
@@ -103,13 +94,12 @@ class ServerInstallCommand extends BaseCommand
 
         $result = $this->executePlaybook(
             $server,
-            'install-base',
+            'base-install',
             'Installing base packages...',
             [
                 'DEPLOYER_DISTRO' => $distro,
                 'DEPLOYER_PERMS' => $permissions,
             ],
-            true
         );
 
         if (is_int($result)) {
@@ -120,7 +110,7 @@ class ServerInstallCommand extends BaseCommand
         // Install PHP
         // ----
 
-        $phpResult = $this->installPhp($server, $info, $packageList);
+        $phpResult = $this->installPhp($server, $server->info, $packageList);
 
         if (is_int($phpResult)) {
             return $phpResult;
@@ -138,12 +128,11 @@ class ServerInstallCommand extends BaseCommand
 
         $bunResult = $this->executePlaybook(
             $server,
-            'install-bun',
+            'bun-install',
             'Installing Bun...',
             [
                 'DEPLOYER_PERMS' => $permissions,
             ],
-            true
         );
 
         if (is_int($bunResult)) {
@@ -154,79 +143,28 @@ class ServerInstallCommand extends BaseCommand
         // Setup deployer user
         // ----
 
-        $deployerResult = $this->executePlaybook(
-            $server,
-            'install-deployer',
-            'Setting up deployer user...',
-            [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-                'DEPLOYER_SERVER_NAME' => $server->name,
-            ],
-            true
-        );
+        $deployKeyResult = $this->setupDeployerUser($input, $server, $distro, $permissions);
 
-        if (is_int($deployerResult)) {
-            $this->nay('Deployer user setup failed');
-
-            return $deployerResult;
+        if (is_int($deployKeyResult)) {
+            return $deployKeyResult;
         }
 
-        $this->yay('Deployer user setup successful');
+        /** @var array{deploy_key_path: string|null, deploy_public_key: string} $deployKeyResult */
+        $deployKeyPath = $deployKeyResult['deploy_key_path'];
+        $deployPublicKey = $deployKeyResult['deploy_public_key'];
 
-        //
-        // Setup demo site
-        // ----
+        $this->yay('Server installation completed successfully');
 
-        /** @var string $permissions */
-        $demoResult = $this->executePlaybook(
-            $server,
-            'demo-site',
-            'Setting up demo site...',
-            [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-            ],
-            true
-        );
+        $this->ul([
+            'Run <|cyan>site:add</> to add a new site',
+            'Add the following <|yellow>public key</> to your Git provider (GitHub, GitLab, etc.) to enable deployments:',
+        ]);
 
-        if (is_int($demoResult)) {
-            $this->nay('Demo site setup failed');
-
-            return Command::FAILURE;
-        }
-
-        $this->yay('Demo site setup successful');
-
-        //
-        // Verify installation
-        // ----
-
-        // IPv6 addresses must be wrapped in brackets for URLs
-        $host = $server->host;
-        if (str_contains($host, ':')) {
-            // Any IPv6 literal must be wrapped in brackets
-            $url = "http://[{$host}]";
-        } else {
-            $url = "http://{$host}";
-        }
-        /** @var string|null $deployKey */
-        $deployKey = $deployerResult['deploy_public_key'] ?? null;
-
-        $verification = $this->io->promptSpin(
-            fn () => $this->verifyInstallation($url, $deployKey),
-            'Verifying installation...'
-        );
-
-        if ($verification['status'] === 'success') {
-            $this->yay($verification['message']);
-        } else {
-            $this->io->warning($verification['message']);
-        }
-
-        if ($verification['lines'] !== []) {
-            $this->io->writeln($verification['lines']);
-        }
+        // Intentionally not using $this->out() here to make the key stand out from the rest of the command output
+        $this->io->write([
+            '',
+            '<fg=yellow>' . $deployPublicKey . '</>',
+        ], true);
 
         //
         // Show command replay
@@ -238,13 +176,131 @@ class ServerInstallCommand extends BaseCommand
             'php-extensions' => $phpExtensions,
         ];
 
+        if ($deployKeyPath !== null) {
+            $replayOptions['custom-deploy-key'] = $deployKeyPath;
+        } else {
+            $replayOptions['generate-deploy-key'] = true;
+        }
+
         if ($phpDefaultPrompted) {
             $replayOptions['php-default'] = $phpDefault;
         }
 
-        $this->showCommandReplay('server:install', $replayOptions);
+        $this->commandReplay('server:install', $replayOptions);
 
         return Command::SUCCESS;
+    }
+
+    //
+    // Deployer User Setup
+    // ----
+
+    /**
+     * Setup deployer user and SSH deploy key.
+     *
+     * Handles deploy key generation or custom key upload based on user input.
+     * Custom keys always overwrite existing; auto-generated keys preserve existing.
+     *
+     * @return array{deploy_key_path: string|null, deploy_public_key: string}|int
+     */
+    private function setupDeployerUser(InputInterface $input, ServerDTO $server, string $distro, string $permissions): array|int
+    {
+        //
+        // Get deploy key configuration
+        // ----
+
+        /** @var bool $generateKey */
+        $generateKey = $input->getOption('generate-deploy-key');
+        /** @var string|null $customKeyPath */
+        $customKeyPath = $input->getOption('custom-deploy-key');
+
+        if ($generateKey && $customKeyPath !== null) {
+            $this->nay('Cannot use both --generate-deploy-key and --custom-deploy-key');
+
+            return Command::FAILURE;
+        }
+
+        if ($generateKey) {
+            $deployKeyPath = null;
+        } elseif ($customKeyPath !== null) {
+            $deployKeyPath = $customKeyPath;
+        } else {
+            $choice = $this->io->promptSelect(
+                label: 'Deploy key:',
+                options: [
+                    'generate' => 'Use server-generated key pair',
+                    'custom' => 'Use your own key pair',
+                ],
+                default: 'generate'
+            );
+
+            if ($choice === 'generate') {
+                $deployKeyPath = null;
+            } else {
+                $deployKeyPath = $this->io->promptText(
+                    label: 'Path to private key:',
+                    placeholder: '~/.ssh/deploy_key',
+                    required: true,
+                    hint: 'Public key expected at same path + .pub'
+                );
+            }
+        }
+
+        //
+        // Prepare playbook variables
+        // ----
+
+        $playbookVars = [
+            'DEPLOYER_DISTRO' => $distro,
+            'DEPLOYER_PERMS' => $permissions,
+            'DEPLOYER_SERVER_NAME' => $server->name,
+        ];
+
+        if ($deployKeyPath !== null && $deployKeyPath !== '') {
+            $validationError = $this->validateDeployKeyPairInput($deployKeyPath);
+
+            if ($validationError !== null) {
+                $this->nay($validationError);
+
+                return Command::FAILURE;
+            }
+
+            $expandedPath = $this->fs->expandPath($deployKeyPath);
+            $privateKeyContent = $this->fs->readFile($expandedPath);
+            $publicKeyContent = $this->fs->readFile($expandedPath . '.pub');
+
+            $playbookVars['DEPLOYER_KEY_PRIVATE'] = base64_encode($privateKeyContent);
+            $playbookVars['DEPLOYER_KEY_PUBLIC'] = base64_encode($publicKeyContent);
+        }
+
+        //
+        // Execute playbook
+        // ----
+
+        $deployerResult = $this->executePlaybook(
+            $server,
+            'user-install',
+            'Setting up deployer user...',
+            $playbookVars,
+        );
+
+        if (is_int($deployerResult)) {
+            return $deployerResult;
+        }
+
+        /** @var string|null $deployPublicKey */
+        $deployPublicKey = $deployerResult['deploy_public_key'] ?? null;
+
+        if ($deployPublicKey === null) {
+            $this->nay('Failed to retrieve deploy key');
+
+            return Command::FAILURE;
+        }
+
+        return [
+            'deploy_key_path' => $deployKeyPath,
+            'deploy_public_key' => $deployPublicKey,
+        ];
     }
 
     //
@@ -279,19 +335,22 @@ class ServerInstallCommand extends BaseCommand
         // Extract available PHP versions
         // ----
 
-        if (!isset($packageList['php']) || !is_array($packageList['php']) || empty($packageList['php'])) {
+        /** @var array<string, mixed> $phpPackages */
+        $phpPackages = $packageList['php'] ?? [];
+
+        if ($phpPackages === []) {
             $this->nay('No PHP versions available in package list');
 
             return Command::FAILURE;
         }
 
-        $phpVersions = array_keys($packageList['php']);
-
-        // Filter for PHP 8.x only
-        $phpVersions = array_filter($phpVersions, fn ($v) => str_starts_with((string) $v, '8.'));
+        $phpVersions = array_filter(
+            array_keys($phpPackages),
+            fn ($v) => str_starts_with((string) $v, '8.')
+        );
         rsort($phpVersions, SORT_NATURAL); // Newest first
 
-        if (empty($phpVersions)) {
+        if ($phpVersions === []) {
             $this->nay('No PHP 8.x versions available in package list');
 
             return Command::FAILURE;
@@ -349,9 +408,10 @@ class ServerInstallCommand extends BaseCommand
         $phpData = $packageList['php'];
         /** @var mixed $versionData */
         $versionData = $phpData[$phpVersion] ?? null;
-        if (is_array($versionData) && isset($versionData['extensions']) && is_array($versionData['extensions'])) {
+
+        if (is_array($versionData)) {
             /** @var array<int|string, string> $extensions */
-            $extensions = $versionData['extensions'];
+            $extensions = $versionData['extensions'] ?? [];
             $availableExtensions = $extensions;
         }
 
@@ -447,8 +507,8 @@ class ServerInstallCommand extends BaseCommand
 
         $result = $this->executePlaybook(
             $server,
-            'install-php',
-            "Installing PHP {$phpVersion}...",
+            'php-install',
+            "Installing PHP...",
             [
                 'DEPLOYER_DISTRO' => $distro,
                 'DEPLOYER_PERMS' => $permissions,
@@ -456,7 +516,6 @@ class ServerInstallCommand extends BaseCommand
                 'DEPLOYER_PHP_SET_DEFAULT' => $setAsDefault ? 'true' : 'false',
                 'DEPLOYER_PHP_EXTENSIONS' => implode(',', $selectedExtensions),
             ],
-            true
         );
 
         if (is_int($result)) {
@@ -464,9 +523,6 @@ class ServerInstallCommand extends BaseCommand
 
             return Command::FAILURE;
         }
-
-        $defaultStatus = $setAsDefault ? ' (set as default)' : '';
-        $this->yay("Installed PHP {$phpVersion} successfully{$defaultStatus}");
 
         return [
             'status' => Command::SUCCESS,
@@ -476,65 +532,4 @@ class ServerInstallCommand extends BaseCommand
             'php_extensions' => implode(',', $selectedExtensions),
         ];
     }
-
-    //
-    // HTTP Verification
-    // ----
-
-    /**
-     * Verify demo site is responding with expected content.
-     *
-     * @return array{status: 'success'|'warning', message: string, lines: array<int, string>}
-     */
-    private function verifyInstallation(string $url, ?string $deployKey): array
-    {
-        $result = $this->http->verifyUrl($url);
-
-        if (!$result['success']) {
-            // Network errors return status_code: 0
-            if (0 === $result['status_code']) {
-                return [
-                    'status' => 'warning',
-                    'message' => "Could not connect to demo site: {$result['body']}",
-                    'lines' => [],
-                ];
-            }
-
-            // HTTP protocol errors (got response but wrong status code)
-            return [
-                'status' => 'warning',
-                'message' => "Demo site returned HTTP {$result['status_code']} (expected 200)",
-                'lines' => [],
-            ];
-        }
-
-        if (!str_contains($result['body'], 'hello, world')) {
-            return [
-                'status' => 'warning',
-                'message' => 'Demo site is responding but content verification failed',
-                'lines' => [],
-            ];
-        }
-
-        $nextSteps = [
-            'Next steps:',
-            '  • Caddy running at <fg=cyan>' . $url . '</>',
-            '  • Run <fg=cyan>site:add</> to deploy your first application',
-        ];
-
-        if ($deployKey !== null) {
-            $nextSteps[] = '  • Add this key to your Git provider (GitHub, GitLab, etc.) to enable deployments:';
-            $nextSteps[] = '';
-            $nextSteps[] = '<fg=cyan>' . $deployKey . '</>';
-        }
-
-        $nextSteps[] = '';
-
-        return [
-            'status' => 'success',
-            'message' => 'Server installation completed successfully',
-            'lines' => $nextSteps,
-        ];
-    }
-
 }

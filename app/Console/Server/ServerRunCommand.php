@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Server;
+namespace PHPDeployer\Console\Server;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -20,7 +20,8 @@ class ServerRunCommand extends BaseCommand
 {
     use ServersTrait;
 
-    // ---- Configuration
+    // ----
+    // Configuration
     // ----
 
     protected function configure(): void
@@ -31,14 +32,15 @@ class ServerRunCommand extends BaseCommand
         $this->addOption('command', null, InputOption::VALUE_REQUIRED, 'Command to execute');
     }
 
-    // ---- Execution
+    // ----
+    // Execution
     // ----
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         parent::execute($input, $output);
 
-        $this->heading('Run Command on Server');
+        $this->h1('Run Command on Server');
 
         //
         // Select server & display details
@@ -50,10 +52,8 @@ class ServerRunCommand extends BaseCommand
             return $server;
         }
 
-        $this->displayServerDeets($server);
-
         //
-        // Get command to execute
+        // Gather command to execute
         // ----
 
         $command = $this->io->getOptionOrPrompt(
@@ -75,10 +75,7 @@ class ServerRunCommand extends BaseCommand
         // Execute command with real-time output streaming
         // ----
 
-        $this->io->writeln([
-            "<fg=cyan>Executing command...</>",
-            '',
-        ]);
+        $this->out('$> ' . $command);
 
         try {
             $result = $this->ssh->executeCommand(
@@ -87,15 +84,11 @@ class ServerRunCommand extends BaseCommand
                 fn (string $chunk) => $this->io->write($chunk)
             );
 
-            $this->io->writeln('');
+            $this->out('───');
 
             if ($result['exit_code'] !== 0) {
-                $this->nay("Command failed with exit code {$result['exit_code']}");
-
-                return Command::FAILURE;
+                throw new \RuntimeException("Command failed with exit code {$result['exit_code']}");
             }
-
-            $this->yay('Command executed successfully');
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
 
@@ -106,7 +99,7 @@ class ServerRunCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->showCommandReplay('server:run', [
+        $this->commandReplay('server:run', [
             'server' => $server->name,
             'command' => $command,
         ]);

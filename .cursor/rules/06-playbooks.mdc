@@ -258,7 +258,7 @@ Use `→` (Unicode rightwards arrow U+2192) to indicate an operation is about to
 ```bash
 # ✅ CORRECT - Explicit details (path, package name, repository name)
 echo "→ Creating /var/www/app directory..."
-echo "→ Installing PHP 8.3..."
+echo "→ Installing PHP 8.5..."
 echo "→ Adding Caddy GPG key..."
 
 # ❌ WRONG - Too generic

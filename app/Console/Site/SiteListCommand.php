@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Site;
+namespace PHPDeployer\Console\Site;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -27,7 +27,7 @@ class SiteListCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('List Sites');
+        $this->h1('List Sites');
 
         //
         // Get all sites
@@ -43,15 +43,8 @@ class SiteListCommand extends BaseCommand
         // Display sites
         // ----
 
-        foreach ($allSites as $count => $site) {
+        foreach ($allSites as $site) {
             $this->displaySiteDeets($site);
-
-            if ($count < count($allSites) - 1) {
-                $this->io->writeln([
-                        '  ───',
-                        '',
-                    ]);
-            }
         }
 
         return Command::SUCCESS;

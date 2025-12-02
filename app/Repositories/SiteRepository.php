@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Repositories;
+namespace PHPDeployer\Repositories;
 
-use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
-use Bigpixelrocket\DeployerPHP\Services\InventoryService;
+use PHPDeployer\DTOs\SiteDTO;
+use PHPDeployer\Services\InventoryService;
 
 /**
  * Repository for site CRUD operations using inventory storage.

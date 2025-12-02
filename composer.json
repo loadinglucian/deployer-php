@@ -1,6 +1,6 @@
 {
-    "name": "bigpixelrocket/deployer-php",
-    "description": "Deploy your PHP applications with ease",
+    "name": "php-deployer/php-deployer",
+    "description": "Server & Site Deployment for PHP",
     "type": "library",
     "keywords": [
         "deployment",
@@ -11,8 +11,8 @@
     "license": "MIT",
     "authors": [
         {
-            "name": "Lucian Vacaroiu",
-            "email": "lucian@DeployerPlus.com"
+            "name": "Lucian Văcăroiu",
+            "email": "lucian@bigpixelrocket.com"
         }
     ],
     "require": {
@@ -35,7 +35,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Bigpixelrocket\\DeployerPHP\\": "app"
+            "PHPDeployer\\": "app"
         }
     },
     "autoload-dev": {

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Site;
+namespace PHPDeployer\Console\Site;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
-use Bigpixelrocket\DeployerPHP\Traits\SiteSharedPathsTrait;
-use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Traits\PlaybooksTrait;
+use PHPDeployer\Traits\ServersTrait;
+use PHPDeployer\Traits\SiteSharedPathsTrait;
+use PHPDeployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -49,7 +49,7 @@ class SiteSharedPullCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Download Shared File');
+        $this->h1('Download Shared File');
 
         //
         // Select site
@@ -73,16 +73,14 @@ class SiteSharedPullCommand extends BaseCommand
             return $server;
         }
 
-        $this->displayServerDeets($server);
-
         //
         // Get server info (verifies SSH connection and validates distribution & permissions)
         // ----
 
-        $info = $this->serverInfo($server);
+        $server = $this->serverInfo($server);
 
-        if (is_int($info)) {
-            return $info;
+        if (is_int($server) || $server->info === null) {
+            return Command::FAILURE;
         }
 
         //
@@ -141,7 +139,7 @@ class SiteSharedPullCommand extends BaseCommand
             );
 
             if (! $overwrite) {
-                $this->io->warning('Download cancelled.');
+                $this->warn('Download cancelled.');
 
                 return Command::SUCCESS;
             }
@@ -151,8 +149,8 @@ class SiteSharedPullCommand extends BaseCommand
         // Download file
         // ----
 
-        $this->io->info("Downloading <fg=cyan>{$remotePath}</> to <fg=cyan>{$localPath}</>");
-        $this->io->writeln('');
+        $this->info("Downloading <fg=cyan>{$remotePath}</> to <fg=cyan>{$localPath}</>");
+        $this->out('');
 
         try {
             $this->ssh->downloadFile($server, $remotePath, $localPath);
@@ -168,7 +166,7 @@ class SiteSharedPullCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->showCommandReplay('site:shared:pull', [
+        $this->commandReplay('site:shared:pull', [
             'domain' => $site->domain,
             'remote' => $remoteRelative,
             'local' => $localPath,

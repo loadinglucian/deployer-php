@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\DTOs;
+namespace PHPDeployer\DTOs;
 
 readonly class SiteDTO
 {

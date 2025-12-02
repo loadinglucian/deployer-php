@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Services;
+namespace PHPDeployer\Services;
 
 use Symfony\Component\Yaml\Yaml;
 
@@ -107,7 +107,7 @@ class InventoryService
         }
 
         $this->readInventory();
-        $this->inventoryFileStatus = "Reading inventory from {$path}";
+        $this->inventoryFileStatus = $path;
     }
 
     /**

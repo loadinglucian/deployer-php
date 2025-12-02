@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Repositories;
+namespace PHPDeployer\Repositories;
 
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Services\InventoryService;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Services\InventoryService;
 
 /**
  * Repository for server CRUD operations using inventory storage.
@@ -97,7 +97,7 @@ final class ServerRepository
     }
 
     /**
-     * Get all servers from the inventory.
+     * Get all servers from inventory.
      *
      * @return array<int, ServerDTO>
      */
@@ -114,7 +114,7 @@ final class ServerRepository
     }
 
     /**
-     * Delete a server from the inventory.
+     * Delete a server from inventory.
      */
     public function delete(string $name): void
     {

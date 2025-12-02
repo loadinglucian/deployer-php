@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Traits;
+namespace PHPDeployer\Traits;
 
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
-use Bigpixelrocket\DeployerPHP\Repositories\ServerRepository;
-use Bigpixelrocket\DeployerPHP\Repositories\SiteRepository;
-use Bigpixelrocket\DeployerPHP\Services\IOService;
-use Bigpixelrocket\DeployerPHP\Services\ProcessService;
-use Bigpixelrocket\DeployerPHP\Services\SSHService;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\DTOs\SiteDTO;
+use PHPDeployer\Repositories\ServerRepository;
+use PHPDeployer\Repositories\SiteRepository;
+use PHPDeployer\Services\IOService;
+use PHPDeployer\Services\ProcessService;
+use PHPDeployer\Services\SSHService;
 use Symfony\Component\Console\Command\Command;
 
 /**
@@ -51,12 +51,8 @@ trait SitesTrait
         // Check if no sites are available
 
         if (count($allSites) === 0) {
-            $this->io->warning('No sites found in inventory');
-            $this->io->writeln([
-                '',
-                'Run <fg=cyan>site:add</> to add a site',
-                '',
-            ]);
+            $this->info('This command requires at least one site in inventory:');
+            $this->ul('Run <fg=cyan>site:add</> to add a site');
 
             return Command::SUCCESS;
         }
@@ -121,8 +117,8 @@ trait SitesTrait
             'Server' => $site->server,
         ];
 
-        $this->io->displayDeets($details);
-        $this->io->writeln('');
+        $this->displayDeets($details);
+        $this->out('───');
     }
 
     // ----
@@ -246,7 +242,7 @@ trait SitesTrait
 
             if ($result['exit_code'] !== 0) {
                 $this->nay("Site '{$site->domain}' has not been provisioned on the server");
-                $this->io->writeln([
+                $this->out([
                     'Run <fg=cyan>site:add</> to provision the site first.',
                     '',
                 ]);

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Site;
+namespace PHPDeployer\Console\Site;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
-use Bigpixelrocket\DeployerPHP\Traits\SiteSharedPathsTrait;
-use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Traits\PlaybooksTrait;
+use PHPDeployer\Traits\ServersTrait;
+use PHPDeployer\Traits\SiteSharedPathsTrait;
+use PHPDeployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -49,7 +49,7 @@ class SiteSharedPushCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Upload Shared File');
+        $this->h1('Upload Shared File');
 
         //
         // Select site
@@ -73,22 +73,20 @@ class SiteSharedPushCommand extends BaseCommand
             return $server;
         }
 
-        $this->displayServerDeets($server);
-
         //
         // Get server info (verifies SSH connection and validates distribution & permissions)
         // ----
 
-        $info = $this->serverInfo($server);
+        $server = $this->serverInfo($server);
 
-        if (is_int($info)) {
-            return $info;
+        if (is_int($server) || $server->info === null) {
+            return Command::FAILURE;
         }
 
         [
             'distro' => $distro,
             'permissions' => $permissions,
-        ] = $info;
+        ] = $server->info;
 
         /** @var string $distro */
         /** @var string $permissions */
@@ -125,8 +123,8 @@ class SiteSharedPushCommand extends BaseCommand
         // Upload file
         // ----
 
-        $this->io->info("Uploading <fg=cyan>{$localPath}</> to <fg=cyan>{$remotePath}</>");
-        $this->io->writeln('');
+        $this->info("Uploading <fg=cyan>{$localPath}</> to <fg=cyan>{$remotePath}</>");
+        $this->out('');
 
         try {
             $this->runRemoteCommand($server, sprintf('mkdir -p %s', escapeshellarg($remoteDir)));
@@ -170,7 +168,7 @@ class SiteSharedPushCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->showCommandReplay('site:shared:push', [
+        $this->commandReplay('site:shared:push', [
             'domain' => $site->domain,
             'local' => $localPath,
             'remote' => $remoteRelative,

@@ -414,7 +414,11 @@ get_sites_config() {
 
 		# HTTPS Status
 		local https_enabled="true"
-		if [[ $www_mode == "redirect-to-root" ]]; then
+
+		# IP-based HTTP-only site (e.g., status page listening on http://:80)
+		if [[ $content =~ http://:80 ]]; then
+			https_enabled="false"
+		elif [[ $www_mode == "redirect-to-root" ]]; then
 			if [[ $content =~ http://${domain} ]]; then
 				https_enabled="false"
 			fi

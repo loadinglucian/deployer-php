@@ -94,13 +94,13 @@ setup_site_directories() {
 }
 
 #
-# Demo Site Setup
+# Default Page Setup
 # ----
 
 #
-# Create demo hello-world page for site
+# Create default placeholder page for site
 
-setup_demo_page() {
+setup_default_page() {
 	local domain=$1
 	local index_file="/home/deployer/sites/${domain}/current/public/index.php"
 
@@ -284,7 +284,7 @@ main() {
 
 	# Execute setup tasks
 	setup_site_directories "$domain"
-	setup_demo_page "$domain"
+	setup_default_page "$domain"
 	configure_caddy_vhost "$domain"
 	reload_services
 

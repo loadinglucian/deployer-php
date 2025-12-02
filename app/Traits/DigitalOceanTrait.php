@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Traits;
+namespace PHPDeployer\Traits;
 
-use Bigpixelrocket\DeployerPHP\Services\DigitalOceanService;
-use Bigpixelrocket\DeployerPHP\Services\EnvService;
-use Bigpixelrocket\DeployerPHP\Services\IOService;
+use PHPDeployer\Services\DigitalOceanService;
+use PHPDeployer\Services\EnvService;
+use PHPDeployer\Services\IOService;
 use Symfony\Component\Console\Command\Command;
 
 /**
@@ -52,15 +52,13 @@ trait DigitalOceanTrait
         } catch (\InvalidArgumentException) {
             // Token configuration issue
             $this->nay('DigitalOcean API token not found in environment.');
-            $this->io->writeln('Set DIGITALOCEAN_API_TOKEN or DO_API_TOKEN in your .env file.');
-            $this->io->writeln('');
+            $this->nay('Set DIGITALOCEAN_API_TOKEN or DO_API_TOKEN in your .env file.');
 
             return Command::FAILURE;
         } catch (\RuntimeException $e) {
             // API authentication failure
             $this->nay($e->getMessage());
-            $this->io->writeln('Check that your API token is valid and has not expired.');
-            $this->io->writeln('');
+            $this->nay('Check that your DIGITALOCEAN_API_TOKEN or DO_API_TOKEN is valid and has not expired.');
 
             return Command::FAILURE;
         }
@@ -94,11 +92,9 @@ trait DigitalOceanTrait
         // Check if no keys are available
 
         if (count($keys) === 0) {
-            $this->io->warning('No public SSH keys found in your DigitalOcean account');
-            $this->io->writeln([
-                '',
+            $this->info('No public SSH keys found in your DigitalOcean account');
+            $this->ul([
                 'Run <fg=cyan>key:add:digitalocean</> to add a public SSH key',
-                '',
             ]);
 
             return Command::FAILURE;
@@ -110,24 +106,21 @@ trait DigitalOceanTrait
     /**
      * Select a key from available keys via option or interactive prompt.
      *
-     * @param array<int|string, string>|null $availableKeys Optional pre-fetched keys; if null, fetches from DigitalOcean API
      * @return array{id: string|int, description: string}|int Array with selected key ID and description on success, or Command::FAILURE on error
      */
-    protected function selectKey(?array $availableKeys = null): array|int
+    protected function selectKey(): array|int
     {
         //
         // Get all keys
 
-        if ($availableKeys === null) {
-            $availableKeys = $this->ensureKeysAvailable();
+        $availableKeys = $this->ensureKeysAvailable();
 
-            if (is_int($availableKeys)) {
-                return Command::FAILURE;
-            }
+        if (is_int($availableKeys)) {
+            return Command::FAILURE;
         }
 
         //
-        // Get key via option or prompt
+        // Prompt for selection
 
         /** @var string $selectedKey */
         $selectedKey = $this->io->getOptionOrPrompt(
@@ -139,7 +132,7 @@ trait DigitalOceanTrait
         );
 
         //
-        // Validate key exists in available keys
+        // Validate key exists (in case user passed --key option)
 
         if (!isset($availableKeys[$selectedKey])) {
             $this->nay("Public SSH key '{$selectedKey}' not found");

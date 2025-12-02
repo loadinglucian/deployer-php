@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Services;
+namespace PHPDeployer\Services;
 
 use Symfony\Component\Dotenv\Dotenv;
 
@@ -83,7 +83,7 @@ class EnvService
 
         $this->readDotenv();
 
-        $this->envFileStatus = "Reading variables from {$path}";
+        $this->envFileStatus = $path;
         if (!count($this->dotenv)) {
             $this->envFileStatus = "No variables found in {$path}";
         }

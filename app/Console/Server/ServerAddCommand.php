@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Server;
+namespace PHPDeployer\Console\Server;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Traits\KeysTrait;
-use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Traits\KeysTrait;
+use PHPDeployer\Traits\PlaybooksTrait;
+use PHPDeployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -49,7 +49,7 @@ class ServerAddCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Add New Server');
+        $this->h1('Add New Server');
 
         //
         // Gather server details
@@ -69,28 +69,17 @@ class ServerAddCommand extends BaseCommand
             'privateKeyPath' => $privateKeyPath,
         ] = $deets;
 
-        //
-        // Display server details
-        // ----
-
-        $server = new ServerDTO(
+        // Create server DTO
+        $server = $this->serverInfo(new ServerDTO(
             name: $name,
             host: $host,
             port: $port,
             username: $username,
             privateKeyPath: $privateKeyPath
-        );
+        ));
 
-        $this->displayServerDeets($server);
-
-        //
-        // Get server info (verifies SSH connection and validates distribution & permissions)
-        // ----
-
-        $info = $this->serverInfo($server);
-
-        if (is_int($info)) {
-            return $info;
+        if (is_int($server)) {
+            return Command::FAILURE;
         }
 
         //
@@ -111,7 +100,7 @@ class ServerAddCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->showCommandReplay('server:add', [
+        $this->commandReplay('server:add', [
             'name' => $name,
             'host' => $host,
             'port' => $port,

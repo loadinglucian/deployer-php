@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Server;
+namespace PHPDeployer\Console\Server;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Traits\PlaybooksTrait;
+use PHPDeployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -34,7 +34,8 @@ class ServerLogsCommand extends BaseCommand
      */
     private ?array $processedServices = null;
 
-    // ---- Configuration
+    // ----
+    // Configuration
     // ----
 
     protected function configure(): void
@@ -46,14 +47,15 @@ class ServerLogsCommand extends BaseCommand
         $this->addOption('service', 's', InputOption::VALUE_REQUIRED, 'Service name (all|system|php-fpm|site|detected service name)');
     }
 
-    // ---- Execution
+    // ----
+    // Execution
     // ----
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         parent::execute($input, $output);
 
-        $this->heading('Server Logs');
+        $this->h1('Server Logs');
 
         //
         // Select server & display details
@@ -61,20 +63,8 @@ class ServerLogsCommand extends BaseCommand
 
         $server = $this->selectServer();
 
-        if (is_int($server)) {
-            return $server;
-        }
-
-        $this->displayServerDeets($server);
-
-        //
-        // Get server info (verifies SSH connection and validates distribution & permissions)
-        // ----
-
-        $info = $this->serverInfo($server);
-
-        if (is_int($info)) {
-            return $info;
+        if (is_int($server) || $server->info === null) {
+            return Command::FAILURE;
         }
 
         //
@@ -90,7 +80,7 @@ class ServerLogsCommand extends BaseCommand
             )
         );
 
-        $processed = $this->getProcessedServices($info);
+        $processed = $this->getProcessedServices($server->info);
 
         /** @var array<string, string> $options */
         $options = $processed['options'];
@@ -108,13 +98,13 @@ class ServerLogsCommand extends BaseCommand
         // Retrieve logs
         // ----
 
-        $this->displayServiceLogs($server, (string) $service, (int) $lines, $info);
+        $this->displayServiceLogs($server, (string) $service, (int) $lines, $server->info);
 
         //
         // Show command replay
         // ----
 
-        $this->showCommandReplay('server:logs', [
+        $this->commandReplay('server:logs', [
             'server' => $server->name,
             'lines' => $lines,
             'service' => $service,
@@ -123,7 +113,8 @@ class ServerLogsCommand extends BaseCommand
         return Command::SUCCESS;
     }
 
-    // ---- Helpers
+    // ----
+    // Helpers
     // ----
 
     /**
@@ -316,10 +307,7 @@ class ServerLogsCommand extends BaseCommand
      */
     protected function retrieveServiceLogs(ServerDTO $server, string $service, string $unit, int $lines): void
     {
-        $this->io->writeln([
-            "<fg=cyan>{$service} Logs</>",
-            '',
-        ]);
+        $this->h2($service);
 
         try {
             if ($unit === '') {
@@ -341,25 +329,23 @@ class ServerLogsCommand extends BaseCommand
 
             if ($result['exit_code'] !== 0 && !$serviceNotFound) {
                 $this->nay("Failed to retrieve {$service} logs");
-                $this->io->writeln($this->highlightErrors($output));
-                $this->io->writeln('');
+                $this->io->write($this->highlightErrors($output), true);
+                $this->out('───');
 
                 return;
             }
 
             if ($serviceNotFound || $noData) {
                 $this->tryTraditionalLogs($server, $service, $lines);
-                $this->io->writeln('');
 
                 return;
             }
 
-            $this->io->writeln($this->highlightErrors($output));
+            $this->io->write($this->highlightErrors($output), true);
+            $this->out('───');
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
         }
-
-        $this->io->writeln('');
     }
 
     /**
@@ -367,21 +353,17 @@ class ServerLogsCommand extends BaseCommand
      */
     protected function retrieveFileLogs(ServerDTO $server, string $title, string $filepath, int $lines): void
     {
-        $this->io->writeln([
-            "<fg=cyan>{$title} Logs</>",
-            "<fg=gray>File: {$filepath}</>",
-            '',
-        ]);
+        $this->h2($title);
+        $this->out("<|gray>File: {$filepath}</>");
 
         $content = $this->readLogFile($server, $filepath, $lines);
 
         if ($content !== null) {
-            $this->io->writeln($this->highlightErrors($content));
+            $this->io->write($this->highlightErrors($content), true);
+            $this->out('───');
         } else {
-            $this->io->writeln('<fg=yellow>No logs found or file does not exist.</>');
+            $this->out('<fg=yellow>No logs found or file does not exist.</>');
         }
-
-        $this->io->writeln('');
     }
 
     /**
@@ -395,7 +377,7 @@ class ServerLogsCommand extends BaseCommand
             $result = $this->ssh->executeCommand($server, $findCommand);
 
             if ($result['exit_code'] !== 0 || trim($result['output']) === '') {
-                $this->io->writeln("<fg=yellow>No {$service} logs found</>");
+                $this->out("<fg=yellow>No {$service} logs found</>");
 
                 return;
             }
@@ -406,19 +388,17 @@ class ServerLogsCommand extends BaseCommand
                 $logContent = $this->readLogFile($server, $logFile, $lines);
 
                 if ($logContent !== null) {
-                    $this->io->writeln([
-                        "<fg=bright-black>From {$logFile}:</>",
-                        '',
-                        $this->highlightErrors($logContent),
-                    ]);
+                    $this->out("<fg=bright-black>From {$logFile}:</>");
+                    $this->io->write($this->highlightErrors($logContent), true);
+                    $this->out('───');
 
                     return;
                 }
             }
 
-            $this->io->writeln("<fg=yellow>No {$service} logs found</>");
+            $this->out("<fg=yellow>No {$service} logs found</>");
         } catch (\RuntimeException) {
-            $this->io->writeln("<fg=yellow>No {$service} logs found</>");
+            $this->out("<fg=yellow>No {$service} logs found</>");
         }
     }
 

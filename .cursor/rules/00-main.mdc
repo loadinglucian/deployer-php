@@ -10,7 +10,7 @@ All rules MANDATORY.
 
 Build Deployer PHP: Composer package and CLI tool simplifying server provisioning and deployment across multiple Cloud providers.
 
-### Before ANY Task
+### References
 
 - Check `composer.json` and `package.json` for installed packages
 - Plan with features from installed major versions
@@ -31,8 +31,8 @@ Build Deployer PHP: Composer package and CLI tool simplifying server provisionin
 
 - Catalog like a librarian
 - Group related functions into comment-separated sections
-- Prefer alphabetical ordering when no logical grouping exists
-- Code should be functional and visually appealing
+- Order alphabetically after grouping logically
+- Code should be both functional and visually appealing
 
 **Consistency:**
 
@@ -47,8 +47,8 @@ Build Deployer PHP: Composer package and CLI tool simplifying server provisionin
 2. STEP BY STEP - break into logical steps
 3. ACT - implement systematically
 
-### Tests
+### Test later
 
 Don't run or create or update tests UNLESS explicitly instructed to do so.
 
-Test are something we need to focus on separately from building features.
+Tests are something we will focus on separately from building features.

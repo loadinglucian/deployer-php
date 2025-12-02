@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Site;
+namespace PHPDeployer\Console\Site;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
-use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\Traits\PlaybooksTrait;
+use PHPDeployer\Traits\ServersTrait;
+use PHPDeployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -43,14 +43,14 @@ class SiteHttpsCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Enable HTTPS');
+        $this->h1('Enable HTTPS');
 
         //
         // Select site
         // ----
 
-        $site = $this->selectSite()
-        ;
+        $site = $this->selectSite();
+
         if (is_int($site)) {
             return $site;
         }
@@ -65,22 +65,20 @@ class SiteHttpsCommand extends BaseCommand
             return $server;
         }
 
-        $this->displayServerDeets($server);
-
         //
         // Get server info (verifies SSH connection and validates distribution & permissions)
         // ----
 
-        $info = $this->serverInfo($server);
+        $server = $this->serverInfo($server);
 
-        if (is_int($info)) {
-            return $info;
+        if (is_int($server) || $server->info === null) {
+            return Command::FAILURE;
         }
 
         [
             'distro' => $distro,
             'permissions' => $permissions,
-        ] = $info;
+        ] = $server->info;
 
         /** @var string $distro */
         /** @var string $permissions */
@@ -89,11 +87,11 @@ class SiteHttpsCommand extends BaseCommand
         // Get site configuration
         // ----
 
-        $config = $this->getSiteConfig($info, $site->domain);
+        $config = $this->getSiteConfig($server->info, $site->domain);
 
         if ($config === null) {
-            $this->io->warning("Site '{$site->domain}' configuration not found on server");
-            $this->io->writeln([
+            $this->warn("Site '{$site->domain}' configuration not found on server");
+            $this->out([
                 '',
                 'It looks like this site has not been provisioned yet.',
                 'Run <fg=cyan>site:add</> to provision the site first.',
@@ -113,7 +111,7 @@ class SiteHttpsCommand extends BaseCommand
         // Execute playbook
         // ----
 
-        $result = $this->executePlaybook(
+        $result = $this->executePlaybookSilently(
             $server,
             'site-https',
             'Enabling HTTPS...',
@@ -123,8 +121,7 @@ class SiteHttpsCommand extends BaseCommand
                 'DEPLOYER_SITE_DOMAIN' => $site->domain,
                 'DEPLOYER_PHP_VERSION' => $config['php_version'],
                 'DEPLOYER_WWW_MODE' => $config['www_mode'],
-            ],
-            true
+            ]
         );
 
         if (is_int($result)) {
@@ -141,10 +138,18 @@ class SiteHttpsCommand extends BaseCommand
             ? 'https://www.' . $site->domain
             : 'https://' . $site->domain;
 
-        $this->io->writeln([
+        $this->out([
             'Your site is now accessible over HTTPS:',
             '  <fg=cyan>' . $displayUrl . '</>',
             '',
+        ]);
+
+        //
+        // Show command replay
+        // ----
+
+        $this->commandReplay('site:https', [
+            'domain' => $site->domain,
         ]);
 
         return Command::SUCCESS;

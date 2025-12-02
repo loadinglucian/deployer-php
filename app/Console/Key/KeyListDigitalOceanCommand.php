@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Key;
+namespace PHPDeployer\Console\Key;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\Traits\DigitalOceanTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\Traits\DigitalOceanTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -27,7 +27,7 @@ class KeyListDigitalOceanCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('List Public SSH Keys in DigitalOcean');
+        $this->h1('List Public SSH Keys in DigitalOcean');
 
         //
         // Retrieve DigitalOcean account data
@@ -47,11 +47,13 @@ class KeyListDigitalOceanCommand extends BaseCommand
         // Display keys
         // ----
 
-        foreach ($keys as $keyId => $description) {
-            $this->io->writeln("  <fg=cyan>{$keyId}</> - {$description}");
-        }
+        $this->displayDeets($keys);
 
-        $this->io->writeln('');
+        //
+        // Show command replay
+        // ----
+
+        $this->commandReplay('key:list:digitalocean', []);
 
         return Command::SUCCESS;
     }

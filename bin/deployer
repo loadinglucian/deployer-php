@@ -3,8 +3,8 @@
 
 declare(strict_types=1);
 
-use Bigpixelrocket\DeployerPHP\Container;
-use Bigpixelrocket\DeployerPHP\SymfonyApp;
+use PHPDeployer\Container;
+use PHPDeployer\SymfonyApp;
 
 //
 // Bootstrap the autoloader

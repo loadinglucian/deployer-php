@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Traits;
+namespace PHPDeployer\Traits;
 
-use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
+use PHPDeployer\DTOs\SiteDTO;
 
 trait SiteSharedPathsTrait
 {

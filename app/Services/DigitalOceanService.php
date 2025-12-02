@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Services;
+namespace PHPDeployer\Services;
 
-use Bigpixelrocket\DeployerPHP\Services\DigitalOcean\DigitalOceanAccountService;
-use Bigpixelrocket\DeployerPHP\Services\DigitalOcean\DigitalOceanDropletService;
-use Bigpixelrocket\DeployerPHP\Services\DigitalOcean\DigitalOceanKeyService;
 use DigitalOceanV2\Client;
+use PHPDeployer\Services\DigitalOcean\DigitalOceanAccountService;
+use PHPDeployer\Services\DigitalOcean\DigitalOceanDropletService;
+use PHPDeployer\Services\DigitalOcean\DigitalOceanKeyService;
 
 /**
  * DigitalOcean API facade service.

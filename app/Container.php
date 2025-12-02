@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP;
+namespace PHPDeployer;
 
 use ReflectionClass;
 use ReflectionIntersectionType;

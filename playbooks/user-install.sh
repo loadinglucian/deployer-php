@@ -3,12 +3,12 @@
 #
 # Deployer User Setup Playbook
 #
-# Creates deployer user, generates SSH keys, and configures permissions
+# Creates deployer user, sets up SSH keys, and configures permissions
 # ----
 #
 # This playbook handles all deployer user-related configuration including:
 # - User creation with home directory
-# - SSH key pair generation for git deployments
+# - SSH key pair generation or custom key installation
 # - Group memberships (adding caddy and www-data to deployer group)
 # - Directory permissions for deployer home
 #
@@ -16,6 +16,14 @@
 #   DEPLOYER_OUTPUT_FILE - Output file path
 #   DEPLOYER_PERMS       - Permissions: root|sudo
 #   DEPLOYER_SERVER_NAME - Server name for deploy key generation
+#
+# Optional Environment Variables:
+#   DEPLOYER_KEY_PRIVATE - Base64-encoded private key (if provided, overwrites existing)
+#   DEPLOYER_KEY_PUBLIC  - Base64-encoded public key (if provided, overwrites existing)
+#
+# Idempotency:
+#   - Custom keys (provided): Always overwrite existing keys
+#   - Auto-generate (not provided): Skip if keys already exist
 #
 # Returns YAML with:
 #   - status: success
@@ -45,7 +53,6 @@ export DEPLOYER_PERMS
 setup_deployer() {
 	local deployer_home=$1
 
-	# Ensure home directory has correct permissions (default is usually 755)
 	if ! run_cmd chmod 750 "$deployer_home"; then
 		echo "Error: Failed to set permissions on deployer home directory" >&2
 		exit 1
@@ -107,24 +114,35 @@ setup_deployer() {
 	local public_key="${deployer_ssh_dir}/id_ed25519.pub"
 
 	if ! run_cmd test -d "$deployer_ssh_dir"; then
-		echo "→ Creating .ssh directory..."
+		echo "→ Creating ${deployer_ssh_dir} directory..."
 		if ! run_cmd mkdir -p "$deployer_ssh_dir"; then
 			echo "Error: Failed to create .ssh directory" >&2
 			exit 1
 		fi
 	fi
 
-	if ! run_cmd test -f "$private_key"; then
-		echo "→ Generating SSH key pair..."
-		if ! run_cmd ssh-keygen -t ed25519 -C "deployer@${DEPLOYER_SERVER_NAME}" -f "$private_key" -N ""; then
-			echo "Error: Failed to generate SSH key pair" >&2
+	if [[ -n ${DEPLOYER_KEY_PRIVATE:-} && -n ${DEPLOYER_KEY_PUBLIC:-} ]]; then
+		echo "→ Installing custom SSH key pair..."
+
+		if ! echo "$DEPLOYER_KEY_PRIVATE" | base64 -d | run_cmd tee "$private_key" > /dev/null; then
+			echo "Error: Failed to write private key" >&2
+			exit 1
+		fi
+
+		if ! echo "$DEPLOYER_KEY_PUBLIC" | base64 -d | run_cmd tee "$public_key" > /dev/null; then
+			echo "Error: Failed to write public key" >&2
 			exit 1
 		fi
 	else
-		echo "→ SSH key pair already exists"
+		if ! run_cmd test -f "$private_key"; then
+			echo "→ Generating SSH key pair..."
+			if ! run_cmd ssh-keygen -t ed25519 -C "deployer@${DEPLOYER_SERVER_NAME}" -f "$private_key" -N ""; then
+				echo "Error: Failed to generate SSH key pair" >&2
+				exit 1
+			fi
+		fi
 	fi
 
-	# Set ownership and permissions
 	if ! run_cmd chown -R deployer:deployer "$deployer_ssh_dir"; then
 		echo "Error: Failed to set ownership on .ssh directory" >&2
 		exit 1
@@ -142,19 +160,6 @@ setup_deployer() {
 
 	if ! run_cmd chmod 644 "$public_key"; then
 		echo "Error: Failed to set permissions on public key" >&2
-		exit 1
-	fi
-}
-
-#
-# Ensure proper permissions on deploy directories
-# ----
-
-setup_deploy_directories() {
-	local deployer_home=$1
-
-	if ! run_cmd test -d "$deployer_home"; then
-		echo "Error: Deployer home directory missing" >&2
 		exit 1
 	fi
 }
@@ -183,17 +188,13 @@ main() {
 		exit 1
 	fi
 
-	# Execute deployer setup tasks
 	setup_deployer "$deployer_home"
-	setup_deploy_directories "$deployer_home"
 
-	# Get deploy public key
 	if ! deploy_public_key=$(run_cmd cat "${deployer_home}/.ssh/id_ed25519.pub" 2>&1); then
 		echo "Error: Failed to read deploy public key at ${deployer_home}/.ssh/id_ed25519.pub" >&2
 		exit 1
 	fi
 
-	# Write output YAML
 	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 		status: success
 		deploy_public_key: $deploy_public_key

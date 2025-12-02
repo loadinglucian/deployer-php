@@ -4,6 +4,7 @@
 .idea/
 .vscode/
 node_modules/
+scripts/
 vendor/
 .DS_Store
 .env

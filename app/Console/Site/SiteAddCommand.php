@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Console\Site;
+namespace PHPDeployer\Console\Site;
 
-use Bigpixelrocket\DeployerPHP\Contracts\BaseCommand;
-use Bigpixelrocket\DeployerPHP\DTOs\SiteDTO;
-use Bigpixelrocket\DeployerPHP\Traits\PlaybooksTrait;
-use Bigpixelrocket\DeployerPHP\Traits\ServersTrait;
-use Bigpixelrocket\DeployerPHP\Traits\SitesTrait;
+use PHPDeployer\Contracts\BaseCommand;
+use PHPDeployer\DTOs\SiteDTO;
+use PHPDeployer\Traits\PlaybooksTrait;
+use PHPDeployer\Traits\ServersTrait;
+use PHPDeployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -50,7 +50,7 @@ class SiteAddCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->heading('Add New Site');
+        $this->h1('Add New Site');
 
         //
         // Select server
@@ -58,26 +58,14 @@ class SiteAddCommand extends BaseCommand
 
         $server = $this->selectServer();
 
-        if (is_int($server)) {
-            return $server;
-        }
-
-        $this->displayServerDeets($server);
-
-        //
-        // Get server info (verifies SSH connection and validates distribution & permissions)
-        // ----
-
-        $info = $this->serverInfo($server);
-
-        if (is_int($info)) {
-            return $info;
+        if (is_int($server) || $server->info === null) {
+            return Command::FAILURE;
         }
 
         [
             'distro' => $distro,
             'permissions' => $permissions,
-        ] = $info;
+        ] = $server->info;
 
         /** @var string $distro */
         /** @var string $permissions */
@@ -86,7 +74,7 @@ class SiteAddCommand extends BaseCommand
         // Validate server is ready for site provisioning
         // ----
 
-        $validationResult = $this->validateServerReady($info);
+        $validationResult = $this->validateServerReady($server->info);
 
         if (is_int($validationResult)) {
             return $validationResult;
@@ -96,7 +84,7 @@ class SiteAddCommand extends BaseCommand
         // Gather site details
         // ----
 
-        $siteInfo = $this->gatherSiteInfo($info);
+        $siteInfo = $this->gatherSiteInfo($server->info);
 
         if ($siteInfo === null) {
             return Command::FAILURE;
@@ -127,7 +115,7 @@ class SiteAddCommand extends BaseCommand
         // Provision site on server
         // ----
 
-        $result = $this->executePlaybook(
+        $result = $this->executePlaybookSilently(
             $server,
             'site-add',
             'Provisioning site...',
@@ -137,8 +125,7 @@ class SiteAddCommand extends BaseCommand
                 'DEPLOYER_SITE_DOMAIN' => $domain,
                 'DEPLOYER_PHP_VERSION' => $phpVersion,
                 'DEPLOYER_WWW_MODE' => $wwwMode,
-            ],
-            true
+            ]
         );
 
         if (is_int($result)) {
@@ -169,7 +156,7 @@ class SiteAddCommand extends BaseCommand
             ? 'http://www.' . $domain
             : 'http://' . $domain;
 
-        $this->io->writeln([
+        $this->out([
             'Next steps:',
             '  • Site is accessible at <fg=cyan>' . $displayUrl . '</>',
             '  • Update <fg=cyan>DNS records</>:',
@@ -184,7 +171,7 @@ class SiteAddCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->showCommandReplay('site:add', [
+        $this->commandReplay('site:add', [
             'domain' => $domain,
             'repo' => $repo,
             'branch' => $branch,
@@ -220,7 +207,7 @@ class SiteAddCommand extends BaseCommand
 
         if (!$caddyInstalled || !$phpInstalled) {
             $this->nay('Looks like the server was not installed as expected');
-            $this->io->writeln([
+            $this->out([
                 'Run <fg=cyan>server:install</> to install required software.',
                 '',
             ]);

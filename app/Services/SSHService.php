@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Bigpixelrocket\DeployerPHP\Services;
+namespace PHPDeployer\Services;
 
-use Bigpixelrocket\DeployerPHP\DTOs\ServerDTO;
-use Bigpixelrocket\DeployerPHP\Exceptions\SSHTimeoutException;
+use PHPDeployer\DTOs\ServerDTO;
+use PHPDeployer\Exceptions\SSHTimeoutException;
 use phpseclib3\Crypt\Common\PrivateKey;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Net\SFTP;
