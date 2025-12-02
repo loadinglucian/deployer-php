@@ -84,10 +84,10 @@ class SiteSharedPullCommand extends BaseCommand
         }
 
         //
-        // Validate site is provisioned on server
+        // Validate site is added on server
         // ----
 
-        $validationResult = $this->validateSiteProvisioned($server, $site);
+        $validationResult = $this->validateSiteAdded($server, $site);
 
         if (is_int($validationResult)) {
             return $validationResult;

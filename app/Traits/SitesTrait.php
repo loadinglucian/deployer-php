@@ -220,7 +220,7 @@ trait SitesTrait
     }
 
     /**
-     * Validate that site has been provisioned on the server.
+     * Validate that site has been added on the server.
      *
      * Checks for:
      * - Site directory structure exists at /home/deployer/sites/{domain}
@@ -228,7 +228,7 @@ trait SitesTrait
      *
      * @return int|null Returns Command::FAILURE if validation fails, null if successful
      */
-    protected function validateSiteProvisioned(ServerDTO $server, SiteDTO $site): ?int
+    protected function validateSiteAdded(ServerDTO $server, SiteDTO $site): ?int
     {
         try {
             $result = $this->ssh->executeCommand(
@@ -241,9 +241,9 @@ trait SitesTrait
             );
 
             if ($result['exit_code'] !== 0) {
-                $this->nay("Site '{$site->domain}' has not been provisioned on the server");
+                $this->nay("Site '{$site->domain}' has not been added on the server");
                 $this->out([
-                    'Run <fg=cyan>site:add</> to provision the site first.',
+                    'Run <fg=cyan>site:add</> to add the site first.',
                     '',
                 ]);
 

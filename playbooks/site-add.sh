@@ -3,7 +3,7 @@
 #
 # Site Add Playbook - Ubuntu/Debian Only
 #
-# Provision new site with atomic deployment directory structure
+# Add new site with atomic deployment directory structure
 # ----
 #
 # This playbook only supports Ubuntu and Debian distributions (debian family).

@@ -71,7 +71,7 @@ class SiteAddCommand extends BaseCommand
         /** @var string $permissions */
 
         //
-        // Validate server is ready for site provisioning
+        // Validate server is ready to add site
         // ----
 
         $validationResult = $this->validateServerReady($server->info);
@@ -112,13 +112,13 @@ class SiteAddCommand extends BaseCommand
         $this->displaySiteDeets($site);
 
         //
-        // Provision site on server
+        // Add site on server
         // ----
 
         $result = $this->executePlaybookSilently(
             $server,
             'site-add',
-            'Provisioning site...',
+            'Adding site...',
             [
                 'DEPLOYER_DISTRO' => $distro,
                 'DEPLOYER_PERMS' => $permissions,
@@ -132,7 +132,7 @@ class SiteAddCommand extends BaseCommand
             return $result;
         }
 
-        $this->yay('Site provisioned successfully');
+        $this->yay('Site added successfully');
 
         //
         // Save to inventory
@@ -188,7 +188,7 @@ class SiteAddCommand extends BaseCommand
     // ----
 
     /**
-     * Validate that server is ready for site provisioning.
+     * Validate that server is ready to add site.
      *
      * Checks for:
      * - Caddy web server installed

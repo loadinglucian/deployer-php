@@ -7,7 +7,7 @@
 # ----
 #
 # This playbook only supports Ubuntu and Debian distributions (debian family).
-# Requires site to be already provisioned.
+# Requires site to be already added.
 #
 # Required Environment Variables:
 #   DEPLOYER_OUTPUT_FILE  - Output file path

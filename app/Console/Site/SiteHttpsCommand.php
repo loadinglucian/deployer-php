@@ -93,8 +93,8 @@ class SiteHttpsCommand extends BaseCommand
             $this->warn("Site '{$site->domain}' configuration not found on server");
             $this->out([
                 '',
-                'It looks like this site has not been provisioned yet.',
-                'Run <fg=cyan>site:add</> to provision the site first.',
+                'It looks like this site has not been added yet.',
+                'Run <fg=cyan>site:add</> to add the site first.',
                 '',
             ]);
 
@@ -102,7 +102,7 @@ class SiteHttpsCommand extends BaseCommand
         }
 
         if ($config['php_version'] === 'unknown') {
-            $this->nay("Could not detect PHP version for '{$site->domain}' from server config; re-provision the site or run server:info to debug.");
+            $this->nay("Could not detect PHP version for '{$site->domain}' from server config; re-add the site or run server:info to debug.");
 
             return Command::FAILURE;
         }
