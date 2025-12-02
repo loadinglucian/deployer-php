@@ -6,6 +6,10 @@ alwaysApply: true
 
 All rules MANDATORY. Fix violating code, not these rules.
 
+### Core Principle
+
+Every command MUST be fully runnable non-interactively via CLI options. Every prompt MUST have a corresponding CLI option. Test by running the command with only CLI options (no TTY).
+
 ### Output Method Philosophy
 
 NEVER use Symfony IO methods directly - use BaseCommand methods exclusively.
@@ -66,46 +70,43 @@ Commands handle ALL user interaction. Services return plain data with NO console
 
 Support both interactive prompts AND CLI options using `getOptionOrPrompt()`.
 
-**Pattern:**
+**Basic Pattern:**
 
 ```php
 protected function configure(): void {
     parent::configure();
     $this->addOption('name', null, InputOption::VALUE_REQUIRED, 'Server name');
-    $this->addOption('host', null, InputOption::VALUE_REQUIRED, 'Host/IP address');
-    $this->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip confirmation');
+    $this->addOption('environment', null, InputOption::VALUE_REQUIRED, 'Environment');
 }
 
 protected function execute(InputInterface $input, OutputInterface $output): int {
-    // Checks CLI option first, prompts if not provided
-    $name = $this->getOptionOrPrompt(
+    // Text input - checks CLI option first, prompts if not provided
+    $name = $this->io->getOptionOrPrompt(
         'name',
-        fn() => $this->promptText(
+        fn () => $this->io->promptText(
             label: 'Server name:',
-            placeholder: 'production-web-01',
+            placeholder: 'web1',
             required: true
         )
     );
 
-    $host = $this->getOptionOrPrompt(
-        'host',
-        fn() => $this->promptText('Host/IP:', placeholder: '192.168.1.100', required: true)
+    // Select input
+    $env = $this->io->getOptionOrPrompt(
+        'environment',
+        fn () => $this->io->promptSelect(
+            label: 'Environment:',
+            options: ['dev', 'staging', 'prod'],
+            default: 'prod'
+        )
     );
-
-    $skipConfirm = $this->getOptionOrPrompt(
-        'yes',
-        fn() => $this->promptConfirm('Skip verification?', default: false)
-    );
-
-    // ... process command ...
 
     return Command::SUCCESS;
 }
 ```
 
-**Signature:** `getOptionOrPrompt(string $optionName, Closure $promptCallback): mixed`
+**Signature:** `$this->io->getOptionOrPrompt(string $optionName, Closure $promptCallback): mixed`
 
-Prompt wrappers (`promptText()`, `promptSelect()`, etc.) automatically suppress extra spacing for clean output.
+Prompt wrappers (`$this->io->promptText()`, `$this->io->promptSelect()`, etc.) automatically suppress extra spacing for clean output.
 
 ### Input Validation Pattern
 
@@ -144,14 +145,14 @@ protected function validateName(string $name): void
 **Usage:**
 
 ```php
-$name = $this->getValidatedOptionOrPrompt(
+$name = $this->io->getValidatedOptionOrPrompt(
     'name',
-    fn ($validate) => $this->promptText(
+    fn ($validate) => $this->io->promptText(
         label: 'Server name:',
         placeholder: 'web1',
-        validate: $validate
+        validate: $validate  // Pass validator to prompt
     ),
-    fn ($value) => $this->validateNameInput($value)
+    fn ($value) => $this->validateNameInput($value)  // Returns ?string
 );
 
 if ($name === null) {
@@ -168,17 +169,213 @@ Validator injected into prompt callback, validates interactively and on CLI opti
 
 **Examples:** ServerValidationTrait.php, SiteValidationTrait.php
 
-**Testing Validation Traits:**
+### Boolean Flags
+
+**VALUE_NONE - Simple flags:**
 
 ```php
-class TestValidator { use ServerValidationTrait;
-    public function testValidateHost(mixed $host): ?string {
-        return $this->validateHostInput($host);
-    }
+// --yes or -y
+$this->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip confirmation');
+
+$confirmed = $this->io->getOptionOrPrompt(
+    'yes',
+    fn () => $this->io->promptConfirm('Deploy now?', default: true)
+);
+```
+
+**VALUE_NEGATABLE - Tri-state flags:**
+
+```php
+// --php-default or --no-php-default
+$this->addOption('php-default', null, InputOption::VALUE_NEGATABLE, 'Set as default PHP');
+
+// Prompts if neither --flag nor --no-flag provided
+$setDefault = $this->io->getOptionOrPrompt(
+    'php-default',
+    fn () => $this->io->promptConfirm('Set as default?', default: false)
+);
+```
+
+### Multiselect with Comma-Separated CLI Input
+
+Multiselect prompts return arrays, but CLI options are strings. Handle both:
+
+```php
+$this->addOption('databases', null, InputOption::VALUE_REQUIRED, 'Comma-separated databases');
+
+$selected = $this->io->getOptionOrPrompt(
+    'databases',
+    fn () => $this->io->promptMultiselect(
+        label: 'Database servers (optional):',
+        options: ['postgresql' => 'PostgreSQL', 'mysql' => 'MySQL', 'mongodb' => 'MongoDB'],
+        default: [],
+        hint: 'Space to select, Enter to confirm'
+    )
+);
+
+// Handle both array (from prompt) and string (from CLI option)
+if (is_string($selected)) {
+    $selected = array_filter(
+        array_map(trim(...), explode(',', $selected)),
+        static fn (string $item): bool => $item !== ''
+    );
 }
 
-expect($validator->testValidateHost('192.168.1.100'))->toBeNull();
-expect($validator->testValidateHost('invalid'))->toContain('valid');
+// Validate CLI-provided values against allowed options
+$unknown = array_diff($selected, array_keys($allowedOptions));
+if ($unknown !== []) {
+    $this->nay('Unknown options: ' . implode(', ', $unknown));
+    return Command::FAILURE;
+}
+```
+
+### Multi-Path Prompts
+
+When a prompt offers choices leading to different execution paths, create separate options for each path:
+
+```php
+// ❌ WRONG - Only one option, can't skip the choice prompt non-interactively
+$this->addOption('deploy-key', null, InputOption::VALUE_REQUIRED, 'Path to deploy key');
+
+// ✅ CORRECT - Separate options for each path
+$this->addOption('generate-deploy-key', null, InputOption::VALUE_NONE, 'Use server-generated deploy key');
+$this->addOption('custom-deploy-key', null, InputOption::VALUE_REQUIRED, 'Path to custom deploy key');
+```
+
+Handle the branching logic explicitly:
+
+```php
+/** @var bool $generateKey */
+$generateKey = $input->getOption('generate-deploy-key');
+/** @var string|null $customKeyPath */
+$customKeyPath = $input->getOption('custom-deploy-key');
+
+// Check for conflicting options
+if ($generateKey && $customKeyPath !== null) {
+    $this->nay('Cannot use both --generate-deploy-key and --custom-deploy-key');
+    return Command::FAILURE;
+}
+
+if ($generateKey) {
+    $deployKeyPath = null;  // Use server-generated
+} elseif ($customKeyPath !== null) {
+    $deployKeyPath = $customKeyPath;  // Use custom
+} else {
+    // Interactive: prompt for choice, then conditionally prompt for path
+    $choice = $this->io->promptSelect(
+        label: 'Deploy key:',
+        options: [
+            'generate' => 'Use server-generated key pair',
+            'custom' => 'Use your own key pair',
+        ],
+        default: 'generate'
+    );
+
+    if ($choice === 'generate') {
+        $deployKeyPath = null;
+    } else {
+        $deployKeyPath = $this->io->promptText(
+            label: 'Path to private key:',
+            placeholder: '~/.ssh/deploy_key',
+            required: true
+        );
+    }
+}
+```
+
+### Confirmation Patterns
+
+**Simple Confirmation (`--yes`):**
+
+```php
+$this->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip confirmation');
+
+$confirmed = $this->io->getOptionOrPrompt(
+    'yes',
+    fn () => $this->io->promptConfirm('Are you sure?', default: false)
+);
+
+if (!$confirmed) {
+    $this->warn('Operation cancelled');
+    return Command::SUCCESS;
+}
+```
+
+**Type-to-Confirm (`--force`) - For destructive operations:**
+
+```php
+$this->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing confirmation');
+
+/** @var bool $forceSkip */
+$forceSkip = $input->getOption('force') ?? false;
+
+if (!$forceSkip) {
+    $typedName = $this->io->promptText(
+        label: "Type the server name '{$server->name}' to confirm deletion:",
+        required: true
+    );
+
+    if ($typedName !== $server->name) {
+        $this->nay('Name does not match. Operation cancelled.');
+        return Command::FAILURE;
+    }
+}
+```
+
+### Post-CLI Validation
+
+When using `getOptionOrPrompt()` (not validated version), validate CLI values explicitly:
+
+```php
+$phpVersion = (string) $this->io->getOptionOrPrompt(
+    'php-version',
+    fn () => $this->io->promptSelect(
+        label: 'PHP version:',
+        options: $availableVersions,
+        default: $defaultVersion
+    )
+);
+
+// Validate CLI-provided version exists
+if (!in_array($phpVersion, $availableVersions, true)) {
+    $this->nay(
+        "PHP {$phpVersion} not available. Available: " . implode(', ', $availableVersions)
+    );
+    return Command::FAILURE;
+}
+```
+
+### Resource Selection Pattern
+
+For selecting from existing resources:
+
+```php
+protected function selectServer(): ServerDTO|int
+{
+    $servers = $this->ensureServersAvailable();
+    if (is_int($servers)) {
+        return Command::FAILURE;
+    }
+
+    $serverNames = array_map(fn (ServerDTO $s) => $s->name, $servers);
+
+    $name = (string) $this->io->getOptionOrPrompt(
+        'server',
+        fn () => $this->io->promptSelect(
+            label: 'Select server:',
+            options: $serverNames,
+        )
+    );
+
+    // Validate CLI-provided name exists
+    $server = $this->servers->findByName($name);
+    if ($server === null) {
+        $this->nay("Server '{$name}' not found in inventory");
+        return Command::FAILURE;
+    }
+
+    return $server;
+}
 ```
 
 ### Command Options & Input
@@ -207,9 +404,10 @@ Prevents conflicts in commands working with multiple resource types.
 
 - Use OPTIONS only, never ARGUMENTS (enables `getOptionOrPrompt()`)
 - Pair all options with `getOptionOrPrompt()` for dual-mode support
-- Boolean flags: `VALUE_NONE`
+- Boolean flags: `VALUE_NONE` or `VALUE_NEGATABLE`
 - Data inputs: `VALUE_REQUIRED`
 - Only `--yes` (`-y`) and `--force` (`-f`) get short flags
+- Add type annotations on option retrievals: `/** @var bool $flag */`
 
 See: ServerDeleteCommand.php, ServerAddCommand.php
 
@@ -226,6 +424,27 @@ $this->commandReplay('command:name', [
 return Command::SUCCESS;
 ```
 
+**For conditional options, only include if applicable:**
+
+```php
+$replayOptions = [
+    'server' => $server->name,
+    'php-version' => $phpVersion,
+];
+
+if ($deployKeyPath !== null) {
+    $replayOptions['custom-deploy-key'] = $deployKeyPath;
+} else {
+    $replayOptions['generate-deploy-key'] = true;
+}
+
+if ($defaultPrompted) {
+    $replayOptions['php-default'] = $setDefault;
+}
+
+$this->commandReplay('server:install', $replayOptions);
+```
+
 Teaches CLI syntax, improves DX, reduces support questions.
 
 **Output:**
@@ -239,3 +458,15 @@ Teaches CLI syntax, improves DX, reduces support questions.
 ```
 
 See: ServerDeleteCommand.php
+
+### Summary Checklist
+
+When building commands, verify:
+
+- [ ] Every prompt has a corresponding `addOption()`
+- [ ] Multi-path prompts have separate options for each path
+- [ ] Conflicting options are detected and rejected
+- [ ] CLI values are validated against allowed options
+- [ ] Multiselect handles both array and comma-separated string
+- [ ] `commandReplay()` called before SUCCESS return
+- [ ] Type annotations on option retrievals (`/** @var bool $flag */`)
