@@ -59,11 +59,11 @@ protected function validateNameInput(mixed $name): ?string
         return 'Server name must be a string';
     }
 
-    if (trim($name) === '') {
+    if ('' === trim($name)) {
         return 'Server name cannot be empty';
     }
 
-    if ($this->servers->findByName($name) !== null) {
+    if (null !== $this->servers->findByName($name)) {
         return "Server '{$name}' already exists";
     }
 
@@ -115,7 +115,7 @@ protected function serverInfo(ServerDTO $server): array|int
         return Command::FAILURE;
     }
 
-    if ($result['exit_code'] !== 0) {
+    if (0 !== $result['exit_code']) {
         $this->nay('Failed to gather server information');
         return Command::FAILURE;
     }

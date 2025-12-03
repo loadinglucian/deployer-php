@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace Deployer\Traits;
 
 use Deployer\Services\FilesystemService;
+use Deployer\Services\IOService;
+use Symfony\Component\Console\Command\Command;
 
 /**
  * Reusable SSH key things.
  *
- * Requires classes using this trait to have FilesystemService property.
+ * Requires classes using this trait to have FilesystemService and IOService properties.
  *
  * @property FilesystemService $fs
+ * @property IOService $io
  */
 trait KeysTrait
 {
@@ -77,6 +80,42 @@ trait KeysTrait
         $candidates = array_merge($candidates, $fallback);
 
         return $this->fs->getFirstExisting($candidates);
+    }
+
+    /**
+     * Prompt for private key path with validation and fallback resolution.
+     *
+     * @return string|int Resolved path or Command::FAILURE
+     */
+    protected function promptPrivateKeyPath(): string|int
+    {
+        /** @var string|null $pathRaw */
+        $pathRaw = $this->io->getValidatedOptionOrPrompt(
+            'private-key-path',
+            fn ($validate) => $this->io->promptText(
+                label: 'Path to SSH private key (leave empty for default ~/.ssh/id_ed25519 or ~/.ssh/id_rsa):',
+                default: '',
+                required: false,
+                hint: 'Used to connect to the server',
+                validate: $validate
+            ),
+            fn ($value) => $this->validatePrivateKeyPathInputAllowEmpty($value)
+        );
+
+        if (null === $pathRaw) {
+            return Command::FAILURE;
+        }
+
+        $resolved = ('' === trim($pathRaw))
+            ? $this->resolvePrivateKeyPath('')
+            : $this->fs->expandPath($pathRaw);
+
+        if (null === $resolved) {
+            $this->nay('No default SSH key found. Create ~/.ssh/id_ed25519 or ~/.ssh/id_rsa, or specify a path.');
+            return Command::FAILURE;
+        }
+
+        return $resolved;
     }
 
     // ----
@@ -244,6 +283,24 @@ trait KeysTrait
         }
 
         return null;
+    }
+
+    /**
+     * Validate SSH private key file, allowing empty paths.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validatePrivateKeyPathInputAllowEmpty(mixed $path): ?string
+    {
+        if (!is_string($path)) {
+            return 'Key path must be a string';
+        }
+
+        if ('' === trim($path)) {
+            return null; // Allow empty - triggers default key resolution
+        }
+
+        return $this->validatePrivateKeyPathInput($path);
     }
 
     /**

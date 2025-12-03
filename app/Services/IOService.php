@@ -224,7 +224,6 @@ class IOService
             $error = $validator($value);
             if ($error !== null) {
                 $this->error($error);
-                $this->out('');
 
                 return null;
             }

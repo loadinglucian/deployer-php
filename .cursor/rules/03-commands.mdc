@@ -108,66 +108,119 @@ protected function execute(InputInterface $input, OutputInterface $output): int 
 
 Prompt wrappers (`$this->io->promptText()`, `$this->io->promptSelect()`, etc.) automatically suppress extra spacing for clean output.
 
-### Input Validation Pattern
+### Input Validation
 
-Validation traits provide reusable validation for both Laravel Prompts and CLI options.
+**Core Principles:**
 
-**Validation Method Pattern:**
+- Validate everything: CLI options, prompts, and auto-resolved values
+- Fail fast: Validate before expensive operations (API calls, SSH connections)
+- Never silent fallback: Explicit user input must fail validation, not fall back to defaults
+- Complete errors: Include invalid value and guidance
+
+**Validator Signature:**
 
 ```php
-// ✅ CORRECT - Accept mixed, return ?string (error message or null)
-protected function validateNameInput(mixed $name): ?string
+// Returns ?string: error message if invalid, null if valid
+protected function validateNameInput(mixed $value): ?string
 {
-    if (!is_string($name)) {
-        return 'Server name must be a string';
+    if (!is_string($value)) {
+        return 'Name must be a string';
     }
 
-    if (trim($name) === '') {
-        return 'Server name cannot be empty';
+    if ('' === trim($value)) {
+        return 'Name cannot be empty';
     }
 
-    if ($this->servers->findByName($name) !== null) {
-        return "Server '{$name}' already exists";
+    if (null !== $this->repo->findByName($value)) {
+        return "'{$value}' already exists";
     }
 
     return null;
 }
-
-// ❌ WRONG - Throws exception (incompatible with Laravel Prompts)
-protected function validateName(string $name): void
-{
-    if (trim($name) === '') {
-        throw new \InvalidArgumentException('Name cannot be empty');
-    }
-}
 ```
-
-**Usage:**
-
-```php
-$name = $this->io->getValidatedOptionOrPrompt(
-    'name',
-    fn ($validate) => $this->io->promptText(
-        label: 'Server name:',
-        placeholder: 'web1',
-        validate: $validate  // Pass validator to prompt
-    ),
-    fn ($value) => $this->validateNameInput($value)  // Returns ?string
-);
-
-if ($name === null) {
-    return Command::FAILURE;  // Validation failed, error already displayed
-}
-```
-
-Validator injected into prompt callback, validates interactively and on CLI options.
 
 **Naming Convention:**
 
 - `validate*Input()` - Returns `?string` (for prompts/options)
 - `validate*()` - Throws exceptions (for heavy I/O like git repo checks)
 
-**Examples:** ServerValidationTrait.php, SiteValidationTrait.php
+**Usage with getValidatedOptionOrPrompt:**
+
+```php
+$name = $this->io->getValidatedOptionOrPrompt(
+    'name',
+    fn ($validate) => $this->io->promptText(label: 'Name:', validate: $validate),
+    fn ($value) => $this->validateNameInput($value)
+);
+
+if (null === $name) {
+    return Command::FAILURE;  // Validation failed, error already displayed
+}
+```
+
+**Optional Input with Fallback Resolution:**
+
+```php
+// Allow empty to trigger default resolution
+protected function validateKeyPathInputAllowEmpty(mixed $path): ?string
+{
+    if (!is_string($path)) {
+        return 'Path must be a string';
+    }
+
+    if ('' === trim($path)) {
+        return null;  // Allow empty - triggers default
+    }
+
+    return $this->validateKeyPathInput($path);  // Non-empty: validate strictly
+}
+
+// After validation - only fallback for empty, expand explicit paths
+$resolved = ('' === trim($pathRaw))
+    ? $this->resolveDefaultPath()       // Fallback resolution
+    : $this->fs->expandPath($pathRaw);  // User's explicit path (validated)
+```
+
+**Selection from Dynamic Data:**
+
+```php
+protected function validateRegion(mixed $region, array $validRegions): ?string
+{
+    if (!is_string($region)) {
+        return 'Region must be a string';
+    }
+
+    if (!isset($validRegions[$region])) {
+        return "Invalid region: '{$region}' not available";
+    }
+
+    return null;
+}
+```
+
+**Error Message Guidelines:**
+
+- Include invalid value: `"Invalid region: 'xyz1' not available"`
+- Provide guidance: `"Port must be 1-65535 (common: 22, 2222)"`
+- Show format examples: `"UUID format: 12345678-1234-1234-1234-123456789abc"`
+
+**Common Mistakes:**
+
+```php
+// ❌ Missing null check
+$value = $this->io->getValidatedOptionOrPrompt(...);
+$this->doSomething($value);  // $value could be null!
+
+// ❌ Silent fallback on explicit input
+$path = $this->getOptionOrPrompt('key-path', ...);
+$resolved = $this->resolveKey($path);  // Falls back even if user's path invalid!
+
+// ❌ CLI option bypasses validation
+$env = $this->getOptionOrPrompt('env', fn() => promptSelect(..., options: $valid));
+// --env=invalid passes through unvalidated!
+```
+
+See: ServerValidationTrait.php, KeyValidationTrait.php
 
 ### Boolean Flags
 
@@ -217,13 +270,13 @@ $selected = $this->io->getOptionOrPrompt(
 if (is_string($selected)) {
     $selected = array_filter(
         array_map(trim(...), explode(',', $selected)),
-        static fn (string $item): bool => $item !== ''
+        static fn (string $item): bool => '' !== $item
     );
 }
 
 // Validate CLI-provided values against allowed options
 $unknown = array_diff($selected, array_keys($allowedOptions));
-if ($unknown !== []) {
+if ([] !== $unknown) {
     $this->nay('Unknown options: ' . implode(', ', $unknown));
     return Command::FAILURE;
 }
@@ -251,14 +304,14 @@ $generateKey = $input->getOption('generate-deploy-key');
 $customKeyPath = $input->getOption('custom-deploy-key');
 
 // Check for conflicting options
-if ($generateKey && $customKeyPath !== null) {
+if ($generateKey && null !== $customKeyPath) {
     $this->nay('Cannot use both --generate-deploy-key and --custom-deploy-key');
     return Command::FAILURE;
 }
 
 if ($generateKey) {
     $deployKeyPath = null;  // Use server-generated
-} elseif ($customKeyPath !== null) {
+} elseif (null !== $customKeyPath) {
     $deployKeyPath = $customKeyPath;  // Use custom
 } else {
     // Interactive: prompt for choice, then conditionally prompt for path
@@ -271,7 +324,7 @@ if ($generateKey) {
         default: 'generate'
     );
 
-    if ($choice === 'generate') {
+    if ('generate' === $choice) {
         $deployKeyPath = null;
     } else {
         $deployKeyPath = $this->io->promptText(
@@ -369,7 +422,7 @@ protected function selectServer(): ServerDTO|int
 
     // Validate CLI-provided name exists
     $server = $this->servers->findByName($name);
-    if ($server === null) {
+    if (null === $server) {
         $this->nay("Server '{$name}' not found in inventory");
         return Command::FAILURE;
     }
@@ -432,7 +485,7 @@ $replayOptions = [
     'php-version' => $phpVersion,
 ];
 
-if ($deployKeyPath !== null) {
+if (null !== $deployKeyPath) {
     $replayOptions['custom-deploy-key'] = $deployKeyPath;
 } else {
     $replayOptions['generate-deploy-key'] = true;

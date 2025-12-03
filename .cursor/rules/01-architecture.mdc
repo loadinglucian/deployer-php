@@ -12,7 +12,42 @@ All rules MANDATORY.
 - Explicit return types with generics: `Collection<int, User>`
 - Dependency injection via Symfony patterns
 - Use Symfony classes over native PHP functions (Filesystem, Process) for testability
-- **Yoda conditions:** Always place constants on the left side of comparisons to prevent accidental assignment
+- **Yoda conditions:** Always place constants/literals on the LEFT side of comparisons to prevent accidental assignment
+- **Always use braces:** ALL control structures (`if`, `else`, `elseif`, `for`, `foreach`, `while`, `do-while`) MUST use curly braces `{ }`, even for single-line bodies
+
+```php
+// ✅ CORRECT - Yoda conditions (constant on left)
+if (null === $value) { ... }
+if ('' === trim($name)) { ... }
+if (0 !== $exitCode) { ... }
+if ('active' === $status) { ... }
+if (null !== $this->repo->find($id)) { ... }
+
+// ❌ WRONG - Variable on left (risk of accidental assignment)
+if ($value === null) { ... }
+if (trim($name) === '') { ... }
+if ($exitCode !== 0) { ... }
+if ($status === 'active') { ... }
+
+// Note: Two variables - Yoda doesn't apply
+if ($typedName !== $server->name) { ... }
+if ($userInput === $expectedValue) { ... }
+```
+
+```php
+// ✅ CORRECT - Always use braces
+if (null === $value) {
+    return 'Value is required';
+}
+
+foreach ($items as $item) {
+    $this->process($item);
+}
+
+// ❌ WRONG - Never omit braces
+if (null === $value) return 'Value is required';
+foreach ($items as $item) $this->process($item);
+```
 
 ### PHPStan Type Hints
 
