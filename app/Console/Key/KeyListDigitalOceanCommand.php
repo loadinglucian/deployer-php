@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Console\Key;
+namespace Deployer\Console\Key;
 
-use PHPDeployer\Contracts\BaseCommand;
-use PHPDeployer\Traits\DigitalOceanTrait;
+use Deployer\Contracts\BaseCommand;
+use Deployer\Traits\DigitalOceanTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

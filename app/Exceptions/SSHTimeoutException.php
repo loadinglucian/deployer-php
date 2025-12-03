@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Exceptions;
+namespace Deployer\Exceptions;
 
 /**
  * Exception thrown when SSH command execution times out.

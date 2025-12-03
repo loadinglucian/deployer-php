@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Contracts;
+namespace Deployer\Contracts;
 
-use PHPDeployer\Container;
-use PHPDeployer\Repositories\ServerRepository;
-use PHPDeployer\Repositories\SiteRepository;
-use PHPDeployer\Services\DigitalOceanService;
-use PHPDeployer\Services\EnvService;
-use PHPDeployer\Services\FilesystemService;
-use PHPDeployer\Services\GitService;
-use PHPDeployer\Services\HttpService;
-use PHPDeployer\Services\InventoryService;
-use PHPDeployer\Services\IOService;
-use PHPDeployer\Services\ProcessService;
-use PHPDeployer\Services\SSHService;
+use Deployer\Container;
+use Deployer\Repositories\ServerRepository;
+use Deployer\Repositories\SiteRepository;
+use Deployer\Services\DigitalOceanService;
+use Deployer\Services\EnvService;
+use Deployer\Services\FilesystemService;
+use Deployer\Services\GitService;
+use Deployer\Services\HttpService;
+use Deployer\Services\InventoryService;
+use Deployer\Services\IOService;
+use Deployer\Services\ProcessService;
+use Deployer\Services\SSHService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -145,7 +145,7 @@ abstract class BaseCommand extends Command
 
         $this->out([
             "<|gray>Env: {$envStatus}</>",
-            "<|gray>Inventory: {$inventoryStatus}</>",
+            "<|gray>Inv: {$inventoryStatus}</>",
         ]);
 
         return Command::SUCCESS;
@@ -161,7 +161,7 @@ abstract class BaseCommand extends Command
     protected function hr(): void
     {
         $this->out(
-            '────────────────────────────────────────────────────────────',
+            '────────────────────────────────────────────────────────────────────────────',
         );
     }
 

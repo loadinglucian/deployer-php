@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Traits;
+namespace Deployer\Traits;
 
-use PHPDeployer\DTOs\ServerDTO;
-use PHPDeployer\DTOs\SiteDTO;
-use PHPDeployer\Enums\Distribution;
-use PHPDeployer\Repositories\ServerRepository;
-use PHPDeployer\Services\IOService;
-use PHPDeployer\Services\SSHService;
+use Deployer\DTOs\ServerDTO;
+use Deployer\DTOs\SiteDTO;
+use Deployer\Enums\Distribution;
+use Deployer\Repositories\ServerRepository;
+use Deployer\Services\IOService;
+use Deployer\Services\SSHService;
 use Symfony\Component\Console\Command\Command;
 
 /**

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Services\DigitalOcean;
+namespace Deployer\Services\DigitalOcean;
 
 use DigitalOceanV2\Client;
 

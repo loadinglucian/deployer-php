@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Traits;
+namespace Deployer\Traits;
 
-use PHPDeployer\Container;
-use PHPDeployer\DTOs\ServerDTO;
-use PHPDeployer\Exceptions\SSHTimeoutException;
-use PHPDeployer\Services\FilesystemService;
-use PHPDeployer\Services\IOService;
-use PHPDeployer\Services\SSHService;
+use Deployer\Container;
+use Deployer\DTOs\ServerDTO;
+use Deployer\Exceptions\SSHTimeoutException;
+use Deployer\Services\FilesystemService;
+use Deployer\Services\IOService;
+use Deployer\Services\SSHService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Yaml\Yaml;
 

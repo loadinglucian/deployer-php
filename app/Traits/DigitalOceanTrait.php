@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Traits;
+namespace Deployer\Traits;
 
-use PHPDeployer\Services\DigitalOceanService;
-use PHPDeployer\Services\EnvService;
-use PHPDeployer\Services\IOService;
+use Deployer\Services\DigitalOceanService;
+use Deployer\Services\EnvService;
+use Deployer\Services\IOService;
 use Symfony\Component\Console\Command\Command;
 
 /**

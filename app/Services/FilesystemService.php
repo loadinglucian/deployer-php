@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Services;
+namespace Deployer\Services;
 
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Filesystem\Path;

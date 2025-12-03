@@ -2,29 +2,29 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer;
+namespace Deployer;
 
-use PHPDeployer\Console\HelloCommand;
-use PHPDeployer\Console\Key\KeyAddDigitalOceanCommand;
-use PHPDeployer\Console\Key\KeyDeleteDigitalOceanCommand;
-use PHPDeployer\Console\Key\KeyListDigitalOceanCommand;
-use PHPDeployer\Console\ScaffoldHooksCommand;
-use PHPDeployer\Console\Server\ServerAddCommand;
-use PHPDeployer\Console\Server\ServerDeleteCommand;
-use PHPDeployer\Console\Server\ServerInfoCommand;
-use PHPDeployer\Console\Server\ServerInstallCommand;
-use PHPDeployer\Console\Server\ServerListCommand;
-use PHPDeployer\Console\Server\ServerLogsCommand;
-use PHPDeployer\Console\Server\ServerProvisionDigitalOceanCommand;
-use PHPDeployer\Console\Server\ServerRunCommand;
-use PHPDeployer\Console\Site\SiteAddCommand;
-use PHPDeployer\Console\Site\SiteDeleteCommand;
-use PHPDeployer\Console\Site\SiteDeployCommand;
-use PHPDeployer\Console\Site\SiteHttpsCommand;
-use PHPDeployer\Console\Site\SiteListCommand;
-use PHPDeployer\Console\Site\SiteSharedPullCommand;
-use PHPDeployer\Console\Site\SiteSharedPushCommand;
-use PHPDeployer\Services\VersionService;
+use Deployer\Console\HelloCommand;
+use Deployer\Console\Key\KeyAddDigitalOceanCommand;
+use Deployer\Console\Key\KeyDeleteDigitalOceanCommand;
+use Deployer\Console\Key\KeyListDigitalOceanCommand;
+use Deployer\Console\ScaffoldHooksCommand;
+use Deployer\Console\Server\ServerAddCommand;
+use Deployer\Console\Server\ServerDeleteCommand;
+use Deployer\Console\Server\ServerInfoCommand;
+use Deployer\Console\Server\ServerInstallCommand;
+use Deployer\Console\Server\ServerListCommand;
+use Deployer\Console\Server\ServerLogsCommand;
+use Deployer\Console\Server\ServerProvisionDigitalOceanCommand;
+use Deployer\Console\Server\ServerRunCommand;
+use Deployer\Console\Site\SiteAddCommand;
+use Deployer\Console\Site\SiteDeleteCommand;
+use Deployer\Console\Site\SiteDeployCommand;
+use Deployer\Console\Site\SiteHttpsCommand;
+use Deployer\Console\Site\SiteListCommand;
+use Deployer\Console\Site\SiteSharedPullCommand;
+use Deployer\Console\Site\SiteSharedPushCommand;
+use Deployer\Services\VersionService;
 use Symfony\Component\Console\Application as SymfonyApplication;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -45,7 +45,7 @@ final class SymfonyApp extends SymfonyApplication
         private readonly Container $container,
         private readonly VersionService $versionService,
     ) {
-        $name = 'Deployer PHP';
+        $name = 'Deployer';
         $version = $this->versionService->getVersion();
         parent::__construct($name, $version);
 
@@ -107,14 +107,15 @@ final class SymfonyApp extends SymfonyApplication
     {
         $version = $this->getVersion();
 
-        $this->io->writeln(
-            [
-                '',
-                '<fg=cyan;options=bold>▒ PHP Deployer</> <fg=bright-blue;options=bold>•</> '.$version.' <fg=magenta;options=bold>•</> Server & Site Deployment for PHP',
-                '<fg=cyan;options=bold>▒ ━━━━━━━━━━━━━━━</><fg=bright-blue;options=bold>━━━━━━━━━━━━━━━</><fg=magenta;options=bold>━━━━━━━━━━━━━━━</><fg=gray;options=bold>━━━━━━━━━━━━━━━</>',
-            ]
-        );
+        $this->io->writeln([
+            '',
+            '<fg=cyan>▒ ▶</> <fg=cyan;options=bold>Deployer</> <fg=cyan>━━━━━━━━━━━━━━━━</><fg=bright-blue>━━━━━━━━━━━━━━━━</><fg=magenta>━━━━━━━━━━━━━━━━</><fg=gray>━━━━━━━━━━━━━━━━━</>',
+            '<fg=gray>▒ Ver: '.$version.'</>',
+        ]);
     }
+
+    // <fg=cyan>▒</>
+    // ━━━━━━━━━━━━━━━
 
     /**
      * Register commands with auto-wired dependencies.

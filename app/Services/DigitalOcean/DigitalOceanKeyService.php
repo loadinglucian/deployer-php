@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Services\DigitalOcean;
+namespace Deployer\Services\DigitalOcean;
 
-use PHPDeployer\Services\FilesystemService;
+use Deployer\Services\FilesystemService;
 
 /**
  * DigitalOcean SSH key management service.

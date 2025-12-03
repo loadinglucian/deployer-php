@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Console\Server;
+namespace Deployer\Console\Server;
 
-use PHPDeployer\Contracts\BaseCommand;
-use PHPDeployer\DTOs\ServerDTO;
-use PHPDeployer\Traits\PlaybooksTrait;
-use PHPDeployer\Traits\ServersTrait;
+use Deployer\Contracts\BaseCommand;
+use Deployer\DTOs\ServerDTO;
+use Deployer\Traits\PlaybooksTrait;
+use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

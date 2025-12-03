@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Enums;
+namespace Deployer\Enums;
 
 /**
  * Distribution families for server provisioning.

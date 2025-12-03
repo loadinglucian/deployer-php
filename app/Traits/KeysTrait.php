@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Traits;
+namespace Deployer\Traits;
 
-use PHPDeployer\Services\FilesystemService;
+use Deployer\Services\FilesystemService;
 
 /**
  * Reusable SSH key things.

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Services;
+namespace Deployer\Services;
 
-use PHPDeployer\DTOs\ServerDTO;
-use PHPDeployer\Exceptions\SSHTimeoutException;
+use Deployer\DTOs\ServerDTO;
+use Deployer\Exceptions\SSHTimeoutException;
 use phpseclib3\Crypt\Common\PrivateKey;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Net\SFTP;

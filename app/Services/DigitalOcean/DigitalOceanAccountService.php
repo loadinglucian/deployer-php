@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Services\DigitalOcean;
+namespace Deployer\Services\DigitalOcean;
 
+use Deployer\Enums\Distribution;
 use DigitalOceanV2\Entity\Image as ImageEntity;
 use DigitalOceanV2\Entity\Region as RegionEntity;
 use DigitalOceanV2\Entity\Size as SizeEntity;
-use PHPDeployer\Enums\Distribution;
 
 /**
  * DigitalOcean account data service.

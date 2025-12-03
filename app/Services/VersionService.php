@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Services;
+namespace Deployer\Services;
 
 use Composer\InstalledVersions;
 
@@ -17,7 +17,7 @@ class VersionService
      * @param string $packageName The Composer package name to query for version information.
      */
     public function __construct(
-        private readonly string $packageName = 'php-deployer/php-deployer'
+        private readonly string $packageName = 'loadinglucian/deployer'
     ) {
     }
 

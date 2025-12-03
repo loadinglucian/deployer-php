@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PHPDeployer\Traits;
+namespace Deployer\Traits;
 
-use PHPDeployer\DTOs\SiteDTO;
+use Deployer\DTOs\SiteDTO;
 
 trait SiteSharedPathsTrait
 {
