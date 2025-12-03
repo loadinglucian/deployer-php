@@ -97,7 +97,7 @@ trait ServersTrait
         $distribution = Distribution::tryFrom($distro);
 
         if (null === $distribution || ! $distribution->isSupported()) {
-            $this->info('DeployerPHP only supports Debian and Ubuntu.');
+            $this->info('Deployer only supports Debian and Ubuntu.');
 
             return Command::FAILURE;
         }
@@ -108,7 +108,7 @@ trait ServersTrait
         $permissions = $info['permissions'] ?? null;
 
         if (! is_string($permissions) || ! in_array($permissions, ['root', 'sudo'])) {
-            $this->info('DeployerPHP requires root or passwordless sudo permissions:');
+            $this->info('Deployer requires root or passwordless sudo permissions:');
             $this->ol([
                 "SSH into your server as {$server->username}",
                 "Run <|cyan>echo \"{$server->username} ALL=(ALL) NOPASSWD:ALL\" | sudo tee /etc/sudoers.d/{$server->username}</>",

@@ -114,9 +114,6 @@ final class SymfonyApp extends SymfonyApplication
         ]);
     }
 
-    // <fg=cyan>▒</>
-    // ━━━━━━━━━━━━━━━
-
     /**
      * Register commands with auto-wired dependencies.
      */
