@@ -1,6 +1,6 @@
 {
     "name": "loadinglucian/deployer",
-    "description": "The server and site deployment tool for PHP",
+    "description": "Server and site deployment tool for PHP",
     "type": "library",
     "keywords": [
         "deployment",
