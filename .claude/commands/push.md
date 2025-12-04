@@ -10,7 +10,15 @@ A. Push the branch to GitHub
 
 Push the current branch to origin with tracking (-u flag). Do not force push.
 
-B. Open a draft pull request
+B. Check for existing pull request
+
+Use `gh pr list --head <current-branch> --json number,url` to check if a PR already exists for this branch.
+
+C. If PR exists: Output the existing PR URL
+
+If a PR already exists, simply output the PR URL and confirm that the pushed changes have been added to the existing PR.
+
+D. If no PR exists: Create a draft pull request
 
 Create a draft PR using `gh pr create --draft` with:
 
