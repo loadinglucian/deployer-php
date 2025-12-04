@@ -156,7 +156,7 @@ class ServerInstallCommand extends BaseCommand
         $this->yay('Server installation completed successfully');
 
         $this->ul([
-            'Run <|cyan>site:add</> to add a new site',
+            'Run <|cyan>site:create</> to create a new site',
             'Add the following <|yellow>public key</> to your Git provider (GitHub, GitLab, etc.) to enable deployments:',
         ]);
 
