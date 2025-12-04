@@ -4,9 +4,18 @@ allowed-tools: Bash(git:*)
 model: haiku
 ---
 
-Based on the changes made to this repository:
+## Workflow
 
-A. If we're on the main branch, create a new branch with a suitable name
+### Step 1: Identify ALL changes
+
+Run `git status` to see:
+- Modified files (staged and unstaged)
+- Untracked files
+- Deleted files
+
+Read relevant files to understand what changed and group them logically.
+
+### Step 2: If on main branch, create a feature branch
 
 Create the branch only (no commits yet). Use Conventional Commit types as branch prefixes:
 feat/, fix/, docs/, style/, refactor/, perf/, test/, build/, ci/, chore/, revert/.
@@ -14,23 +23,33 @@ feat/, fix/, docs/, style/, refactor/, perf/, test/, build/, ci/, chore/, revert
 Keep the branch name short (≤ 50 chars) yet informative. Do not push, pull, or rebase.
 
 Examples:
-
 - feat/parser-add-php-84-attributes
 - fix/ci-matrix-php-versions
 - chore/deps-bump-composer-installers-2-3
 
-B. Create one or more commits with suitable titles
+### Step 3: Create commits for ALL changes
 
-Use Conventional Commits to group related changes into cohesive commits (commits should be independently meaningful).
+**IMPORTANT:** Create commits for ALL modified, untracked, and deleted files. Nothing should be left uncommitted.
 
-Keep titles short (≤ 72 chars), imperative, no trailing period. Do not push, pull, or rebase.
+Group related changes into cohesive commits (commits should be independently meaningful).
+
+Use Conventional Commits format:
+- Keep titles short (≤ 72 chars), imperative, no trailing period
+- Body (optional): explain motivation, context, and breaking changes (use BREAKING CHANGE:)
+- Do NOT include any AI attribution, "Generated with", or "Co-Authored-By" lines
 
 Examples:
-
 - feat(parser): add support for PHP 8.4 attributes
 - fix(ci): correct matrix PHP versions in build workflow
 - chore(deps): bump composer/installers to ^2.3
 
-Body (optional): explain motivation, context, and breaking changes (use BREAKING CHANGE:).
+### Step 4: Verify everything is committed
 
-Do NOT include any AI attribution, "Generated with", or "Co-Authored-By" lines in commit messages.
+Run `git status` again to confirm:
+- Working tree is clean
+- No untracked files remain
+- No modified files remain
+
+If anything is left uncommitted, create additional commits until working tree is clean.
+
+Do not push, pull, or rebase.
