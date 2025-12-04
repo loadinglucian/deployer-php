@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Edit",
+      "Read",
+      "Write",
+      "Glob",
+      "Grep",
+      "Skill",
+      "Task",
+      "SlashCommand",
+      "WebFetch"
+    ],
+    "ask": [
+      "Bash(rm:*)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard:*)"
+    ],
+    "deny": [
+      "Read(auth.json)",
+      "Edit(auth.json)",
+      "Write(auth.json)",
+      "Read(.env**)",
+      "Edit(.env**)",
+      "Write(.env**)"
+    ]
+  }
+}
