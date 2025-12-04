@@ -41,6 +41,16 @@ Build Deployer PHP: Composer package and CLI tool simplifying server provisionin
 - Review surrounding code for reusable patterns
 - Code should appear written by single person: naming, parameter precedence, logic flow, organization
 
+### File Operations
+
+Use terminal commands for file management—never read+write entire contents:
+
+```bash
+mv old.php new.php      # Rename/move
+cp source.php dest.php  # Copy
+mkdir -p path/to/dir    # Create directories
+```
+
 ### Execution Protocol
 
 1. ULTRATHINK - analyze problem deeply
