@@ -16,10 +16,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'site:add',
-    description: 'Set up a new site on the server and add it to the inventory'
+    name: 'site:create',
+    description: 'Create a new site on a server and add it to inventory'
 )]
-class SiteAddCommand extends BaseCommand
+class SiteCreateCommand extends BaseCommand
 {
     use PlaybooksTrait;
     use ServersTrait;
@@ -35,8 +35,6 @@ class SiteAddCommand extends BaseCommand
 
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Domain name')
-            ->addOption('repo', null, InputOption::VALUE_REQUIRED, 'Git repository URL')
-            ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'Git branch name')
             ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name')
             ->addOption('php-version', null, InputOption::VALUE_REQUIRED, 'PHP version to use')
             ->addOption('www-mode', null, InputOption::VALUE_REQUIRED, 'WWW handling mode (redirect-to-root, redirect-to-www)');
@@ -50,7 +48,7 @@ class SiteAddCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('Add New Site');
+        $this->h1('Create New Site');
 
         //
         // Select server
@@ -58,7 +56,7 @@ class SiteAddCommand extends BaseCommand
 
         $server = $this->selectServer();
 
-        if (is_int($server) || $server->info === null) {
+        if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
 
@@ -71,7 +69,7 @@ class SiteAddCommand extends BaseCommand
         /** @var string $permissions */
 
         //
-        // Validate server is ready to add site
+        // Validate server is ready to create site
         // ----
 
         $validationResult = $this->validateServerReady($server->info);
@@ -86,14 +84,12 @@ class SiteAddCommand extends BaseCommand
 
         $siteInfo = $this->gatherSiteInfo($server->info);
 
-        if ($siteInfo === null) {
+        if (null === $siteInfo) {
             return Command::FAILURE;
         }
 
         [
             'domain' => $domain,
-            'repo' => $repo,
-            'branch' => $branch,
             'phpVersion' => $phpVersion,
             'wwwMode' => $wwwMode,
         ] = $siteInfo;
@@ -104,21 +100,21 @@ class SiteAddCommand extends BaseCommand
 
         $site = new SiteDTO(
             domain: $domain,
-            repo: $repo,
-            branch: $branch,
+            repo: null,
+            branch: null,
             server: $server->name
         );
 
         $this->displaySiteDeets($site);
 
         //
-        // Add site on server
+        // Create site on server
         // ----
 
         $result = $this->executePlaybookSilently(
             $server,
-            'site-add',
-            'Adding site...',
+            'site-create',
+            'Creating site on server...',
             [
                 'DEPLOYER_DISTRO' => $distro,
                 'DEPLOYER_PERMS' => $permissions,
@@ -132,8 +128,6 @@ class SiteAddCommand extends BaseCommand
             return $result;
         }
 
-        $this->yay('Site added successfully');
-
         //
         // Save to inventory
         // ----
@@ -146,35 +140,31 @@ class SiteAddCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $this->yay('Site added to inventory');
+        $this->yay("Site '{$domain}' added to inventory");
 
         //
         // Display next steps
         // ----
 
-        $displayUrl = ($wwwMode === 'redirect-to-www')
+        $displayUrl = ('redirect-to-www' === $wwwMode)
             ? 'http://www.' . $domain
             : 'http://' . $domain;
 
-        $this->out([
-            'Next steps:',
-            '  • Site is accessible at <fg=cyan>' . $displayUrl . '</>',
-            '  • Update <fg=cyan>DNS records</>:',
-            '      - Point <fg=cyan>@</> (root) to <fg=cyan>' . $server->host . '</>',
-            '      - Point <fg=cyan>www</> to <fg=cyan>' . $server->host . '</>',
-            '  • Run <fg=cyan>site:https</> to enable HTTPS once you have your DNS records set up',
-            '  • Deploy your application with <fg=cyan>site:deploy</>',
-            '',
+        $this->info('Please update your DNS records:');
+
+        $this->ul([
+            'Point <fg=cyan>@</> (root) to <fg=cyan>' . $server->host . '</>',
+            'Point <fg=cyan>www</> to <fg=cyan>' . $server->host . '</>',
+            'Run <fg=cyan>site:https</> to enable HTTPS once you have your DNS records set up',
+            'Deploy your new site with <fg=cyan>site:deploy</>'
         ]);
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('site:add', [
+        $this->commandReplay('site:create', [
             'domain' => $domain,
-            'repo' => $repo,
-            'branch' => $branch,
             'server' => $server->name,
             'php-version' => $phpVersion,
             'www-mode' => $wwwMode,
@@ -200,12 +190,12 @@ class SiteAddCommand extends BaseCommand
     private function validateServerReady(array $info): ?int
     {
         // Check if Caddy is installed
-        $caddyInstalled = isset($info['caddy']) && is_array($info['caddy']) && ($info['caddy']['available'] ?? false) === true;
+        $caddyInstalled = isset($info['caddy']) && is_array($info['caddy']) && true === ($info['caddy']['available'] ?? false);
 
         // Check if PHP is installed
         $phpInstalled = isset($info['php']) && is_array($info['php']) && isset($info['php']['versions']) && is_array($info['php']['versions']) && count($info['php']['versions']) > 0;
 
-        if (!$caddyInstalled || !$phpInstalled) {
+        if (! $caddyInstalled || ! $phpInstalled) {
             $this->nay('Looks like the server was not installed as expected');
             $this->out([
                 'Run <fg=cyan>server:install</> to install required software.',
@@ -251,7 +241,7 @@ class SiteAddCommand extends BaseCommand
         }
 
         // If only one version, use it automatically
-        if (count($installedPhpVersions) === 1) {
+        if (1 === count($installedPhpVersions)) {
             return $installedPhpVersions[0];
         }
 
@@ -261,7 +251,7 @@ class SiteAddCommand extends BaseCommand
         /** @var array{default?: string|int|float}|null $phpInfo */
         $phpInfo = $info['php'] ?? null;
         $defaultVersion = is_array($phpInfo) ? ($phpInfo['default'] ?? null) : null;
-        $defaultVersionStr = $defaultVersion !== null ? (string) $defaultVersion : $installedPhpVersions[0];
+        $defaultVersionStr = null !== $defaultVersion ? (string) $defaultVersion : $installedPhpVersions[0];
 
         $phpVersion = (string) $this->io->getOptionOrPrompt(
             'php-version',
@@ -273,7 +263,7 @@ class SiteAddCommand extends BaseCommand
         );
 
         // Validate CLI-provided version exists in available versions
-        if (!in_array($phpVersion, $installedPhpVersions, true)) {
+        if (! in_array($phpVersion, $installedPhpVersions, true)) {
             $this->nay(
                 "PHP version {$phpVersion} is not installed on this server. Available: " . implode(', ', $installedPhpVersions)
             );
@@ -292,7 +282,7 @@ class SiteAddCommand extends BaseCommand
      * Gather site details from user input or CLI options.
      *
      * @param array<string, mixed> $info Server information from serverInfo()
-     * @return array{domain: string, repo: string, branch: string, phpVersion: string, wwwMode: string}|null
+     * @return array{domain: string, phpVersion: string, wwwMode: string}|null
      */
     protected function gatherSiteInfo(array $info): ?array
     {
@@ -308,7 +298,7 @@ class SiteAddCommand extends BaseCommand
             fn ($value) => $this->validateSiteDomain($value)
         );
 
-        if ($domain === null) {
+        if (null === $domain) {
             return null;
         }
 
@@ -338,49 +328,7 @@ class SiteAddCommand extends BaseCommand
                 : sprintf("Invalid WWW mode '%s'. Allowed: %s", is_scalar($value) ? $value : gettype($value), implode(', ', array_keys($wwwModes)))
         );
 
-        if ($wwwMode === null) {
-            return null;
-        }
-
-        //
-        // Gather git details
-        // ----
-
-        $defaultRepo = $this->git->detectRemoteUrl() ?? '';
-
-        /** @var string|null $repo */
-        $repo = $this->io->getValidatedOptionOrPrompt(
-            'repo',
-            fn ($validate) => $this->io->promptText(
-                label: 'Git repository URL:',
-                placeholder: 'git@github.com:user/repo.git',
-                default: $defaultRepo,
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateSiteRepo($value)
-        );
-
-        if ($repo === null) {
-            return null;
-        }
-
-        $defaultBranch = $this->git->detectCurrentBranch() ?? 'main';
-
-        /** @var string|null $branch */
-        $branch = $this->io->getValidatedOptionOrPrompt(
-            'branch',
-            fn ($validate) => $this->io->promptText(
-                label: 'Git branch:',
-                placeholder: $defaultBranch,
-                default: $defaultBranch,
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateSiteBranch($value)
-        );
-
-        if ($branch === null) {
+        if (null === $wwwMode) {
             return null;
         }
 
@@ -396,8 +344,6 @@ class SiteAddCommand extends BaseCommand
 
         return [
             'domain' => $domain,
-            'repo' => $repo,
-            'branch' => $branch,
             'phpVersion' => $phpVersion,
             'wwwMode' => $wwwMode,
         ];
