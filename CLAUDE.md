@@ -64,9 +64,7 @@ Don't run, create, or update tests UNLESS explicitly instructed.
 | Working On | Reference |
 |------------|-----------|
 | PHP architecture, DI, layers | @docs/rules/architecture.md |
-| Symfony Console commands | @docs/rules/commands.md |
 | Exception handling | @docs/rules/exceptions.md |
-| Pest testing | @docs/rules/testing.md |
 | Writing documentation | @docs/rules/writing-docs.md |
 
 ## References
