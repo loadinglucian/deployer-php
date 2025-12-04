@@ -17,7 +17,10 @@
       "Bash(git push:*)",
       "Bash(git update-ref:*)",
       "Bash(git merge-base:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh api:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
