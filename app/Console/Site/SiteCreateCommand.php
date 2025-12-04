@@ -146,10 +146,6 @@ class SiteCreateCommand extends BaseCommand
         // Display next steps
         // ----
 
-        $displayUrl = ('redirect-to-www' === $wwwMode)
-            ? 'http://www.' . $domain
-            : 'http://' . $domain;
-
         $this->info('Please update your DNS records:');
 
         $this->ul([
