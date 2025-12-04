@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Deployer;
 
-use Deployer\Console\HelloCommand;
 use Deployer\Console\Key\KeyAddDigitalOceanCommand;
 use Deployer\Console\Key\KeyDeleteDigitalOceanCommand;
 use Deployer\Console\Key\KeyListDigitalOceanCommand;
@@ -17,7 +16,7 @@ use Deployer\Console\Server\ServerListCommand;
 use Deployer\Console\Server\ServerLogsCommand;
 use Deployer\Console\Server\ServerProvisionDigitalOceanCommand;
 use Deployer\Console\Server\ServerRunCommand;
-use Deployer\Console\Site\SiteAddCommand;
+use Deployer\Console\Site\SiteCreateCommand;
 use Deployer\Console\Site\SiteDeleteCommand;
 use Deployer\Console\Site\SiteDeployCommand;
 use Deployer\Console\Site\SiteHttpsCommand;
@@ -120,8 +119,6 @@ final class SymfonyApp extends SymfonyApplication
     private function registerCommands(): void
     {
         $commands = [
-            HelloCommand::class,
-
             //
             // Scaffolding
 
@@ -151,7 +148,7 @@ final class SymfonyApp extends SymfonyApplication
             //
             // Site management
 
-            SiteAddCommand::class,
+            SiteCreateCommand::class,
             SiteDeleteCommand::class,
             SiteListCommand::class,
             SiteSharedPushCommand::class,

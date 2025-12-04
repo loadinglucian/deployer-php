@@ -171,6 +171,11 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
 
             $this->yay('Server added to inventory');
 
+            $this->ul([
+                'Run <|cyan>server:info</> to view server information',
+                'Or run <|cyan>server:install</> to install your new server',
+            ]);
+
             $shouldKeepDroplet = true;
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());

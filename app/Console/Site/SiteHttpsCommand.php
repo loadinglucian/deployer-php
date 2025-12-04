@@ -93,8 +93,8 @@ class SiteHttpsCommand extends BaseCommand
             $this->warn("Site '{$site->domain}' configuration not found on server");
             $this->out([
                 '',
-                'It looks like this site has not been added yet.',
-                'Run <fg=cyan>site:add</> to add the site first.',
+                'It looks like this site has not been created yet.',
+                'Run <fg=cyan>site:create</> to create the site first.',
                 '',
             ]);
 

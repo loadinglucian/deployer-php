@@ -44,6 +44,8 @@ class SiteDeployCommand extends BaseCommand
 
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain')
+            ->addOption('repo', null, InputOption::VALUE_REQUIRED, 'Git repository URL')
+            ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'Git branch name')
             ->addOption('keep-releases', null, InputOption::VALUE_REQUIRED, 'Number of releases to keep (default: 5)')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Deploy without confirmation prompt');
     }
@@ -59,7 +61,7 @@ class SiteDeployCommand extends BaseCommand
         $this->h1('Deploy Site');
 
         //
-        // Select site & display details
+        // Select site
         // ----
 
         $site = $this->selectSite();
@@ -67,6 +69,30 @@ class SiteDeployCommand extends BaseCommand
         if (is_int($site)) {
             return $site;
         }
+
+        //
+        // Resolve repo and branch (prompt if not stored)
+        // ----
+
+        $resolvedGit = $this->resolveRepoAndBranch($input, $site);
+
+        if (null === $resolvedGit) {
+            return Command::FAILURE;
+        }
+
+        [$repo, $branch, $needsUpdate] = $resolvedGit;
+
+        // Create updated site DTO with resolved repo/branch
+        $site = new SiteDTO(
+            domain: $site->domain,
+            repo: $repo,
+            branch: $branch,
+            server: $site->server
+        );
+
+        //
+        // Display site details
+        // ----
 
         $this->displaySiteDeets($site);
 
@@ -82,7 +108,7 @@ class SiteDeployCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        if ($missingHooks !== []) {
+        if ([] !== $missingHooks) {
             $this->warn('Missing deployment hooks in repository:');
             foreach ($missingHooks as $hook) {
                 $this->out('  • ' . $hook);
@@ -121,7 +147,7 @@ class SiteDeployCommand extends BaseCommand
 
         $server = $this->serverInfo($server);
 
-        if (is_int($server) || $server->info === null) {
+        if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
 
@@ -147,15 +173,14 @@ class SiteDeployCommand extends BaseCommand
         // Resolve deployment parameters
         // ----
 
-        $branch = $site->branch;
         $keepReleases = $this->resolveKeepReleases($input);
 
-        if ($keepReleases === null) {
+        if (null === $keepReleases) {
             return Command::FAILURE;
         }
 
         $phpVersion = $this->resolvePhpVersion($server->info);
-        if ($phpVersion === null) {
+        if (null === $phpVersion) {
             return Command::FAILURE;
         }
 
@@ -191,7 +216,7 @@ class SiteDeployCommand extends BaseCommand
                 'DEPLOYER_DISTRO' => $distro,
                 'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_SITE_DOMAIN' => $site->domain,
-                'DEPLOYER_SITE_REPO' => $site->repo,
+                'DEPLOYER_SITE_REPO' => $repo,
                 'DEPLOYER_SITE_BRANCH' => $branch,
                 'DEPLOYER_PHP_VERSION' => (string) $phpVersion,
                 'DEPLOYER_KEEP_RELEASES' => (string) $keepReleases,
@@ -200,6 +225,18 @@ class SiteDeployCommand extends BaseCommand
 
         if (is_int($result)) {
             return $result;
+        }
+
+        //
+        // Save repo/branch to inventory if newly set
+        // ----
+
+        if ($needsUpdate) {
+            try {
+                $this->sites->update($site);
+            } catch (\RuntimeException $e) {
+                $this->warn('Could not update inventory: ' . $e->getMessage());
+            }
         }
 
         //
@@ -222,6 +259,8 @@ class SiteDeployCommand extends BaseCommand
 
         $this->commandReplay('site:deploy', [
             'domain' => $site->domain,
+            'repo' => $repo,
+            'branch' => $branch,
             'keep-releases' => $keepReleases,
             'yes' => true,
         ]);
@@ -234,9 +273,83 @@ class SiteDeployCommand extends BaseCommand
     // ----
 
     /**
+     * Resolve repo and branch from site, CLI options, or prompts.
+     *
+     * @return array{0: string, 1: string, 2: bool}|null [repo, branch, needsUpdate] or null on failure
+     */
+    private function resolveRepoAndBranch(InputInterface $input, SiteDTO $site): ?array
+    {
+        $storedRepo = $site->repo;
+        $storedBranch = $site->branch;
+        $needsUpdate = false;
+
+        // Resolve repo
+        if (null !== $storedRepo && '' !== $storedRepo) {
+            // Use stored value, but allow CLI override
+            /** @var string|null $cliRepo */
+            $cliRepo = $input->getOption('repo');
+            $repo = (null !== $cliRepo && '' !== $cliRepo) ? $cliRepo : $storedRepo;
+        } else {
+            // Not stored - prompt for it
+            $defaultRepo = $this->git->detectRemoteUrl() ?? '';
+
+            /** @var string|null $repo */
+            $repo = $this->io->getValidatedOptionOrPrompt(
+                'repo',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Git repository URL:',
+                    placeholder: 'git@github.com:user/repo.git',
+                    default: $defaultRepo,
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateSiteRepo($value)
+            );
+
+            if (null === $repo) {
+                return null;
+            }
+
+            $needsUpdate = true;
+        }
+
+        // Resolve branch
+        if (null !== $storedBranch && '' !== $storedBranch) {
+            // Use stored value, but allow CLI override
+            /** @var string|null $cliBranch */
+            $cliBranch = $input->getOption('branch');
+            $branch = (null !== $cliBranch && '' !== $cliBranch) ? $cliBranch : $storedBranch;
+        } else {
+            // Not stored - prompt for it
+            $defaultBranch = $this->git->detectCurrentBranch() ?? 'main';
+
+            /** @var string|null $branch */
+            $branch = $this->io->getValidatedOptionOrPrompt(
+                'branch',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Git branch:',
+                    placeholder: $defaultBranch,
+                    default: $defaultBranch,
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateSiteBranch($value)
+            );
+
+            if (null === $branch) {
+                return null;
+            }
+
+            $needsUpdate = true;
+        }
+
+        return [$repo, $branch, $needsUpdate];
+    }
+
+    /**
      * Display deployment summary details.
      *
-     * @param  array<string, mixed>  $result
+     * @param array<string, mixed> $result
      */
     private function displayDeploymentSummary(array $result, string $branch, string $phpVersion): void
     {
@@ -265,7 +378,7 @@ class SiteDeployCommand extends BaseCommand
     {
         /** @var string|null $value */
         $value = $input->getOption('keep-releases');
-        if ($value === null || trim($value) === '') {
+        if (null === $value || '' === trim($value)) {
             return self::DEFAULT_KEEP_RELEASES;
         }
 
@@ -288,7 +401,7 @@ class SiteDeployCommand extends BaseCommand
     /**
      * Resolve PHP version from server info, prompting user if multiple exist.
      *
-     * @param  array<string, mixed>  $info
+     * @param array<string, mixed> $info
      */
     private function resolvePhpVersion(array $info): ?string
     {
@@ -304,7 +417,7 @@ class SiteDeployCommand extends BaseCommand
             }
         }
 
-        if ($versions === []) {
+        if ([] === $versions) {
             $this->nay('No PHP versions found on the server. Run server:install first.');
 
             return null;
@@ -315,7 +428,7 @@ class SiteDeployCommand extends BaseCommand
             $default = (string) $phpInfo['default'];
         }
 
-        if (count($versions) === 1) {
+        if (1 === count($versions)) {
             /** @var string $only */
             $only = $versions[0];
 
@@ -343,6 +456,10 @@ class SiteDeployCommand extends BaseCommand
      */
     private function checkRemoteHooksExist(SiteDTO $site): array
     {
+        if (null === $site->repo || null === $site->branch) {
+            return [];
+        }
+
         $hookPaths = array_map(
             fn ($hook) => ".deployer/hooks/{$hook}",
             self::REQUIRED_HOOKS

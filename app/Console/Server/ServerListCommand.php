@@ -14,7 +14,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'server:list',
-    description: 'List servers in the inventory'
+    description: 'List servers in inventory'
 )]
 class ServerListCommand extends BaseCommand
 {

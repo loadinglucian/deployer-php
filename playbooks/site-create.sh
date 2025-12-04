@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 #
-# Site Add Playbook - Ubuntu/Debian Only
+# Site Create Playbook - Ubuntu/Debian Only
 #
-# Add new site with atomic deployment directory structure
+# Create new site with atomic deployment directory structure
 # ----
 #
 # This playbook only supports Ubuntu and Debian distributions (debian family).
@@ -111,7 +111,7 @@ setup_default_page() {
 			<?php
 			echo '<ul>';
 			echo '<li>Run <strong>site:https</strong> to enable HTTPS</li>';
-			echo '<li>Deploy your application with <strong>site:deploy</strong></li>';
+			echo '<li>Deploy your new site with <strong>site:deploy</strong></li>';
 			echo '</ul>';
 		EOF
 			echo "Error: Failed to create index.php" >&2

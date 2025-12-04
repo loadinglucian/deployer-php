@@ -3,11 +3,11 @@
 #
 # Site Delete Playbook - Ubuntu/Debian Only
 #
-# Remove site files and Caddy configuration from server
+# Delete site files and Caddy configuration from server
 # ----
 #
 # This playbook only supports Ubuntu and Debian distributions (debian family).
-# Removes site directory and Caddy vhost configuration, then reloads Caddy.
+# Deletes site directory and Caddy vhost configuration, then reloads Caddy.
 #
 # Required Environment Variables:
 #   DEPLOYER_OUTPUT_FILE  - Output file path
@@ -36,17 +36,17 @@ export DEPLOYER_PERMS
 # ----
 
 #
-# Remove Caddy vhost configuration
+# Delete Caddy vhost configuration
 # ----
 
-remove_caddy_vhost() {
+delete_caddy_vhost() {
 	local domain=$1
 	local vhost_file="/etc/caddy/conf.d/sites/${domain}.caddy"
 
 	if run_cmd test -f "$vhost_file"; then
-		echo "→ Removing Caddy configuration for ${domain}..."
+		echo "→ Deleting Caddy configuration for ${domain}..."
 		if ! run_cmd rm -f "$vhost_file"; then
-			echo "Error: Failed to remove Caddy configuration" >&2
+			echo "Error: Failed to delete Caddy configuration" >&2
 			exit 1
 		fi
 	fi
@@ -67,17 +67,17 @@ reload_caddy() {
 }
 
 #
-# Remove site files
+# Delete site files
 # ----
 
-remove_site_files() {
+delete_site_files() {
 	local domain=$1
 	local site_path="/home/deployer/sites/${domain}"
 
 	if run_cmd test -d "$site_path"; then
-		echo "→ Removing files for ${domain}..."
+		echo "→ Deleting site files for ${domain}..."
 		if ! run_cmd rm -rf "$site_path"; then
-			echo "Error: Failed to remove files" >&2
+			echo "Error: Failed to delete site files" >&2
 			exit 1
 		fi
 	fi
@@ -91,9 +91,9 @@ main() {
 	local domain=$DEPLOYER_SITE_DOMAIN
 
 	# Execute cleanup tasks
-	remove_caddy_vhost "$domain"
+	delete_caddy_vhost "$domain"
 	reload_caddy
-	remove_site_files "$domain"
+	delete_site_files "$domain"
 
 	# Write output YAML
 	if ! cat > "$DEPLOYER_OUTPUT_FILE" << EOF; then

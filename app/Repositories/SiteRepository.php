@@ -37,7 +37,7 @@ final class SiteRepository
         $this->inventory = $inventory;
 
         $sites = $inventory->get(self::PREFIX);
-        if (!is_array($sites)) {
+        if (! is_array($sites)) {
             $sites = [];
             $inventory->set(self::PREFIX, $sites);
         }
@@ -67,11 +67,37 @@ final class SiteRepository
     }
 
     /**
-         * Retrieve the site matching the given domain.
-         *
-         * @throws \RuntimeException If the inventory has not been loaded via loadInventory().
-         * @return SiteDTO|null The SiteDTO for the matching domain, or `null` if no match is found.
-         */
+     * Update an existing site in inventory storage.
+     *
+     * @param SiteDTO $site The site to update; must already exist by domain.
+     * @throws \RuntimeException If the inventory has not been loaded or site does not exist.
+     */
+    public function update(SiteDTO $site): void
+    {
+        $this->assertInventoryLoaded();
+
+        $found = false;
+        foreach ($this->sites as $index => $siteData) {
+            if (isset($siteData['domain']) && $siteData['domain'] === $site->domain) {
+                $this->sites[$index] = $this->dehydrateSiteDTO($site);
+                $found = true;
+                break;
+            }
+        }
+
+        if (! $found) {
+            throw new \RuntimeException("Site '{$site->domain}' not found");
+        }
+
+        $this->inventory->set(self::PREFIX, $this->sites);
+    }
+
+    /**
+     * Retrieve the site matching the given domain.
+     *
+     * @throws \RuntimeException If the inventory has not been loaded via loadInventory().
+     * @return SiteDTO|null The SiteDTO for the matching domain, or `null` if no match is found.
+     */
     public function findByDomain(string $domain): ?SiteDTO
     {
         $this->assertInventoryLoaded();
@@ -158,7 +184,7 @@ final class SiteRepository
      */
     private function assertInventoryLoaded(): void
     {
-        if ($this->inventory === null) {
+        if (null === $this->inventory) {
             throw new \RuntimeException('Inventory not set. Call loadInventory() first.');
         }
     }
@@ -166,36 +192,46 @@ final class SiteRepository
     /**
      * Serialize a SiteDTO into an associative array suitable for inventory storage.
      *
+     * Only includes repo and branch if they are set.
+     *
      * @param SiteDTO $site The site DTO to serialize.
-     * @return array<string, mixed> Associative array with keys `domain`, `repo`, `branch`, and `server`.
+     * @return array<string, mixed> Associative array with keys `domain`, `server`, and optionally `repo`, `branch`.
      */
     private function dehydrateSiteDTO(SiteDTO $site): array
     {
-        return [
+        $data = [
             'domain' => $site->domain,
-            'repo' => $site->repo,
-            'branch' => $site->branch,
             'server' => $site->server,
         ];
+
+        if (null !== $site->repo) {
+            $data['repo'] = $site->repo;
+        }
+
+        if (null !== $site->branch) {
+            $data['branch'] = $site->branch;
+        }
+
+        return $data;
     }
 
     /**
-         * Create a SiteDTO from raw inventory data.
-         *
-         * @param array<string,mixed> $data Raw associative array from inventory.
-         * @return SiteDTO A SiteDTO where `domain`, `repo`, `branch`, and `server` are strings (empty if missing).
-         */
+     * Create a SiteDTO from raw inventory data.
+     *
+     * @param array<string,mixed> $data Raw associative array from inventory.
+     * @return SiteDTO A SiteDTO where `domain` and `server` are strings, `repo` and `branch` are nullable.
+     */
     private function hydrateSiteDTO(array $data): SiteDTO
     {
         $domain = $data['domain'] ?? '';
-        $repo = $data['repo'] ?? '';
-        $branch = $data['branch'] ?? '';
+        $repo = $data['repo'] ?? null;
+        $branch = $data['branch'] ?? null;
         $server = $data['server'] ?? '';
 
         return new SiteDTO(
             domain: is_string($domain) ? $domain : '',
-            repo: is_string($repo) ? $repo : '',
-            branch: is_string($branch) ? $branch : '',
+            repo: is_string($repo) ? $repo : null,
+            branch: is_string($branch) ? $branch : null,
             server: is_string($server) ? $server : '',
         );
     }

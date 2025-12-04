@@ -37,7 +37,7 @@ trait SitesTrait
     /**
      * Display a warning to add a site if no sites are available. Otherwise, return all sites.
      *
-     * @param  array<int, SiteDTO>|null  $sites  Optional pre-fetched sites; if null, fetches from repository
+     * @param array<int, SiteDTO>|null $sites Optional pre-fetched sites; if null, fetches from repository
      * @return array<int, SiteDTO>|int Returns array of sites or Command::SUCCESS if no sites available
      */
     protected function ensureSitesAvailable(?array $sites = null): array|int
@@ -50,9 +50,9 @@ trait SitesTrait
         //
         // Check if no sites are available
 
-        if (count($allSites) === 0) {
+        if (0 === count($allSites)) {
             $this->info('This command requires at least one site in inventory:');
-            $this->ul('Run <fg=cyan>site:add</> to add a site');
+            $this->ul('Run <fg=cyan>site:create</> to create a site');
 
             return Command::SUCCESS;
         }
@@ -63,7 +63,7 @@ trait SitesTrait
     /**
      * Select a site from inventory by domain option or interactive prompt.
      *
-     * @param  array<int, SiteDTO>|null  $sites  Optional pre-fetched sites; if null, fetches from repository
+     * @param array<int, SiteDTO>|null $sites Optional pre-fetched sites; if null, fetches from repository
      * @return SiteDTO|int Returns SiteDTO on success, or Command::SUCCESS if empty inventory, or Command::FAILURE if not found
      */
     protected function selectSite(?array $sites = null): SiteDTO|int
@@ -95,7 +95,7 @@ trait SitesTrait
 
         $site = $this->sites->findByDomain($domain);
 
-        if ($site === null) {
+        if (null === $site) {
             $this->nay("Site '{$domain}' not found in inventory");
 
             return Command::FAILURE;
@@ -111,11 +111,16 @@ trait SitesTrait
     {
         $details = [
             'Domain' => $site->domain,
-            'Source' => 'Git',
-            'Repo' => $site->repo,
-            'Branch' => $site->branch,
             'Server' => $site->server,
         ];
+
+        if (null !== $site->repo) {
+            $details['Repo'] = $site->repo;
+        }
+
+        if (null !== $site->branch) {
+            $details['Branch'] = $site->branch;
+        }
 
         $this->displayDeets($details);
         $this->out('───');
@@ -139,14 +144,14 @@ trait SitesTrait
         $domain = $this->normalizeDomain($domain);
 
         // Check format
-        $isValid = filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
+        $isValid = false !== filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME);
         if (! $isValid) {
             return 'Must be a valid domain name (e.g., example.com, subdomain.example.com)';
         }
 
         // Check uniqueness
         $existing = $this->sites->findByDomain($domain);
-        if ($existing !== null) {
+        if (null !== $existing) {
             return "Domain '{$domain}' already exists in inventory";
         }
 
@@ -178,7 +183,7 @@ trait SitesTrait
             return 'Branch name must be a string';
         }
 
-        if (trim($branch) === '') {
+        if ('' === trim($branch)) {
             return 'Branch name cannot be empty';
         }
 
@@ -196,7 +201,7 @@ trait SitesTrait
             return 'Repository URL must be a string';
         }
 
-        if (trim($repo) === '') {
+        if ('' === trim($repo)) {
             return 'Repository URL cannot be empty';
         }
 
@@ -240,10 +245,10 @@ trait SitesTrait
                 )
             );
 
-            if ($result['exit_code'] !== 0) {
-                $this->nay("Site '{$site->domain}' has not been added on the server");
+            if (0 !== $result['exit_code']) {
+                $this->nay("Site '{$site->domain}' has not been created on the server");
                 $this->out([
-                    'Run <fg=cyan>site:add</> to add the site first.',
+                    'Run <fg=cyan>site:create</> to create the site first.',
                     '',
                 ]);
 
@@ -263,7 +268,7 @@ trait SitesTrait
      */
     protected function getSiteRootPath(SiteDTO $site): string
     {
-        return '/home/deployer/sites/'.$site->domain;
+        return '/home/deployer/sites/' . $site->domain;
     }
 
     /**
@@ -271,6 +276,6 @@ trait SitesTrait
      */
     protected function getSiteSharedPath(SiteDTO $site): string
     {
-        return $this->getSiteRootPath($site).'/shared';
+        return $this->getSiteRootPath($site) . '/shared';
     }
 }

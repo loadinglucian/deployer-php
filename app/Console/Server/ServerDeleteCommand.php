@@ -180,7 +180,7 @@ class ServerDeleteCommand extends BaseCommand
 
         $this->servers->delete($server->name);
 
-        $this->yay("Server '{$server->name}' deleted from inventory");
+        $this->yay("Server '{$server->name}' removed from inventory");
 
         //
         // Delete associated sites

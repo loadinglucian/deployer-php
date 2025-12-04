@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'site:delete',
-    description: 'Remove a site from the server and delete it from inventory'
+    description: 'Delete a site from a server and remove it from inventory'
 )]
 class SiteDeleteCommand extends BaseCommand
 {
@@ -99,10 +99,10 @@ class SiteDeleteCommand extends BaseCommand
         }
 
         //
-        // Attempt to remove site from server
+        // Attempt to delete site from server
         // ----
 
-        $removedFromServer = false;
+        $deletedFromServer = false;
         $server = $this->servers->findByName($site->server);
 
         if ($server === null) {
@@ -131,7 +131,7 @@ class SiteDeleteCommand extends BaseCommand
                 $result = $this->executePlaybookSilently(
                     $server,
                     'site-delete',
-                    'Removing site from server...',
+                    'Deleting site from server...',
                     [
                         'DEPLOYER_DISTRO' => $distro,
                         'DEPLOYER_PERMS' => $permissions,
@@ -140,18 +140,18 @@ class SiteDeleteCommand extends BaseCommand
                 );
 
                 if (is_int($result)) {
-                    $this->warn('Failed to remove site from server');
+                    $this->warn('Failed to delete site from server');
                 } else {
-                    $removedFromServer = true;
+                    $deletedFromServer = true;
                 }
             }
         }
 
         //
-        // Confirm inventory deletion if server removal failed
+        // Confirm inventory removal if server deletion failed
         // ----
 
-        if (!$removedFromServer) {
+        if (!$deletedFromServer) {
             /** @var bool $proceedAnyway */
             $proceedAnyway = $this->io->getOptionOrPrompt(
                 'yes',
@@ -172,11 +172,7 @@ class SiteDeleteCommand extends BaseCommand
 
         $this->sites->delete($site->domain);
 
-        if ($removedFromServer) {
-            $this->yay("Site '{$site->domain}' deleted successfully");
-        } else {
-            $this->yay("Site '{$site->domain}' deleted from inventory");
-        }
+        $this->yay("Site '{$site->domain}' removed from inventory");
 
         //
         // Show command replay

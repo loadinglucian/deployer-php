@@ -13,7 +13,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'site:list',
-    description: 'List sites in the inventory'
+    description: 'List sites in inventory'
 )]
 class SiteListCommand extends BaseCommand
 {
