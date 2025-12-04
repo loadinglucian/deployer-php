@@ -1,5 +1,5 @@
 ---
-description: Remove AI-generated code slop from the branch
+description: Remove AI-generated code slop from the current branch
 argument-hint: [base-branch]
 ---
 
