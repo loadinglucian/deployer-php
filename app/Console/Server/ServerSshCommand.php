@@ -72,6 +72,7 @@ class ServerSshCommand extends BaseCommand
         $sshArgs = [
             '-o', 'StrictHostKeyChecking=accept-new',
             '-p', (string) $server->port,
+            '-t',
         ];
 
         if (null !== $server->privateKeyPath) {
