@@ -16,6 +16,7 @@ use Deployer\Console\Server\ServerListCommand;
 use Deployer\Console\Server\ServerLogsCommand;
 use Deployer\Console\Server\ServerProvisionDigitalOceanCommand;
 use Deployer\Console\Server\ServerRunCommand;
+use Deployer\Console\Server\ServerSshCommand;
 use Deployer\Console\Site\SiteCreateCommand;
 use Deployer\Console\Site\SiteDeleteCommand;
 use Deployer\Console\Site\SiteDeployCommand;
@@ -23,6 +24,7 @@ use Deployer\Console\Site\SiteHttpsCommand;
 use Deployer\Console\Site\SiteListCommand;
 use Deployer\Console\Site\SiteSharedPullCommand;
 use Deployer\Console\Site\SiteSharedPushCommand;
+use Deployer\Console\Site\SiteSshCommand;
 use Deployer\Services\VersionService;
 use Symfony\Component\Console\Application as SymfonyApplication;
 use Symfony\Component\Console\Command\Command;
@@ -141,6 +143,7 @@ final class SymfonyApp extends SymfonyApplication
             ServerInstallCommand::class,
             ServerLogsCommand::class,
             ServerRunCommand::class,
+            ServerSshCommand::class,
 
             // Providers
             ServerProvisionDigitalOceanCommand::class,
@@ -155,6 +158,7 @@ final class SymfonyApp extends SymfonyApplication
             SiteSharedPushCommand::class,
             SiteSharedPullCommand::class,
             SiteDeployCommand::class,
+            SiteSshCommand::class,
         ];
 
         foreach ($commands as $command) {
