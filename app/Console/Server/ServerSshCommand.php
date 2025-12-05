@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
-use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
+use Deployer\Traits\SshTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -20,7 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class ServerSshCommand extends BaseCommand
 {
     use ServersTrait;
-    use PlaybooksTrait;
+    use SshTrait;
 
     // ----
     // Configuration
@@ -54,10 +54,21 @@ class ServerSshCommand extends BaseCommand
         }
 
         //
+        // Resolve SSH binary
+        // ----
+
+        $sshBinary = $this->findSshBinary();
+
+        if (null === $sshBinary) {
+            $this->nay('SSH binary not found in PATH');
+
+            return Command::FAILURE;
+        }
+
+        //
         // Build SSH command arguments
         // ----
 
-        $sshBinary = '/usr/bin/ssh';
         $sshArgs = [
             '-o', 'StrictHostKeyChecking=accept-new',
             '-p', (string) $server->port,

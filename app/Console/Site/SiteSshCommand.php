@@ -7,6 +7,7 @@ namespace Deployer\Console\Site;
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
+use Deployer\Traits\SshTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -21,6 +22,7 @@ class SiteSshCommand extends BaseCommand
 {
     use ServersTrait;
     use SitesTrait;
+    use SshTrait;
 
     // ----
     // Configuration
@@ -53,6 +55,8 @@ class SiteSshCommand extends BaseCommand
             return $site;
         }
 
+        $this->displaySiteDeets($site);
+
         //
         // Get server for site
         // ----
@@ -64,10 +68,21 @@ class SiteSshCommand extends BaseCommand
         }
 
         //
+        // Resolve SSH binary
+        // ----
+
+        $sshBinary = $this->findSshBinary();
+
+        if (null === $sshBinary) {
+            $this->nay('SSH binary not found in PATH');
+
+            return Command::FAILURE;
+        }
+
+        //
         // Build SSH command arguments
         // ----
 
-        $sshBinary = '/usr/bin/ssh';
         $siteRoot = $this->getSiteRootPath($site);
 
         $sshArgs = [
@@ -82,7 +97,7 @@ class SiteSshCommand extends BaseCommand
         }
 
         $sshArgs[] = "{$server->username}@{$server->host}";
-        $sshArgs[] = "cd {$siteRoot} && exec \$SHELL -l";
+        $sshArgs[] = 'cd ' . escapeshellarg($siteRoot) . ' && exec $SHELL -l';
 
         //
         // Replace PHP process with SSH

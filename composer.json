@@ -17,6 +17,7 @@
     ],
     "require": {
         "php": "^8.2",
+        "ext-pcntl": "*",
         "guzzlehttp/guzzle": "^7.10",
         "laravel/prompts": "^0.3.8",
         "phpseclib/phpseclib": "^3.0",
