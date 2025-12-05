@@ -6,7 +6,6 @@ namespace Deployer\Console\Site;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
-use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SiteSharedPathsTrait;
 use Deployer\Traits\SitesTrait;
@@ -22,7 +21,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class SiteSharedPullCommand extends BaseCommand
 {
-    use PlaybooksTrait;
     use ServersTrait;
     use SiteSharedPathsTrait;
     use SitesTrait;
@@ -149,11 +147,13 @@ class SiteSharedPullCommand extends BaseCommand
         // Download file
         // ----
 
-        $this->info("Downloading <fg=cyan>{$remotePath}</> to <fg=cyan>{$localPath}</>");
-        $this->out('');
-
         try {
-            $this->ssh->downloadFile($server, $remotePath, $localPath);
+            $this->io->promptSpin(
+                function () use ($server, $remotePath, $localPath): void {
+                    $this->ssh->downloadFile($server, $remotePath, $localPath);
+                },
+                'Downloading file...'
+            );
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
 

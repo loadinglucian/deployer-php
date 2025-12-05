@@ -6,7 +6,6 @@ namespace Deployer\Console\Site;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
-use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SiteSharedPathsTrait;
 use Deployer\Traits\SitesTrait;
@@ -22,7 +21,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class SiteSharedPushCommand extends BaseCommand
 {
-    use PlaybooksTrait;
     use ServersTrait;
     use SiteSharedPathsTrait;
     use SitesTrait;
@@ -83,14 +81,6 @@ class SiteSharedPushCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        [
-            'distro' => $distro,
-            'permissions' => $permissions,
-        ] = $server->info;
-
-        /** @var string $distro */
-        /** @var string $permissions */
-
         //
         // Validate site is added on server
         // ----
@@ -123,46 +113,22 @@ class SiteSharedPushCommand extends BaseCommand
         // Upload file
         // ----
 
-        $this->info("Uploading <fg=cyan>{$localPath}</> to <fg=cyan>{$remotePath}</>");
-        $this->out('');
-
         try {
-            $this->runRemoteCommand($server, sprintf('mkdir -p %s', escapeshellarg($remoteDir)));
-            $this->ssh->uploadFile($server, $localPath, $remotePath);
-            $this->runRemoteCommand($server, sprintf('chmod 640 %s', escapeshellarg($remotePath)));
-
-            if ($server->username !== 'deployer') {
-                $this->runRemoteCommand(
-                    $server,
-                    sprintf('chown deployer:deployer %s', escapeshellarg($remotePath))
-                );
-            }
+            $this->io->promptSpin(
+                function () use ($server, $localPath, $remotePath, $remoteDir): void {
+                    $this->runRemoteCommand($server, sprintf('mkdir -p %s', escapeshellarg($remoteDir)));
+                    $this->ssh->uploadFile($server, $localPath, $remotePath);
+                    $this->runRemoteCommand($server, sprintf('chmod 640 %s', escapeshellarg($remotePath)));
+                },
+                'Uploading file...'
+            );
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }
 
-        //
-        // Link shared file
-        // ----
-
-        $result = $this->executePlaybook(
-            $server,
-            'site-link-shared',
-            'Linking shared file...',
-            [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-                'DEPLOYER_SITE_DOMAIN' => $site->domain,
-            ]
-        );
-
-        if (is_int($result)) {
-            return $result;
-        }
-
-        $this->yay('Shared file uploaded and linked');
+        $this->yay('Shared file uploaded (redeploy to link)');
 
         //
         // Show command replay

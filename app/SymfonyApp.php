@@ -151,9 +151,9 @@ final class SymfonyApp extends SymfonyApplication
             SiteCreateCommand::class,
             SiteDeleteCommand::class,
             SiteListCommand::class,
+            SiteHttpsCommand::class,
             SiteSharedPushCommand::class,
             SiteSharedPullCommand::class,
-            SiteHttpsCommand::class,
             SiteDeployCommand::class,
         ];
 
