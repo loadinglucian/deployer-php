@@ -89,20 +89,8 @@ class SiteHttpsCommand extends BaseCommand
 
         $config = $this->getSiteConfig($server->info, $site->domain);
 
-        if ($config === null) {
-            $this->warn("Site '{$site->domain}' configuration not found on server");
-            $this->out([
-                '',
-                'It looks like this site has not been created yet.',
-                'Run <fg=cyan>site:create</> to create the site first.',
-                '',
-            ]);
-
-            return Command::SUCCESS;
-        }
-
-        if ($config['php_version'] === 'unknown') {
-            $this->nay("Could not detect PHP version for '{$site->domain}' from server config; re-add the site or run server:info to debug.");
+        if (!is_array($config) || 'unknown' === $config['php_version']) {
+            $this->nay("Site '{$site->domain}' not configured; run site:create to create the site first.");
 
             return Command::FAILURE;
         }
@@ -129,20 +117,6 @@ class SiteHttpsCommand extends BaseCommand
         }
 
         $this->yay('HTTPS enabled successfully');
-
-        //
-        // Display next steps
-        // ----
-
-        $displayUrl = ($config['www_mode'] === 'redirect-to-www')
-            ? 'https://www.' . $site->domain
-            : 'https://' . $site->domain;
-
-        $this->out([
-            'Your site is now accessible over HTTPS:',
-            '  <fg=cyan>' . $displayUrl . '</>',
-            '',
-        ]);
 
         //
         // Show command replay

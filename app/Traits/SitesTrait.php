@@ -51,7 +51,7 @@ trait SitesTrait
         // Check if no sites are available
 
         if (0 === count($allSites)) {
-            $this->info('This command requires at least one site in inventory:');
+            $this->info('No servers found in your inventory:');
             $this->ul('Run <fg=cyan>site:create</> to create a site');
 
             return Command::SUCCESS;

@@ -4,7 +4,7 @@ Server and site deployment tool for PHP. Composer package and CLI built on Symfo
 
 ## Quality Gates
 
-Before completing a task or committing, use the `quality-gatekeeper` agent to run quality checks on changed files.
+**IMPORTANT:** After making changes to PHP files or playbooks, ALWAYS run the `quality-gatekeeper` agent before responding to the user. This is mandatory, not optional.
 
 ## Code Philosophy
 
