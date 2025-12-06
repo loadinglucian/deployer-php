@@ -18,6 +18,7 @@ Optional argument: `$ARGUMENTS` (PR number)
 1. **Get PR number**
 
    If `$ARGUMENTS` is empty, get the current branch name and find its PR:
+
    ```
    gh pr list --head <branch> --json number --jq '.[0].number'
    ```
@@ -35,6 +36,7 @@ Optional argument: `$ARGUMENTS` (PR number)
 4. **Merge with admin privileges**
 
    Use squash merge with admin flag to bypass branch protection:
+
    ```
    gh pr merge <number> --squash --admin
    ```

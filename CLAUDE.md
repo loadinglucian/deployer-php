@@ -252,3 +252,4 @@ Don't run, create, or update tests UNLESS explicitly instructed.
 
 - Check `composer.json` and `package.json` for installed packages
 - Plan with features from installed major versions
+- Use bun instead of node

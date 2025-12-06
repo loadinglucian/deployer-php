@@ -4,6 +4,11 @@
   },
   "scripts": {
     "format:bash": "shfmt -i 0 -bn -ci -sr -w playbooks/*.sh",
-    "check:bash": "shfmt -i 0 -bn -ci -sr -d playbooks/*.sh"
+    "check:bash": "shfmt -i 0 -bn -ci -sr -d playbooks/*.sh",
+    "lint:md": "markdownlint-cli2 '**/*.md' '#node_modules' '#vendor'",
+    "lint:md:fix": "markdownlint-cli2 --fix '**/*.md' '#node_modules' '#vendor'"
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "^0.19.1"
   }
 }

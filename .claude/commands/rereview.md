@@ -27,6 +27,7 @@ For each substantive comment, use the Task tool with `subagent_type: "peer-rerev
 **IMPORTANT:** Spawn ALL agents in parallel using a single message with multiple Task tool calls.
 
 Example prompt for each agent:
+
 ```
 Assess this PR comment:
 
@@ -41,6 +42,7 @@ Assess this PR comment:
 > [comment text]
 
 Read the relevant code file and CLAUDE.md, then provide your assessment.
+
 ```
 
 ## Output Format

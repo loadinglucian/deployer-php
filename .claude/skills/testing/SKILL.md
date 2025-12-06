@@ -259,11 +259,13 @@ $mock->shouldReceive('method')->with(Mockery::type('string'));
 ## Test Types
 
 **Unit Tests:**
+
 - Mock all external dependencies
 - Test single units in isolation
 - Complete in milliseconds
 
 **Integration Tests:**
+
 - Real file operations and external processes
 - CLI commands and full workflows
 

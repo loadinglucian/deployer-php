@@ -1,7 +1,8 @@
-.deployer/
 .cursor/.agent-tools/
+.deployer/
 .experiments/
 .idea/
+.phpunit.cache/
 .vscode/
 node_modules/
 scripts/

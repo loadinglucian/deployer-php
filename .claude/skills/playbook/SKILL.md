@@ -7,7 +7,7 @@ description: Use this skill when writing, creating, or modifying bash playbook s
 
 Playbooks are idempotent, non-interactive bash scripts that execute server tasks remotely. They receive context via environment variables and return YAML output.
 
-All rules MANDATORY. Bash style based on https://style.ysap.sh/md
+All rules MANDATORY. Bash style based on <https://style.ysap.sh/md>
 
 ## Required Structure
 
@@ -84,6 +84,7 @@ main "$@"
 ## Critical Requirements
 
 ### Header Block
+
 - Shebang: `#!/usr/bin/env bash` (always first line)
 - `set -o pipefail` (NEVER use `set -e`)
 - `export DEBIAN_FRONTEND=noninteractive`
@@ -91,12 +92,15 @@ main "$@"
 - `export DEPLOYER_PERMS` after validation
 
 ### Environment Variables
+
 All variables use `DEPLOYER_` prefix:
+
 - `DEPLOYER_OUTPUT_FILE` - YAML output path (always required)
 - `DEPLOYER_DISTRO` - Distribution: `ubuntu|debian`
 - `DEPLOYER_PERMS` - Permissions: `root|sudo|none`
 
 ### Available Helper Functions
+
 These are automatically inlined from `helpers.sh`. Never manually inline helpers into playbook files.
 
 | Function | Purpose |
@@ -190,6 +194,7 @@ fi
 ```
 
 Rules:
+
 - Use `set -o pipefail` but NOT `set -e` - explicit checking preferred
 - Never use `eval`
 
@@ -239,30 +244,35 @@ apt_get_with_retry install -y -q "${packages[@]}"
 ### Core Syntax
 
 **Conditionals:** `[[ ... ]]` not `[ ... ]`
+
 ```bash
 [[ -d /etc ]]              # CORRECT
 [ -d /etc ]                # WRONG
 ```
 
 **Command Substitution:** `$(...)` not backticks
+
 ```bash
 foo=$(date)                # CORRECT
 foo=`date`                 # WRONG
 ```
 
 **Math:** `((...))` and `$((...))`, never `let`
+
 ```bash
 if ((a > b)); then ...     # CORRECT
 if [[ $a -gt $b ]]; then   # WRONG
 ```
 
 **Functions:** No `function` keyword, always use `local`
+
 ```bash
 foo() { local i=5; }       # CORRECT
 function foo { i=5; }      # WRONG
 ```
 
 **Block Statements:** `then`/`do` on same line
+
 ```bash
 if true; then ...          # CORRECT
 while true; do ...         # CORRECT
@@ -271,6 +281,7 @@ while true; do ...         # CORRECT
 ### Parameter Handling
 
 **Expansion:** Prefer over external commands
+
 ```bash
 prog=${0##*/}              # CORRECT - basename
 nonumbers=${name//[0-9]/}  # CORRECT - remove numbers
@@ -278,6 +289,7 @@ prog=$(basename "$0")      # WRONG - external command
 ```
 
 **Quoting:** Double for expansions, single for literals
+
 ```bash
 echo "$foo"                # expansion needs quotes
 bar='literal'              # no expansion
@@ -285,6 +297,7 @@ if [[ -n $foo ]]; then     # [[ ]] doesn't word-split
 ```
 
 **Arrays:** Use bash arrays, not strings
+
 ```bash
 modules=(a b c)            # CORRECT
 for m in "${modules[@]}"   # CORRECT
@@ -322,6 +335,7 @@ for f in $(ls); do ...
 ## Code Organization
 
 ### Section Comments
+
 ```bash
 # ----
 # Section Name
@@ -329,6 +343,7 @@ for f in $(ls); do ...
 ```
 
 ### Function Comments
+
 ```bash
 #
 # Brief description of what function does
@@ -339,6 +354,7 @@ function_name() {
 ```
 
 ### Grouping
+
 - Group related functions into comment-separated sections
 - Order functions alphabetically within sections after grouping
 - Place `main()` at the bottom

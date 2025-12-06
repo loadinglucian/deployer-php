@@ -98,6 +98,7 @@ $this->ol(['Step 1', 'Step 2']);         // Numbered list
 ```
 
 **Trait Organization:**
+
 - `ConsoleOutputTrait`: Output/formatting using `$this->io`
 - `ConsoleInputTrait`: Input using `$this->input`
 - `BaseCommand`: Shared initialization, configuration
