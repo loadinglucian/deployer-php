@@ -1,329 +1,457 @@
 # Technical Specification - Server Firewall Command
 
+## Context
+
+### From PRD
+
+The `server:firewall` command provides an interactive interface for managing UFW (Uncomplicated Firewall) rules on provisioned servers. Users can view all detected listening services and select which ports should be open, with the firewall automatically configured to deny all other traffic. The command prioritizes safety by ensuring SSH access is never accidentally blocked, using the SSH port configured for the server.
+
+**Key Safety Requirement:** SSH access must never be accidentally blocked. The command uses the SSH port configured for the server (from ServerDTO) and ensures it's always included in allow rules.
+
+**Target Users:** Server administrators who want simplified firewall management, and DevOps engineers who need scriptable firewall configuration.
+
+**Technical Stack:** PHP Command (ServerFirewallCommand.php) + Bash Playbook (server-firewall.sh) + Shared Helper (helpers.sh)
+
+### From Features
+
+13 must-have features across 3 phases:
+
+- **Phase 1:** Shared port detection (F12), port detection (F1), UFW status detection (F2)
+- **Phase 2:** Multi-select prompt (F3), SSH protection (F4), default ports (F5), current rules display (F13), confirmation (F6), UFW installation (F7), apply rules (F8), IPv4/IPv6 (F9)
+- **Phase 3:** CLI option (F10), filter invalid ports (F11)
+
+Critical path: `F12 -> F1 -> F3 -> F6 -> F7 -> F8`
+
+### Specification Summary
+
+- **Components:** ServerFirewallCommand.php (orchestration), server-firewall.sh (detect/apply modes), helpers.sh (shared `get_listening_services()`)
+- **Two-phase playbook:** Detection mode returns ports/UFW state, Apply mode configures firewall
+- **SSH safety:** Defense-in-depth validation in both PHP and bash; SSH port from ServerDTO always included
+- **Interactive flow:** Multi-select with pre-checked defaults (80, 443, current UFW rules) -> confirmation summary -> apply
+- **Non-interactive:** `--allow` option filters to detected ports only; `--force` skips confirmation
+
+---
+
 ## Overview
 
-The `server:firewall` command provides interactive UFW management through a single playbook with two modes (detect/apply). The PHP command orchestrates user interaction while the playbook handles all server-side operations including port detection, UFW status checking, and rule application.
+Two-mode playbook architecture: PHP command orchestrates server selection and user interaction, delegates detection and rule application to bash playbook with YAML output.
 
 **Components:**
 
-| Component                 | Type     | Purpose                                     |
-| ------------------------- | -------- | ------------------------------------------- |
-| ServerFirewallCommand.php | Command  | User interaction, validation, orchestration |
-| server-firewall.sh        | Playbook | Port detection, UFW management, rule apply  |
-| helpers.sh                | Playbook | Shared `get_listening_services()` function  |
+| Component                    | Type     | Purpose                                    |
+| ---------------------------- | -------- | ------------------------------------------ |
+| ServerFirewallCommand.php    | Command  | Orchestrate UI, validation, playbook calls |
+| server-firewall.sh           | Playbook | Detect UFW/ports, apply rules              |
+| helpers.sh                   | Library  | Shared `get_listening_services()` function |
 
 **Architecture:**
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     ServerFirewallCommand.php                       │
 ├─────────────────────────────────────────────────────────────────────┤
-│  1. selectServer()           ──► ServersTrait (existing)            │
-│  2. executePlaybook(detect)  ──► get ports, UFW status              │
-│  3. promptMultiselect()      ──► user selects ports                 │
-│  4. displayConfirmation()    ──► show changes summary               │
-│  5. executePlaybook(apply)   ──► apply UFW rules                    │
+│  1. selectServer() -> ServerDTO ($server->port = SSH port)          │
+│  2. executePlaybook(mode=detect) -> ports, UFW state                │
+│  3. filterSshPort() + promptPortSelection() or parseAllowOption()   │
+│  4. displayConfirmation() -> user approves                          │
+│  5. executePlaybook(mode=apply, DEPLOYER_SSH_PORT, ALLOWED_PORTS)   │
 └─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
+                               │
+                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       server-firewall.sh                            │
+│                      server-firewall.sh                             │
 ├─────────────────────────────────────────────────────────────────────┤
-│  DEPLOYER_MODE=detect:                                              │
-│    - get_listening_services() (from helpers.sh)                     │
-│    - get_ufw_status()                                               │
-│    - Output: ports, ufw_open_ports, ufw_installed, ufw_enabled      │
+│  detect mode:                                                       │
+│    - check_ufw_installed(), check_ufw_active(), get_ufw_rules()     │
+│    - get_listening_services() [from helpers.sh]                     │
+│    -> YAML: ufw_installed, ufw_active, ufw_rules[], ports{}         │
 │                                                                     │
-│  DEPLOYER_MODE=apply:                                               │
-│    - validate DEPLOYER_SSH_PORT in DEPLOYER_ALLOWED_PORTS           │
-│    - install_ufw() if needed                                        │
-│    - apply_ufw_rules() (SSH-safe reset sequence)                    │
-│    - Output: status, rules_applied, ports_opened, ports_closed      │
+│  apply mode:                                                        │
+│    - validate_ssh_port() [defense in depth]                         │
+│    - install_ufw_if_missing()                                       │
+│    - allow SSH -> reset -> allow SSH -> policies -> ports -> enable │
+│    -> YAML: status, rules_applied, ports_allowed[]                  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 **Design Decisions:**
 
-- **Single playbook with mode parameter**: Reduces SSH connections while keeping logic cohesive. Mode controlled via `DEPLOYER_MODE` env var.
-- **Shared helper function**: `get_listening_services()` extracted to `helpers.sh` for DRY with `server-info.sh`. Automatically inlined by PHP runtime.
-- **SSH port from ServerDTO**: Uses `$server->port` rather than runtime detection since we already connected via that port.
-- **Defense in depth**: SSH port validated in both PHP command and bash playbook.
+- **Two-mode playbook:** Single playbook with detect/apply modes reduces file count, enables shared context
+- **SSH port from ServerDTO:** No runtime detection needed; we already connected via this port
+- **Filtered --allow:** CLI ports filtered to detected services prevents opening non-listening ports
+- **Pre-reset SSH allow:** Idempotent SSH allow before reset prevents lockout if UFW is active
+- **Assume UFW IPv6 defaults:** UFW applies IPv6 rules automatically; no /etc/default/ufw verification needed
 
 ---
 
 ## Feature Specifications
 
-### F12: Shared Port Detection Helper
+### F12: Shared Port Detection
 
-| Attribute      | Value                                          |
-| -------------- | ---------------------------------------------- |
-| Source         | 02-FEATURES.md §F12                            |
-| Components     | helpers.sh                                     |
-| New Files      | None (modify existing)                         |
-| Modified Files | playbooks/helpers.sh, playbooks/server-info.sh |
+| Attribute      | Value                |
+| -------------- | -------------------- |
+| Source         | 02-FEATURES.md §F12  |
+| Components     | helpers.sh           |
+| New Files      | None (exists)        |
+| Modified Files | helpers.sh           |
 
 **Interface Contract:**
 
-| Function               | Input | Output                      | Errors                             |
-| ---------------------- | ----- | --------------------------- | ---------------------------------- |
-| get_listening_services | None  | Lines of `{port}:{process}` | None (empty output if no services) |
+| Method/Function         | Input | Output                         | Errors           |
+| ----------------------- | ----- | ------------------------------ | ---------------- |
+| get_listening_services  | None  | `port:process\n` pairs, sorted | None (silent)    |
 
-**Data Structures:**
+**Implementation Notes:**
 
-| Name   | Type   | Format                        | Purpose                            |
-| ------ | ------ | ----------------------------- | ---------------------------------- |
-| Output | stdout | `{port}:{process}\n` per line | Port/process pairs, sorted by port |
-
-**Technical Notes:**
-
-- Function moved from `server-info.sh` to `helpers.sh`
-- Uses `ss -tulnp` primarily, `netstat -tlnp` as fallback
-- Detects TCP ports only (UDP not needed for firewall use case - services listen on TCP)
-- Output sorted numerically by port, deduplicated
-- `server-info.sh` continues to source helpers via placeholder comment
+Function already exists in helpers.sh with correct implementation using `ss -tulnp` with netstat fallback.
 
 **Verification:**
 
-- `server-info.sh` produces identical output before/after refactor
-- `get_listening_services` returns expected format when called standalone
+- [ ] Function exists in helpers.sh
+- [ ] Returns sorted, deduplicated port:process pairs
+- [ ] server-info.sh uses get_listening_services
+- [ ] server-firewall.sh uses get_listening_services
 
 ---
 
 ### F1: Port Detection
 
-| Attribute      | Value                          |
-| -------------- | ------------------------------ |
-| Source         | 02-FEATURES.md §F1             |
-| Components     | server-firewall.sh, helpers.sh |
-| New Files      | playbooks/server-firewall.sh   |
-| Modified Files | None                           |
-
-**Interface Contract:**
-
-| Method/Function      | Input                  | Output              | Errors                  |
-| -------------------- | ---------------------- | ------------------- | ----------------------- |
-| Playbook detect mode | `DEPLOYER_MODE=detect` | YAML with ports map | Exit 1 on write failure |
+| Attribute      | Value                |
+| -------------- | -------------------- |
+| Source         | 02-FEATURES.md §F1   |
+| Components     | server-firewall.sh   |
+| New Files      | None                 |
+| Modified Files | None (uses F12)      |
 
 **Playbook Contract:**
 
 | Variable             | Type   | Required | Description                  |
 | -------------------- | ------ | -------- | ---------------------------- |
+| DEPLOYER_MODE        | string | Yes      | Must be "detect"             |
+| DEPLOYER_PERMS       | string | Yes      | "root" or "sudo"             |
 | DEPLOYER_OUTPUT_FILE | string | Yes      | Path for YAML output         |
-| DEPLOYER_MODE        | string | Yes      | Must be `detect`             |
-| DEPLOYER_PERMS       | string | Yes      | Permission level (root/sudo) |
 
 Output (detect mode):
 
 ```yaml
 status: success
-ufw_installed: true
-ufw_enabled: true
-ufw_open_ports: [80, 443, 22]
 ports:
-    22: sshd
-    80: caddy
-    443: caddy
-    3306: mysql
+  22: sshd
+  80: caddy
+  443: caddy
+  3306: mysql
 ```
-
-**Integration Points:**
-
-- `helpers.sh`: Sources `get_listening_services()` function
-- `PlaybooksTrait::executePlaybook()`: Executes with env vars
-
-**Error Taxonomy:**
-
-| Condition              | Message                              | Behavior       |
-| ---------------------- | ------------------------------------ | -------------- |
-| Output file write fail | "Error: Failed to write output file" | Exit 1, stderr |
-
-**Edge Cases:**
-
-| Scenario                 | Behavior                      |
-| ------------------------ | ----------------------------- |
-| No listening services    | Return empty `ports: {}` map  |
-| `ss` not available       | Fall back to `netstat`        |
-| Neither ss nor netstat   | Return empty `ports: {}` map  |
-| Process name unavailable | Use "unknown" as process name |
 
 **Verification:**
 
-- Playbook returns YAML with ports map containing all listening TCP services
-- Port numbers are integers, process names are strings
-- Detection completes within 5 seconds
+- [ ] TCP listening ports detected
+- [ ] UDP listening ports detected
+- [ ] Process names associated with ports
+- [ ] Completes within 5 seconds
 
 ---
 
 ### F2: UFW Status Detection
 
-| Attribute      | Value                      |
-| -------------- | -------------------------- |
-| Source         | 02-FEATURES.md §F2         |
-| Components     | server-firewall.sh         |
-| New Files      | None (part of F1 playbook) |
-| Modified Files | None                       |
+| Attribute      | Value                |
+| -------------- | -------------------- |
+| Source         | 02-FEATURES.md §F2   |
+| Components     | server-firewall.sh   |
+| New Files      | None                 |
+| Modified Files | None                 |
 
 **Interface Contract:**
 
-| Function       | Input | Output                                               | Errors |
-| -------------- | ----- | ---------------------------------------------------- | ------ |
-| get_ufw_status | None  | Sets ufw_installed, ufw_enabled, ufw_open_ports vars | None   |
+| Method/Function     | Input | Output           | Errors        |
+| ------------------- | ----- | ---------------- | ------------- |
+| check_ufw_installed | None  | "true" or "false"| None          |
+| check_ufw_active    | None  | "true" or "false"| None          |
+| get_ufw_rules       | None  | port/proto lines | None (silent) |
 
-**Data Structures:**
+**Playbook Contract:**
 
-| Name           | Type    | Values         | Purpose                        |
-| -------------- | ------- | -------------- | ------------------------------ |
-| ufw_installed  | boolean | true/false     | Whether UFW binary exists      |
-| ufw_enabled    | boolean | true/false     | Whether UFW is active          |
-| ufw_open_ports | array   | [80, 443, ...] | Currently allowed port numbers |
+Output (detect mode):
 
-**Technical Notes:**
-
-- Use `command -v ufw` to check installation
-- Use `ufw status` to check if enabled (look for "Status: active")
-- Parse `ufw status numbered` to extract allowed ports
-- Handle IPv4/IPv6 rules appearing separately (deduplicate)
+```yaml
+ufw_installed: true
+ufw_active: true
+ufw_rules:
+  - 22/tcp
+  - 80/tcp
+  - 443/tcp
+```
 
 **Edge Cases:**
 
-| Scenario             | Behavior                                 |
-| -------------------- | ---------------------------------------- |
-| UFW not installed    | `ufw_installed: false`, empty ports      |
-| UFW disabled         | `ufw_enabled: false`, parse rules anyway |
-| No rules configured  | `ufw_open_ports: []`                     |
-| Named services (ssh) | Resolve to port number (22)              |
+| Scenario           | Behavior                        |
+| ------------------ | ------------------------------- |
+| UFW not installed  | ufw_installed: false            |
+| UFW inactive       | ufw_active: false, rules: []    |
+| No rules defined   | ufw_rules: []                   |
 
 **Verification:**
 
-- `ufw_open_ports` contains all currently allowed port numbers
-- Ports are integers, not strings
+- [ ] Parses `ufw status` output correctly
+- [ ] Handles UFW not installed
+- [ ] Handles UFW inactive
+- [ ] Extracts port/protocol from rule lines
 
 ---
 
-### F7: UFW Installation
+### F13: Current Rules Display
 
-| Attribute      | Value                     |
-| -------------- | ------------------------- |
-| Source         | 02-FEATURES.md §F7        |
-| Components     | server-firewall.sh        |
-| New Files      | None (part of apply mode) |
-| Modified Files | None                      |
+| Attribute      | Value                    |
+| -------------- | ------------------------ |
+| Source         | 02-FEATURES.md §F13      |
+| Components     | ServerFirewallCommand    |
+| New Files      | None                     |
+| Modified Files | None                     |
 
 **Interface Contract:**
 
-| Function    | Input | Output        | Errors                    |
-| ----------- | ----- | ------------- | ------------------------- |
-| install_ufw | None  | UFW installed | Exit 1 on install failure |
+| Method/Function      | Input                       | Output | Errors |
+| -------------------- | --------------------------- | ------ | ------ |
+| displayCurrentStatus | bool, bool, array\<string\> | void   | None   |
 
-**Technical Notes:**
+**Data Structures:**
 
-- Only called in apply mode when `ufw_installed: false`
-- Use `apt_get_with_retry install -y -q ufw`
-- Display progress: "Installing UFW..."
+| Name   | Type           | Fields                        | Purpose                  |
+| ------ | -------------- | ----------------------------- | ------------------------ |
+| status | Display output | UFW status, rules list        | Show current firewall state |
+
+**Integration Points:**
+
+- IOService: displayDeets() for formatted output
 
 **Error Taxonomy:**
 
-| Condition     | Message                                 | Behavior |
-| ------------- | --------------------------------------- | -------- |
-| apt-get fails | "Error: Failed to install UFW" (stderr) | Exit 1   |
+| Condition       | Message                    | Behavior       |
+| --------------- | -------------------------- | -------------- |
+| Not installed   | "Not installed" (yellow)   | Display only   |
+| Inactive        | "Inactive" (yellow)        | Display only   |
+| Active no rules | "Active" (green)           | Display only   |
 
 **Verification:**
 
-- After install, `command -v ufw` succeeds
-- UFW version can be queried
+- [ ] Shows "Not installed" when UFW missing
+- [ ] Shows "Inactive" when UFW disabled
+- [ ] Shows "Active" with rules when configured
+
+---
+
+### F3: Multi-select Prompt
+
+| Attribute      | Value                    |
+| -------------- | ------------------------ |
+| Source         | 02-FEATURES.md §F3       |
+| Components     | ServerFirewallCommand    |
+| New Files      | None                     |
+| Modified Files | None                     |
+
+**Interface Contract:**
+
+| Method/Function       | Input                                    | Output       | Errors |
+| --------------------- | ---------------------------------------- | ------------ | ------ |
+| promptPortSelection   | array\<int,string\>, array\<int\>        | array\<int\> | None   |
+
+**Data Structures:**
+
+| Name    | Type               | Fields            | Purpose                    |
+| ------- | ------------------ | ----------------- | -------------------------- |
+| options | array\<int,string\>| port => "port (process)" | Display format    |
+
+**Integration Points:**
+
+- IOService: promptMultiselect() for user selection
+
+**Verification:**
+
+- [ ] Displays format: "80 (caddy)"
+- [ ] SSH port excluded from options
+- [ ] Pre-checks default ports (80, 443) if detected
+- [ ] Pre-checks current UFW ports if detected
+- [ ] Returns selected port numbers as integers
 
 ---
 
 ### F4: SSH Port Protection
 
-| Attribute      | Value                                         |
-| -------------- | --------------------------------------------- |
-| Source         | 02-FEATURES.md §F4                            |
-| Components     | ServerFirewallCommand.php, server-firewall.sh |
-| New Files      | None                                          |
-| Modified Files | None                                          |
+| Attribute      | Value                    |
+| -------------- | ------------------------ |
+| Source         | 02-FEATURES.md §F4       |
+| Components     | ServerFirewallCommand, server-firewall.sh |
+| New Files      | None                     |
+| Modified Files | None                     |
 
 **Interface Contract:**
 
-PHP Command:
-
-| Method            | Input               | Output                  | Errors |
-| ----------------- | ------------------- | ----------------------- | ------ |
-| getPortOptions    | ports[], sshPort    | Options excluding SSH   | None   |
-| buildAllowedPorts | selected[], sshPort | Ports with SSH included | None   |
-
-Playbook:
-
-| Check                | Input                  | Output   | Errors                                                      |
-| -------------------- | ---------------------- | -------- | ----------------------------------------------------------- |
-| SSH port env var set | DEPLOYER_SSH_PORT      | Continue | "FATAL: DEPLOYER_SSH_PORT environment variable must be set" |
-| SSH port in list     | DEPLOYER_ALLOWED_PORTS | Continue | "FATAL: SSH port {port} must always be allowed"             |
+| Method/Function  | Input                       | Output             | Errors                         |
+| ---------------- | --------------------------- | ------------------ | ------------------------------ |
+| filterSshPort    | array\<int,string\>, int    | array\<int,string\>| None                           |
+| validate_ssh_port| env vars                    | void               | Exit 1 if SSH port not allowed |
 
 **Playbook Contract:**
 
-| Variable               | Type   | Required | Description                    |
-| ---------------------- | ------ | -------- | ------------------------------ |
-| DEPLOYER_SSH_PORT      | string | Yes      | Server's SSH port (e.g., "22") |
-| DEPLOYER_ALLOWED_PORTS | string | Yes      | Comma-separated ports to allow |
-
-**Data Structures:**
-
-| Name         | Type  | Example       | Purpose                  |
-| ------------ | ----- | ------------- | ------------------------ |
-| sshPort      | int   | 22            | From ServerDTO->port     |
-| allowedPorts | array | [22, 80, 443] | Always includes SSH port |
-
-**Integration Points:**
-
-- `ServerDTO::$port`: Source of SSH port
-- Playbook env validation: Defense in depth
+| Variable           | Type   | Required | Description                   |
+| ------------------ | ------ | -------- | ----------------------------- |
+| DEPLOYER_SSH_PORT  | string | Yes      | Server's SSH port from ServerDTO |
 
 **Error Taxonomy:**
 
-| Condition               | Message                                                     | Behavior       |
-| ----------------------- | ----------------------------------------------------------- | -------------- |
-| SSH port env missing    | "FATAL: DEPLOYER_SSH_PORT environment variable must be set" | Exit 1, stderr |
-| SSH port not in allowed | "FATAL: SSH port {port} must always be allowed"             | Exit 1, stderr |
+| Condition            | Message                                      | Behavior |
+| -------------------- | -------------------------------------------- | -------- |
+| SSH port env not set | "FATAL: DEPLOYER_SSH_PORT must be set"       | Exit 1   |
+| SSH port not allowed | "FATAL: SSH port X must always be allowed"   | Exit 1   |
 
 **Security Constraints:**
 
-- SSH port NEVER displayed in multiselect prompt
-- SSH port ALWAYS added to allowed ports before playbook execution
-- Playbook validates SSH port presence as defense in depth
-- UFW reset sequence allows SSH BEFORE and AFTER reset
+- SSH port never appears in multi-select list (filtered by filterSshPort)
+- SSH port always prepended to allowed ports in PHP before playbook call
+- Playbook validates SSH port in allowed list (defense in depth)
+- SSH allowed before and after UFW reset
 
 **Verification:**
 
-- SSH port not visible in selection prompt
-- Allowed ports sent to playbook always include SSH port
-- Playbook exits with error if SSH port validation fails
+- [ ] SSH port hidden from selection
+- [ ] SSH port always in final allow list
+- [ ] Playbook aborts if SSH port validation fails
+- [ ] Uses $server->port from ServerDTO
 
 ---
 
-### F8: Apply UFW Rules
+### F5: Default Ports
 
-| Attribute      | Value                     |
-| -------------- | ------------------------- |
-| Source         | 02-FEATURES.md §F8        |
-| Components     | server-firewall.sh        |
-| New Files      | None (part of apply mode) |
-| Modified Files | None                      |
+| Attribute      | Value                    |
+| -------------- | ------------------------ |
+| Source         | 02-FEATURES.md §F5       |
+| Components     | ServerFirewallCommand    |
+| New Files      | None                     |
+| Modified Files | None                     |
 
 **Interface Contract:**
 
-| Function        | Input                                     | Output         | Errors            |
-| --------------- | ----------------------------------------- | -------------- | ----------------- |
-| apply_ufw_rules | DEPLOYER_SSH_PORT, DEPLOYER_ALLOWED_PORTS | UFW configured | Exit 1 on failure |
+| Method/Function  | Input                       | Output       | Errors |
+| ---------------- | --------------------------- | ------------ | ------ |
+| getDefaultPorts  | array\<int\>, array\<int\>  | array\<int\> | None   |
+
+**Data Structures:**
+
+| Name          | Type        | Fields   | Purpose                     |
+| ------------- | ----------- | -------- | --------------------------- |
+| DEFAULT_PORTS | const array | [80,443] | Ports to pre-check by default |
+
+**Verification:**
+
+- [ ] Port 80 pre-checked if detected
+- [ ] Port 443 pre-checked if detected
+- [ ] Only pre-checks detected listening ports
+- [ ] Merged with current UFW rules for defaults
+
+---
+
+### F6: Confirmation Summary
+
+| Attribute      | Value                    |
+| -------------- | ------------------------ |
+| Source         | 02-FEATURES.md §F6       |
+| Components     | ServerFirewallCommand    |
+| New Files      | None                     |
+| Modified Files | None                     |
+
+**Interface Contract:**
+
+| Method/Function     | Input                                    | Output | Errors |
+| ------------------- | ---------------------------------------- | ------ | ------ |
+| displayConfirmation | array\<int\>, array\<int\>, int, bool    | bool   | None   |
+
+**Data Structures:**
+
+| Name    | Type  | Fields                              | Purpose           |
+| ------- | ----- | ----------------------------------- | ----------------- |
+| changes | array | Opening, Closing, SSH, Status       | Summary display   |
+
+**Integration Points:**
+
+- IOService: displayDeets(), promptConfirm()
+
+**Edge Cases:**
+
+| Scenario    | Behavior                              |
+| ----------- | ------------------------------------- |
+| No changes  | Display "Status: No changes needed"   |
+| Force flag  | Skip confirmation, return true        |
+
+**Verification:**
+
+- [ ] Shows ports to open
+- [ ] Shows ports to close
+- [ ] Shows "SSH port X will remain open"
+- [ ] Requires yes/no confirmation
+- [ ] --force skips confirmation
+
+---
+
+### F7: UFW Installation
+
+| Attribute      | Value                    |
+| -------------- | ------------------------ |
+| Source         | 02-FEATURES.md §F7       |
+| Components     | server-firewall.sh       |
+| New Files      | None                     |
+| Modified Files | None                     |
+
+**Interface Contract:**
+
+| Method/Function       | Input | Output | Errors                     |
+| --------------------- | ----- | ------ | -------------------------- |
+| install_ufw_if_missing| None  | void   | Exit via fail() on error   |
+
+**Integration Points:**
+
+- helpers.sh: wait_for_dpkg_lock(), apt_get_with_retry()
+
+**Error Taxonomy:**
+
+| Condition          | Message                            | Behavior |
+| ------------------ | ---------------------------------- | -------- |
+| Lock timeout       | "Timeout waiting for dpkg lock"    | Exit 1   |
+| Install failure    | "Failed to install UFW"            | Exit 1   |
+
+**Verification:**
+
+- [ ] Detects if UFW installed via `command -v ufw`
+- [ ] Installs via apt-get if missing
+- [ ] Displays "Installing UFW..." message
+- [ ] Handles dpkg lock contention
+
+---
+
+### F8: Apply Rules
+
+| Attribute      | Value                    |
+| -------------- | ------------------------ |
+| Source         | 02-FEATURES.md §F8       |
+| Components     | server-firewall.sh       |
+| New Files      | None                     |
+| Modified Files | None                     |
+
+**Interface Contract:**
+
+| Method/Function      | Input | Output | Errors                    |
+| -------------------- | ----- | ------ | ------------------------- |
+| allow_ssh_port       | None  | void   | Silent (idempotent)       |
+| reset_ufw            | None  | void   | Exit via fail()           |
+| set_default_policies | None  | void   | Exit via fail()           |
+| allow_selected_ports | None  | void   | Exit via fail()           |
+| enable_ufw           | None  | void   | Exit via fail()           |
 
 **Playbook Contract:**
 
 | Variable               | Type   | Required | Description                    |
 | ---------------------- | ------ | -------- | ------------------------------ |
-| DEPLOYER_OUTPUT_FILE   | string | Yes      | Path for YAML output           |
-| DEPLOYER_MODE          | string | Yes      | Must be `apply`                |
-| DEPLOYER_PERMS         | string | Yes      | Permission level (root/sudo)   |
-| DEPLOYER_SSH_PORT      | string | Yes      | SSH port to always allow       |
-| DEPLOYER_ALLOWED_PORTS | string | Yes      | Comma-separated ports to allow |
+| DEPLOYER_MODE          | string | Yes      | Must be "apply"                |
+| DEPLOYER_SSH_PORT      | string | Yes      | Server's SSH port              |
+| DEPLOYER_ALLOWED_PORTS | string | Yes      | Comma-separated allowed ports  |
 
 Output (apply mode):
 
@@ -332,493 +460,121 @@ status: success
 ufw_installed: true
 ufw_enabled: true
 rules_applied: 4
-```
-
-**Technical Notes:**
-
-SSH-safe reset sequence (order critical):
-
-```bash
-# 1. Allow SSH BEFORE reset (idempotent safety)
-ufw allow $DEPLOYER_SSH_PORT/tcp
-
-# 2. Reset UFW (clears all rules)
-ufw --force reset
-
-# 3. Re-allow SSH immediately after reset
-ufw allow $DEPLOYER_SSH_PORT/tcp
-
-# 4. Set default policies
-ufw default deny incoming
-ufw default allow outgoing
-
-# 5. Allow user-selected ports (includes SSH)
-for port in ALLOWED_PORTS; do
-    ufw allow $port/tcp
-done
-
-# 6. Enable UFW
-ufw --force enable
+ports_allowed:
+  - 22
+  - 80
+  - 443
 ```
 
 **Error Taxonomy:**
 
-| Condition        | Message                              | Behavior |
-| ---------------- | ------------------------------------ | -------- |
-| ufw allow fails  | "Error: Failed to allow port {port}" | Exit 1   |
-| ufw reset fails  | "Error: Failed to reset UFW"         | Exit 1   |
-| ufw enable fails | "Error: Failed to enable UFW"        | Exit 1   |
-
-**Edge Cases:**
-
-| Scenario               | Behavior                             |
-| ---------------------- | ------------------------------------ |
-| UFW already enabled    | Reset and reconfigure (idempotent)   |
-| Same ports as current  | Still reset and reapply (idempotent) |
-| Only SSH port selected | Valid configuration (SSH only)       |
+| Condition       | Message                          | Behavior |
+| --------------- | -------------------------------- | -------- |
+| Reset fails     | "Failed to reset UFW"            | Exit 1   |
+| Policy fails    | "Failed to set incoming policy"  | Exit 1   |
+| Allow fails     | "Failed to allow port X"         | Exit 1   |
+| Enable fails    | "Failed to enable UFW"           | Exit 1   |
 
 **Security Constraints:**
 
-- SSH port allowed BEFORE ufw reset (prevents lockout during reset)
-- SSH port re-allowed AFTER reset (ensures persistence)
-- All ufw commands use `--force` to prevent interactive prompts
+Order is critical for SSH safety:
+
+1. `ufw allow $SSH_PORT/tcp` (before reset)
+2. `ufw --force reset`
+3. `ufw allow $SSH_PORT/tcp` (after reset)
+4. `ufw default deny incoming`
+5. `ufw default allow outgoing`
+6. Allow user-selected ports
+7. `ufw --force enable`
 
 **Verification:**
 
-- `ufw status` shows only allowed ports after apply
-- SSH connection maintained throughout operation
-- Running twice with same ports produces identical state
+- [ ] SSH allowed before any reset
+- [ ] SSH re-allowed immediately after reset
+- [ ] Default deny incoming set
+- [ ] Default allow outgoing set
+- [ ] All selected ports allowed
+- [ ] UFW enabled
+- [ ] Idempotent: same selection = same result
 
 ---
 
 ### F9: IPv4/IPv6 Support
 
-| Attribute      | Value              |
-| -------------- | ------------------ |
-| Source         | 02-FEATURES.md §F9 |
-| Components     | server-firewall.sh |
-| New Files      | None               |
-| Modified Files | None               |
+| Attribute      | Value                    |
+| -------------- | ------------------------ |
+| Source         | 02-FEATURES.md §F9       |
+| Components     | server-firewall.sh       |
+| New Files      | None                     |
+| Modified Files | None                     |
 
-**Technical Notes:**
+**Implementation Notes:**
 
-- UFW automatically creates IPv6 rules when `/etc/default/ufw` has `IPV6=yes` (Ubuntu/Debian default)
-- Standard `ufw allow {port}` commands create both IPv4 and IPv6 rules
-- No special handling required in playbook
+UFW handles IPv4/IPv6 automatically when rules are added without IP specification. No explicit verification of /etc/default/ufw needed (per design decision).
 
 **Verification:**
 
-- `ufw status` shows rules for both IPv4 and IPv6
-- Server with IPv6 enabled correctly blocks/allows on both protocols
+- [ ] Rules apply to IPv4 (verified via `ufw status`)
+- [ ] Rules apply to IPv6 (verified via `ufw status`)
 
 ---
 
-### F3: Multi-select Prompt
+### F10: CLI Option
 
-| Attribute      | Value                                        |
-| -------------- | -------------------------------------------- |
-| Source         | 02-FEATURES.md §F3                           |
-| Components     | ServerFirewallCommand.php                    |
-| New Files      | app/Console/Server/ServerFirewallCommand.php |
-| Modified Files | None                                         |
+| Attribute      | Value                    |
+| -------------- | ------------------------ |
+| Source         | 02-FEATURES.md §F10      |
+| Components     | ServerFirewallCommand    |
+| New Files      | None                     |
+| Modified Files | None                     |
 
 **Interface Contract:**
 
-| Method           | Input                   | Output               | Errors |
-| ---------------- | ----------------------- | -------------------- | ------ |
-| buildPortOptions | ports[], sshPort        | options[] for prompt | None   |
-| getDefaultPorts  | ports[], ufwOpenPorts[] | preselected[]        | None   |
+| Method/Function           | Input                          | Output       | Errors |
+| ------------------------- | ------------------------------ | ------------ | ------ |
+| parseAndFilterAllowOption | string, array\<int,string\>    | array\<int\> | None   |
 
 **Data Structures:**
 
-| Name    | Type  | Example                          | Purpose               |
-| ------- | ----- | -------------------------------- | --------------------- |
-| options | array | ['80' => 'Port 80 (caddy)', ...] | Multiselect options   |
-| default | array | ['80', '443']                    | Pre-checked port keys |
-
-**Technical Notes:**
-
-Format: `Port {port} ({process})` matching `ServerInfoCommand` display style
-
-```php
-$options = [];
-foreach ($ports as $port => $process) {
-    if ($port === $sshPort) {
-        continue; // Never show SSH port
-    }
-    $options[(string) $port] = "Port {$port} ({$process})";
-}
-```
-
-Pre-selection logic:
-
-```php
-$default = array_unique(array_merge(
-    $ufwOpenPorts,           // Currently open in UFW
-    array_intersect([80, 443], array_keys($ports))  // 80/443 if listening
-));
-$default = array_filter($default, fn($p) => $p !== $sshPort);
-```
-
-**Integration Points:**
-
-- `IOService::promptMultiselect()`: Display multiselect prompt with hint
-
-**Edge Cases:**
-
-| Scenario                  | Behavior                              |
-| ------------------------- | ------------------------------------- |
-| No ports except SSH       | Display message, skip to confirmation |
-| Port 80/443 not listening | Not pre-selected (only if listening)  |
-| All ports already in UFW  | All shown as pre-selected             |
+| Name         | Type                | Fields | Purpose                |
+| ------------ | ------------------- | ------ | ---------------------- |
+| --allow      | InputOption::VALUE_REQUIRED | Comma-separated ports | Non-interactive mode |
+| --force      | InputOption::VALUE_NONE     | Boolean | Skip confirmation     |
+| --server     | InputOption::VALUE_REQUIRED | Server name | Server selection      |
 
 **Verification:**
 
-- SSH port never appears in options
-- Currently open UFW ports are pre-checked
-- Ports 80 and 443 pre-checked if listening
-- Format matches `server:info` display style
-
----
-
-### F5: Default Ports Pre-selection
-
-| Attribute      | Value                     |
-| -------------- | ------------------------- |
-| Source         | 02-FEATURES.md §F5        |
-| Components     | ServerFirewallCommand.php |
-| New Files      | None (part of F3)         |
-| Modified Files | None                      |
-
-**Technical Notes:**
-
-Pre-selection merge logic (covered in F3):
-
-1. Start with currently open UFW ports
-2. Add port 80 if it's in detected listening ports
-3. Add port 443 if it's in detected listening ports
-4. Remove SSH port from pre-selection (not displayed anyway)
-
-**Verification:**
-
-- Port 80 pre-checked only if service listening on 80
-- Port 443 pre-checked only if service listening on 443
-- User can uncheck these defaults
-
----
-
-### F6: Confirmation Summary
-
-| Attribute      | Value                     |
-| -------------- | ------------------------- |
-| Source         | 02-FEATURES.md §F6        |
-| Components     | ServerFirewallCommand.php |
-| New Files      | None                      |
-| Modified Files | None                      |
-
-**Interface Contract:**
-
-| Method              | Input                               | Output             | Errors |
-| ------------------- | ----------------------------------- | ------------------ | ------ |
-| displayConfirmation | selected[], ufwOpenPorts[], sshPort | void               | None   |
-| calculateChanges    | selected[], ufwOpenPorts[]          | [opening, closing] | None   |
-
-**Data Structures:**
-
-| Name    | Type  | Example      | Purpose                        |
-| ------- | ----- | ------------ | ------------------------------ |
-| opening | array | [3306, 5432] | Ports to be newly opened       |
-| closing | array | [6379]       | Ports currently open, to close |
-
-**Technical Notes:**
-
-Change calculation:
-
-```php
-$selected = array_map('intval', $selectedPorts);
-$opening = array_diff($selected, $ufwOpenPorts);
-$closing = array_diff($ufwOpenPorts, $selected);
-// Remove SSH port from closing (defense)
-$closing = array_filter($closing, fn($p) => $p !== $sshPort);
-```
-
-Display format (using displayDeets or custom):
-
-```
-┌ Firewall Changes ──────────────────────────────────────────────┐
-│                                                                │
-│   Opening: 3306, 5432                                          │
-│   Closing: 6379                                                │
-│                                                                │
-│   SSH port will remain open.                                   │
-│                                                                │
-└────────────────────────────────────────────────────────────────┘
-```
-
-**Integration Points:**
-
-- `IOService::promptConfirm()`: Yes/no confirmation
-- `BaseCommand::displayDeets()`: Formatted output (or custom box)
-
-**Edge Cases:**
-
-| Scenario           | Behavior                                |
-| ------------------ | --------------------------------------- |
-| No changes needed  | Display "No changes needed", skip apply |
-| Only opening ports | Show opening only, no closing section   |
-| Only closing ports | Show closing only, no opening section   |
-| User declines      | Return without applying, no error       |
-
-**Verification:**
-
-- Opening shows ports not currently in UFW
-- Closing shows ports in UFW but not selected
-- SSH port never shown in closing list
-- Confirmation required before apply
-
----
-
-### F10: CLI --allow Option
-
-| Attribute      | Value                     |
-| -------------- | ------------------------- |
-| Source         | 02-FEATURES.md §F10       |
-| Components     | ServerFirewallCommand.php |
-| New Files      | None                      |
-| Modified Files | None                      |
-
-**Interface Contract:**
-
-| Method           | Input           | Output         | Errors |
-| ---------------- | --------------- | -------------- | ------ |
-| configure        | None            | Option defined | None   |
-| parseAllowOption | string "80,443" | [80, 443]      | None   |
-
-**Data Structures:**
-
-| Name        | Type   | Example         | Purpose                   |
-| ----------- | ------ | --------------- | ------------------------- |
-| --allow     | string | "80,443,3306"   | Comma-separated port list |
-| parsedPorts | array  | [80, 443, 3306] | Integer array of ports    |
-
-**Technical Notes:**
-
-Option definition:
-
-```php
-$this->addOption(
-    'allow',
-    null,
-    InputOption::VALUE_REQUIRED,
-    'Comma-separated list of ports to allow (e.g., 80,443,3306)'
-);
-```
-
-Behavior when `--allow` provided:
-
-1. Parse comma-separated string to integer array
-2. Filter to detected listening ports only (F11)
-3. Skip multiselect prompt
-4. Proceed directly to confirmation summary
-5. SSH port automatically added (not required in --allow)
-
-**Integration Points:**
-
-- `InputInterface::getOption()`: Get CLI option value
-
-**Edge Cases:**
-
-| Scenario           | Behavior                     |
-| ------------------ | ---------------------------- |
-| Empty --allow      | Treat as no ports (SSH only) |
-| Non-numeric values | Filter out invalid entries   |
-| Duplicate ports    | Deduplicate                  |
-
-**Verification:**
-
-- `--allow=80,443` skips multiselect, allows those ports
-- SSH port not required in --allow list
-- Works with --server for full automation
+- [ ] Accepts `--allow=80,443,3306`
+- [ ] Skips multi-select when --allow provided
+- [ ] Works with --server for non-interactive flow
+- [ ] Shows confirmation unless --force used
 
 ---
 
 ### F11: Filter Invalid Ports
 
-| Attribute      | Value                     |
-| -------------- | ------------------------- |
-| Source         | 02-FEATURES.md §F11       |
-| Components     | ServerFirewallCommand.php |
-| New Files      | None                      |
-| Modified Files | None                      |
+| Attribute      | Value                    |
+| -------------- | ------------------------ |
+| Source         | 02-FEATURES.md §F11      |
+| Components     | ServerFirewallCommand    |
+| New Files      | None                     |
+| Modified Files | ServerFirewallCommand    |
 
 **Interface Contract:**
 
-| Method            | Input                   | Output  | Errors |
-| ----------------- | ----------------------- | ------- | ------ |
-| filterToListening | requested[], detected[] | valid[] | None   |
+| Method/Function           | Input                          | Output       | Errors |
+| ------------------------- | ------------------------------ | ------------ | ------ |
+| parseAndFilterAllowOption | string, array\<int,string\>    | array\<int\> | None   |
 
-**Data Structures:**
+**Error Taxonomy:**
 
-| Name      | Type  | Example         | Purpose                  |
-| --------- | ----- | --------------- | ------------------------ |
-| requested | array | [80, 443, 9999] | Ports from --allow       |
-| detected  | array | [80, 443, 3306] | Actually listening ports |
-| filtered  | array | [9999]          | Ports that were removed  |
-| valid     | array | [80, 443]       | Ports to actually allow  |
-
-**Technical Notes:**
-
-```php
-$valid = array_intersect($requested, array_keys($detectedPorts));
-$filtered = array_diff($requested, $valid);
-
-foreach ($filtered as $port) {
-    $this->warn("Port {$port} is not listening and will be ignored");
-}
-```
-
-**Integration Points:**
-
-- `BaseCommand::warn()`: Display warning for filtered ports
-
-**Edge Cases:**
-
-| Scenario             | Behavior                                   |
-| -------------------- | ------------------------------------------ |
-| All ports filtered   | Only SSH remains, show appropriate message |
-| No ports filtered    | No warnings displayed                      |
-| Single port filtered | Single warning message                     |
+| Condition                | Message                                                  | Behavior    |
+| ------------------------ | -------------------------------------------------------- | ----------- |
+| Ports filtered out       | "Ports X, Y are not listening services and will be ignored" | Info note |
+| All ports filtered       | "No valid listening ports specified. Only SSH port will be allowed." | Warning |
 
 **Verification:**
 
-- Warning displayed for each filtered port
-- Valid ports still processed
-- Command does not fail on invalid ports
-
----
-
-### F14: Common Port Labels (Could Have)
-
-| Attribute      | Value                     |
-| -------------- | ------------------------- |
-| Source         | 02-FEATURES.md §F14       |
-| Components     | ServerFirewallCommand.php |
-| New Files      | None                      |
-| Modified Files | None                      |
-
-**Data Structures:**
-
-| Name        | Type  | Example                             | Purpose        |
-| ----------- | ----- | ----------------------------------- | -------------- |
-| PORT_LABELS | array | [80 => 'HTTP', 443 => 'HTTPS', ...] | Friendly names |
-
-**Technical Notes:**
-
-```php
-private const PORT_LABELS = [
-    22 => 'SSH',
-    80 => 'HTTP',
-    443 => 'HTTPS',
-    3306 => 'MySQL',
-    5432 => 'PostgreSQL',
-    6379 => 'Redis',
-    27017 => 'MongoDB',
-];
-```
-
-Display format when label differs from process:
-
-- If process name matches label concept: `Port 80 (caddy)`
-- If label adds value: `Port 3306 (mysqld) [MySQL]`
-
-**Verification:**
-
-- Common ports show friendly labels
-- Unknown ports show process name only
-
----
-
-## Command Structure
-
-### ServerFirewallCommand.php
-
-```php
-#[AsCommand(
-    name: 'server:firewall',
-    description: 'Configure server firewall rules'
-)]
-class ServerFirewallCommand extends BaseCommand
-{
-    use ServersTrait;
-    use PlaybooksTrait;
-
-    protected function configure(): void
-    {
-        parent::configure();
-        $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
-        $this->addOption('allow', null, InputOption::VALUE_REQUIRED, 'Ports to allow (comma-separated)');
-    }
-
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
-        // 1. Select server (validates SSH, gets info)
-        // 2. Execute playbook in detect mode
-        // 3. Build multiselect options (or parse --allow)
-        // 4. Display confirmation summary
-        // 5. Execute playbook in apply mode
-        // 6. Display success
-    }
-}
-```
-
-### Playbook Environment Variables
-
-| Variable               | Mode  | Type   | Required | Description                   |
-| ---------------------- | ----- | ------ | -------- | ----------------------------- |
-| DEPLOYER_OUTPUT_FILE   | Both  | string | Yes      | YAML output path              |
-| DEPLOYER_DISTRO        | Both  | string | Yes      | Distribution (ubuntu/debian)  |
-| DEPLOYER_PERMS         | Both  | string | Yes      | Permission level (root/sudo)  |
-| DEPLOYER_MODE          | Both  | string | Yes      | `detect` or `apply`           |
-| DEPLOYER_SSH_PORT      | Apply | string | Yes      | SSH port to protect           |
-| DEPLOYER_ALLOWED_PORTS | Apply | string | Yes      | Comma-separated allowed ports |
-
-### Playbook Output
-
-Detect mode:
-
-```yaml
-status: success
-ufw_installed: true
-ufw_enabled: true
-ufw_open_ports: [22, 80, 443]
-ports:
-    22: sshd
-    80: caddy
-    443: caddy
-    3306: mysql
-```
-
-Apply mode:
-
-```yaml
-status: success
-ufw_installed: true
-ufw_enabled: true
-rules_applied: 4
-```
-
----
-
-## Error Handling Summary
-
-| Location | Condition                  | Message                                                     | Exit |
-| -------- | -------------------------- | ----------------------------------------------------------- | ---- |
-| PHP      | Server not found           | "Server '{name}' not found in inventory"                    | 1    |
-| PHP      | SSH connection fails       | (handled by ServersTrait)                                   | 1    |
-| PHP      | Playbook fails             | (handled by PlaybooksTrait)                                 | 1    |
-| PHP      | User declines confirmation | (silent return)                                             | 0    |
-| Playbook | Output file write fails    | "Error: Failed to write output file"                        | 1    |
-| Playbook | SSH port env missing       | "FATAL: DEPLOYER_SSH_PORT environment variable must be set" | 1    |
-| Playbook | SSH port not in allowed    | "FATAL: SSH port {port} must always be allowed"             | 1    |
-| Playbook | UFW install fails          | "Error: Failed to install UFW"                              | 1    |
-| Playbook | UFW command fails          | "Error: Failed to {action}"                                 | 1    |
+- [ ] Filters --allow list to detected ports only
+- [ ] Displays single summary message for filtered ports
+- [ ] Final list contains only valid listening ports + SSH

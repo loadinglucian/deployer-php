@@ -13,7 +13,7 @@ Role: Product Manager creating a PRD from an informal product idea.
 1. Ask clarifying questions in batches of 3-5
 2. Complete in 2-3 rounds maximum
 3. Check `docs/` for related PRDs
-4. Save to `docs/{feature-name}/01-01-PRD.md` (lowercase kebab-case)
+4. Save to `docs/{feature-name}/01-PRD.md` (lowercase kebab-case)
 
 ## Question Flow
 
@@ -41,6 +41,14 @@ Role: Product Manager creating a PRD from an informal product idea.
 ```markdown
 # {Product Name}
 
+# Context
+
+## Product Summary
+
+{Adaptive summary: 3-5 bullets covering the core problem, target users, key scope decisions, and journey names. Focus on information the next workflow steps need.}
+
+---
+
 ## Overview
 
 {1-2 sentence summary of product and value proposition}
@@ -67,15 +75,15 @@ Role: Product Manager creating a PRD from an informal product idea.
 
 ## Functional Requirements
 
-### Priority 1 (Must Have)
+### Priority 1 (Must have)
 
 - {Requirement}
 
-### Priority 2 (Should Have)
+### Priority 2 (Should have)
 
 - {Requirement}
 
-### Priority 3 (Nice to Have)
+### Priority 3 (Nice to have)
 
 - {Requirement}
 
@@ -122,3 +130,4 @@ Role: Product Manager creating a PRD from an informal product idea.
 - No time estimates in implementation phases
 - Use markdown tables for comparative data
 - Bold key terms for emphasis
+- Write Context summary last - distill the PRD into key points for subsequent workflow steps

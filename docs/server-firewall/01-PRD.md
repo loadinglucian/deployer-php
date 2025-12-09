@@ -57,31 +57,20 @@ The `server:firewall` command provides an interactive interface for managing UFW
 | F10 | CLI Option            | Support `--allow=80,443,3306` for non-interactive execution                                  |
 | F11 | Filter Invalid Ports  | `--allow` ports not in detected listening ports are silently filtered out                    |
 | F12 | Shared Port Detection | Extract port detection logic into `playbooks/helpers.sh` for reuse with `server-info.sh`     |
-
-### Priority 2 (Should Have)
-
-| ID  | Requirement           | Description                              |
-| --- | --------------------- | ---------------------------------------- |
-| F13 | Current Rules Display | Show current UFW status before prompting |
-
-### Priority 3 (Nice to Have)
-
-| ID  | Requirement        | Description                                                       |
-| --- | ------------------ | ----------------------------------------------------------------- |
-| F14 | Common Port Labels | Display friendly names for well-known ports (e.g., "HTTP" for 80) |
+| F13 | Current Rules Display | Show current UFW status before prompting                                                     |
 
 ## Non-Functional Requirements
 
-| Category          | Requirement                                                                   |
-| ----------------- | ----------------------------------------------------------------------------- |
+| Category          | Requirement                                                                    |
+| ----------------- | ------------------------------------------------------------------------------ |
 | **Safety**        | SSH port must NEVER be closed; validated in both PHP command and bash playbook |
 | **Safety**        | Command must abort if SSH port validation fails at any point                   |
 | **Safety**        | UFW reset must allow SSH port BEFORE setting default deny policy               |
-| **Idempotency**   | Running the command multiple times with same selection produces same result   |
-| **Performance**   | Port detection should complete within 5 seconds                               |
-| **Compatibility** | Support Ubuntu 20.04, 22.04, 24.04 and Debian 11, 12                          |
-| **Consistency**   | Follow existing command patterns (BaseCommand, traits, IOService)             |
-| **DRY**           | Port detection logic shared between `server-info.sh` and `server-firewall.sh` |
+| **Idempotency**   | Running the command multiple times with same selection produces same result    |
+| **Performance**   | Port detection should complete within 5 seconds                                |
+| **Compatibility** | Support Ubuntu 20.04, 22.04, 24.04 and Debian 11, 12                           |
+| **Consistency**   | Follow existing command patterns (BaseCommand, traits, IOService)              |
+| **DRY**           | Port detection logic shared between `server-info.sh` and `server-firewall.sh`  |
 
 ## User Journeys
 
@@ -311,10 +300,6 @@ fi
 2. **No existing iptables rules** - If raw iptables rules exist, they may conflict with UFW
 3. **Root/sudo access available** - Command requires elevated privileges
 4. **SSH port from ServerDTO** - The SSH port configured when the server was added via `server:add` is used (we already connected via this port to run the playbook, so no runtime detection is needed)
-
-### Open Questions
-
-1. **Conflict detection** - Should we warn if raw iptables rules exist that might conflict?
 
 ## Appendix: Example Command Output
 

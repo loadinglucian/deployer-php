@@ -1,5 +1,5 @@
 ---
-description: Create technical specification from PRD and features
+description: Create technical specification from features
 model: opus
 allowedTools: ['Read', 'Write', 'Glob', 'AskUserQuestion']
 ---
@@ -8,13 +8,14 @@ allowedTools: ['Read', 'Write', 'Glob', 'AskUserQuestion']
 
 # Technical Specification
 
-Create 03-SPEC.md from PRD and FEATURES documents.
+Create 03-SPEC.md from the FEATURES document (which contains accumulated PRD context).
 
 ## Process
 
-1. Read 01-PRD.md and 02-FEATURES.md from `docs/{feature}/`
+1. Read `docs/{feature}/02-FEATURES.md` (contains PRD context in its Context section)
 2. Ask clarifying questions (1-2 rounds max)
-3. Generate 03-SPEC.md in same directory
+3. Copy the Context section from FEATURES, then add Specification Summary
+4. Generate 03-SPEC.md in same directory
 
 ## Questions
 
@@ -33,6 +34,22 @@ Create 03-SPEC.md from PRD and FEATURES documents.
 
 ````markdown
 # Technical Specification - {Product Name}
+
+# Context
+
+## From PRD
+
+{Copy from 02-FEATURES.md Context verbatim}
+
+## From Features
+
+{Copy from 02-FEATURES.md Context verbatim}
+
+## Specification Summary
+
+{Adaptive summary: 3-5 bullets covering key components, critical interfaces, safety constraints, and important patterns. Focus on information the planning step needs.}
+
+---
 
 ## Overview
 
@@ -124,4 +141,6 @@ status: success|error
 
 ## Output
 
-Save to `docs/{feature-name}/03-SPEC.md`
+1. 03-SPEC.md following template above
+2. Context section with accumulated PRD and Features summaries, plus Specification Summary
+3. Save to `docs/{feature-name}/03-SPEC.md`

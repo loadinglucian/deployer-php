@@ -1,5 +1,5 @@
 ---
-description: Create implementation plan from PRD, FEATURES, and SPEC
+description: Create implementation plan from specification
 model: opus
 allowedTools: ['Read', 'Write', 'Glob', 'AskUserQuestion']
 ---
@@ -8,15 +8,16 @@ allowedTools: ['Read', 'Write', 'Glob', 'AskUserQuestion']
 
 # Implementation Plan
 
-Create 04-PLAN.md from PRD, FEATURES, and SPEC documents.
+Create 04-PLAN.md from the SPEC document (which contains accumulated PRD and Features context).
 
 ## Process
 
-1. Read all three documents from `docs/{feature}/`
-1. Extract critical path from 02-FEATURES.md dependency graph
-1. Group features into milestones following dependency order
-1. Synthesize implementation details from 03-SPEC.md
-1. Save to `docs/{feature}/04-PLAN.md`
+1. Read `docs/{feature}/03-SPEC.md` (contains PRD and Features context in its Context section)
+2. Extract critical path from Context's Features Summary
+3. Group features into milestones following dependency order
+4. Synthesize implementation details from SPEC
+5. Copy the Context section from SPEC, then add Plan Summary
+6. Save to `docs/{feature}/04-PLAN.md`
 
 ## Milestone Grouping
 
@@ -32,6 +33,26 @@ Create 04-PLAN.md from PRD, FEATURES, and SPEC documents.
 
 ```markdown
 # Implementation Plan - {Product Name}
+
+# Context
+
+## From PRD
+
+{Copy from 03-SPEC.md Context verbatim}
+
+## From Features
+
+{Copy from 03-SPEC.md Context verbatim}
+
+## From Spec
+
+{Copy from 03-SPEC.md Context verbatim}
+
+## Plan Summary
+
+{Adaptive summary: 3-5 bullets covering milestone overview, file changes, parallel work opportunities, and key verification criteria. Focus on information the implementation step needs.}
+
+---
 
 ## Overview
 
@@ -149,5 +170,11 @@ Create 04-PLAN.md from PRD, FEATURES, and SPEC documents.
 - Code snippets show signatures/patterns, not full implementations
 - Verification manually testable without test suite
 - Note integration points explicitly
-- Identify parallel opportunities from 02-FEATURES.md dependency graph
+- Identify parallel opportunities from Features Summary's critical path
 - Milestones with no shared dependencies can be marked parallel
+
+## Output
+
+1. 04-PLAN.md following template above
+2. Context section with accumulated PRD, Features, and Spec summaries, plus Plan Summary
+3. Save to `docs/{feature-name}/04-PLAN.md`
