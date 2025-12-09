@@ -13,4 +13,5 @@ vendor/
 *.cache
 *.log
 deployer.yml
+settings.local.json
 Thumbs.db

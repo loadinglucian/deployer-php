@@ -206,6 +206,74 @@ trait ServersTrait
     }
 
     /**
+     * Display firewall status and open ports.
+     *
+     * @param array<string, mixed> $info Server/detection information array
+     */
+    protected function displayFirewallDeets(array $info): void
+    {
+        /** @var bool $ufwInstalled */
+        $ufwInstalled = filter_var($info['ufw_installed'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if (!$ufwInstalled) {
+            $this->displayDeets([
+                'Firewall' => 'Not installed',
+            ]);
+
+            return;
+        }
+
+        /** @var bool $ufwActive */
+        $ufwActive = filter_var($info['ufw_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if (!$ufwActive) {
+            $this->displayDeets([
+                'Firewall' => 'Inactive',
+            ]);
+
+            return;
+        }
+
+        $this->displayDeets(['Firewall' => 'Active']);
+
+        /** @var array<int, string> $ufwRules */
+        $ufwRules = $info['ufw_rules'] ?? [];
+        /** @var array<int|string, string> $ports */
+        $ports = $info['ports'] ?? [];
+
+        if ([] === $ufwRules) {
+            $this->displayDeets(['Open Ports' => 'None']);
+        } else {
+            $openPorts = [];
+            foreach ($this->extractPortsFromRules($ufwRules) as $port) {
+                $process = $ports[$port] ?? 'unknown';
+                $openPorts["Port {$port}"] = $process;
+            }
+
+            $this->displayDeets(['Open Ports' => $openPorts]);
+        }
+    }
+
+    /**
+     * Extract port numbers from UFW rule strings.
+     *
+     * @param array<int, string> $rules UFW rules in format "port/proto" (e.g., "22/tcp")
+     * @return array<int, int> List of port numbers
+     */
+    protected function extractPortsFromRules(array $rules): array
+    {
+        $ports = [];
+
+        foreach ($rules as $rule) {
+            if (preg_match('/^(\d+)/', $rule, $matches)) {
+                $ports[] = (int) $matches[1];
+            }
+        }
+
+        return $ports;
+    }
+
+    /**
      * Get configuration for a specific site from server info.
      *
      * @param array<string, mixed> $info Server information array

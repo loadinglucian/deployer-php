@@ -54,7 +54,7 @@ class ServerInfoCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $this->displayServerInfo($server->info, $server->host);
+        $this->displayServerInfo($server->info);
 
         //
         // Show command replay
@@ -76,7 +76,7 @@ class ServerInfoCommand extends BaseCommand
      *
      * @param  array<string, mixed>  $info
      */
-    private function displayServerInfo(array $info, string $host): void
+    private function displayServerInfo(array $info): void
     {
         /** @var string $distroSlug */
         $distroSlug = $info['distro'] ?? 'unknown';
@@ -144,6 +144,8 @@ class ServerInfoCommand extends BaseCommand
         }
 
         $this->displayDeets(['Services' => $services]);
+
+        $this->displayFirewallDeets($info);
 
         // Display Caddy information if available
         if (isset($info['caddy']) && is_array($info['caddy']) && ($info['caddy']['available'] ?? false) === true) {

@@ -16,6 +16,9 @@
 #   - caddy: Caddy metrics (available, version, sites_count, domains, uptime_seconds, active_requests, total_requests, memory_mb)
 #   - php_fpm: map of PHP versions to metrics (pool, process_manager, uptime_seconds, accepted_conn, listen_queue, idle_processes, active_processes, total_processes, max_children_reached, slow_requests)
 #   - ports: map of port numbers to process names
+#   - ufw_installed: true|false
+#   - ufw_active: true|false
+#   - ufw_rules: list of port/proto (e.g., "22/tcp", "80/tcp")
 #   - sites_config: map of domain to config (php_version, www_mode, https_enabled)
 
 set -o pipefail
@@ -338,6 +341,65 @@ get_php_fpm_metrics() {
 }
 
 #
+# UFW Firewall Detection
+# ----
+
+#
+# Check if UFW is installed
+# Returns: "true" or "false"
+
+check_ufw_installed() {
+	if command -v ufw > /dev/null 2>&1; then
+		echo "true"
+	else
+		echo "false"
+	fi
+}
+
+#
+# Check if UFW is active
+# Returns: "true" or "false"
+
+check_ufw_active() {
+	local status
+
+	status=$(run_cmd ufw status 2> /dev/null | head -n1)
+
+	if [[ $status == "Status: active" ]]; then
+		echo "true"
+	else
+		echo "false"
+	fi
+}
+
+#
+# Get UFW rules as port/proto pairs
+# Output: One rule per line in format "port/proto" (e.g., "22/tcp", "80/tcp")
+
+get_ufw_rules() {
+	local line port proto
+
+	while read -r line; do
+		# Skip header lines and empty lines
+		[[ -z $line ]] && continue
+		[[ $line =~ ^Status: ]] && continue
+		[[ $line =~ ^To ]] && continue
+		[[ $line =~ ^-- ]] && continue
+
+		# Skip IPv6 duplicates (lines ending with "(v6)")
+		[[ $line =~ \(v6\)$ ]] && continue
+
+		# Extract port/proto from the first field
+		# Handles: "22/tcp", "80/tcp", "443" (no proto means both)
+		if [[ $line =~ ^([0-9]+)(/[a-z]+)?[[:space:]] ]]; then
+			port="${BASH_REMATCH[1]}"
+			proto="${BASH_REMATCH[2]:-/tcp}"
+			echo "${port}${proto}"
+		fi
+	done < <(run_cmd ufw status 2> /dev/null)
+}
+
+#
 # Sites Configuration Detection
 # ----
 
@@ -463,6 +525,16 @@ main() {
 		done
 	fi
 
+	echo "→ Checking firewall status..."
+	local ufw_installed ufw_active
+	ufw_installed=$(check_ufw_installed)
+
+	if [[ $ufw_installed == "true" ]]; then
+		ufw_active=$(check_ufw_active)
+	else
+		ufw_active="false"
+	fi
+
 	#
 	# Output YAML to file
 
@@ -553,6 +625,41 @@ main() {
 	if [[ $has_ports == false ]]; then
 		if ! echo "  {}" >> "$DEPLOYER_OUTPUT_FILE"; then
 			echo "Error: Failed to write empty ports section to $DEPLOYER_OUTPUT_FILE" >&2
+			exit 1
+		fi
+	fi
+
+	# Add UFW firewall section
+	if ! cat >> "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
+		ufw_installed: $ufw_installed
+		ufw_active: $ufw_active
+		ufw_rules:
+	EOF
+		echo "Error: Failed to write UFW section to $DEPLOYER_OUTPUT_FILE" >&2
+		exit 1
+	fi
+
+	# Write UFW rules if firewall is active
+	if [[ $ufw_installed == "true" && $ufw_active == "true" ]]; then
+		local rule has_rules=false
+		while read -r rule; do
+			[[ -z $rule ]] && continue
+			if ! echo "  - ${rule}" >> "$DEPLOYER_OUTPUT_FILE"; then
+				echo "Error: Failed to write UFW rule to $DEPLOYER_OUTPUT_FILE" >&2
+				exit 1
+			fi
+			has_rules=true
+		done < <(get_ufw_rules)
+
+		if [[ $has_rules == false ]]; then
+			if ! echo "  []" >> "$DEPLOYER_OUTPUT_FILE"; then
+				echo "Error: Failed to write empty UFW rules to $DEPLOYER_OUTPUT_FILE" >&2
+				exit 1
+			fi
+		fi
+	else
+		if ! echo "  []" >> "$DEPLOYER_OUTPUT_FILE"; then
+			echo "Error: Failed to write empty UFW rules to $DEPLOYER_OUTPUT_FILE" >&2
 			exit 1
 		fi
 	fi
