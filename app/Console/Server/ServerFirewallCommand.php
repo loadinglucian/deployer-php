@@ -66,40 +66,24 @@ class ServerFirewallCommand extends BaseCommand
         $permissions = $server->info['permissions'];
 
         //
-        // Detect current state
+        // Extract firewall state from server info
         // ----
 
-        $detection = $this->executePlaybookSilently(
-            $server,
-            'server-firewall',
-            'Detecting firewall status...',
-            [
-                'DEPLOYER_MODE' => 'detect',
-                'DEPLOYER_PERMS' => $permissions,
-            ],
-        );
+        $info = $server->info;
 
-        if (is_int($detection)) {
-            return Command::FAILURE;
-        }
-
-        /** @var bool $ufwInstalled */
-        $ufwInstalled = $detection['ufw_installed'] ?? false;
-        /** @var bool $ufwActive */
-        $ufwActive = $detection['ufw_active'] ?? false;
         /** @var array<int, string> $ufwRules */
-        $ufwRules = $detection['ufw_rules'] ?? [];
+        $ufwRules = $info['ufw_rules'] ?? [];
         /** @var array<int|string, string> $ports */
-        $ports = $detection['ports'] ?? [];
+        $ports = $info['ports'] ?? [];
 
         // Extract current UFW ports once for reuse
         $currentUfwPorts = $this->extractPortsFromRules($ufwRules);
 
         //
-        // Display current status (F13)
+        // Display current status
         // ----
 
-        $this->displayFirewallDeets($detection);
+        $this->displayFirewallDeets($info);
 
         //
         // Build port options for selection
@@ -173,7 +157,6 @@ class ServerFirewallCommand extends BaseCommand
             'server-firewall',
             'Configuring firewall...',
             [
-                'DEPLOYER_MODE' => 'apply',
                 'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_SSH_PORT' => (string) $sshPort,
                 'DEPLOYER_ALLOWED_PORTS' => implode(',', $allowedPorts),
