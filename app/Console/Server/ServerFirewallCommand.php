@@ -37,7 +37,7 @@ class ServerFirewallCommand extends BaseCommand
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
         $this->addOption('allow', null, InputOption::VALUE_REQUIRED, 'Comma-separated ports to allow (e.g., 80,443,3306)');
-        $this->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip confirmation prompt');
+        $this->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
     }
 
     // ----
@@ -145,12 +145,13 @@ class ServerFirewallCommand extends BaseCommand
         // Confirmation summary (F6)
         // ----
 
-        /** @var bool $force */
-        $force = $input->getOption('force');
-
-        $confirmed =  $this->io->promptConfirm(
-            label: 'Are you absolutely sure?',
-            default: false,
+        /** @var bool $confirmed */
+        $confirmed = $this->io->getOptionOrPrompt(
+            'yes',
+            fn (): bool => $this->io->promptConfirm(
+                label: 'Are you absolutely sure?',
+                default: false
+            )
         );
 
         if (!$confirmed) {
@@ -186,25 +187,13 @@ class ServerFirewallCommand extends BaseCommand
         $this->yay('Firewall configured successfully');
 
         //
-        // Display applied rules summary
-        // ----
-
-        /** @var array<int, int> $portsAllowed */
-        $portsAllowed = $result['ports_allowed'] ?? [];
-
-        $this->displayDeets([
-            'Ports allowed' => implode(', ', $portsAllowed),
-            'Default policy' => 'Deny all incoming, allow all outgoing',
-        ]);
-
-        //
         // Show command replay
         // ----
 
         $replayOptions = [
             'server' => $server->name,
             'allow' => implode(',', $selectedPorts),
-            'force' => true,
+            'yes' => true,
         ];
 
         $this->commandReplay('server:firewall', $replayOptions);
@@ -397,7 +386,7 @@ class ServerFirewallCommand extends BaseCommand
 
         if ([] !== $filteredPorts) {
             $this->warn(sprintf(
-                'Ports %s are not listening services and will be ignored',
+                'Ports %s are not listening services and will be ignored.',
                 implode(', ', $filteredPorts)
             ));
         }
