@@ -12,8 +12,7 @@ Fetch PR comments and delegate each to a peer-rereviewer agent for assessment.
 2. Get repository owner/name using `gh repo view --json nameWithOwner`
 3. Fetch PR-level comments: `gh api /repos/{owner}/{repo}/issues/{number}/comments`
 4. Fetch review comments: `gh api /repos/{owner}/{repo}/pulls/{number}/comments`
-5. Filter out bot comments and auto-generated content (look for bot usernames, "[bot]" suffix, auto-generated summaries)
-6. For each substantive comment, spawn a `peer-rereviewer` agent using the Task tool
+5. For each substantive comment, spawn a `peer-rereviewer` agent using the Task tool
 
 ## Agent Delegation
 
@@ -28,7 +27,7 @@ For each substantive comment, use the Task tool with `subagent_type: "peer-rerev
 
 Example prompt for each agent:
 
-```
+````
 Assess this PR comment:
 
 **Author:** @username
@@ -36,12 +35,13 @@ Assess this PR comment:
 
 ```diff
 [diff_hunk]
-```
+````
 
 **Comment:**
+
 > [comment text]
 
-Read the relevant code file and CLAUDE.md, then provide your assessment.
+Read the relevant code file and provide your assessment.
 
 ```
 
@@ -65,7 +65,7 @@ For each agent result, include:
 
 ## Guidelines
 
-- Skip bot comments (usernames ending in `[bot]`, containing "bot", or common CI bots)
 - Skip auto-generated content (dependency updates, changelog entries)
 - If no substantive comments found, report "No actionable comments found."
 - Each agent runs independently - they will read code and CLAUDE.md themselves
+```
