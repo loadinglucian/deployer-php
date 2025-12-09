@@ -93,7 +93,6 @@ class SiteDeleteCommand extends BaseCommand
 
         if (!$confirmed) {
             $this->warn('Cancelled deleting site');
-            $this->out('');
 
             return Command::SUCCESS;
         }

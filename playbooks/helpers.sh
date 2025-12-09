@@ -166,6 +166,53 @@ apt_get_with_retry() {
 }
 
 # ----
+# Listening Services Detection
+# ----
+
+#
+# Get listening services as port:process pairs
+#
+# Output: Sorted, deduplicated lines in format "port:process"
+# Uses ss command with netstat fallback
+#
+
+get_listening_services() {
+	local port process
+
+	if command -v ss > /dev/null 2>&1; then
+		while read -r line; do
+			[[ $line =~ ^State ]] && continue
+			[[ ! $line =~ LISTEN ]] && continue
+
+			if [[ $line =~ :([0-9]+)[[:space:]] ]]; then
+				port="${BASH_REMATCH[1]}"
+				if [[ $line =~ users:\(\(\"([^\"]+)\" ]]; then
+					process="${BASH_REMATCH[1]}"
+				else
+					process="unknown"
+				fi
+				echo "${port}:${process}"
+			fi
+		done < <(run_cmd ss -tlnp 2> /dev/null) | sort -t: -k1 -n | uniq
+
+	elif command -v netstat > /dev/null 2>&1; then
+		while read -r proto recvq sendq local foreign state program; do
+			[[ $state != "LISTEN" ]] && continue
+
+			if [[ $local =~ :([0-9]+)$ ]]; then
+				port="${BASH_REMATCH[1]}"
+				if [[ $program =~ /(.+)$ ]]; then
+					process="${BASH_REMATCH[1]}"
+				else
+					process="unknown"
+				fi
+				echo "${port}:${process}"
+			fi
+		done < <(run_cmd netstat -tlnp 2> /dev/null | tail -n +3) | sort -t: -k1 -n | uniq
+	fi
+}
+
+# ----
 # Shared Resources Management
 # ----
 

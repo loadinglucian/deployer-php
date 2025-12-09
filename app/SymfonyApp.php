@@ -10,6 +10,7 @@ use Deployer\Console\Key\KeyListDigitalOceanCommand;
 use Deployer\Console\ScaffoldHooksCommand;
 use Deployer\Console\Server\ServerAddCommand;
 use Deployer\Console\Server\ServerDeleteCommand;
+use Deployer\Console\Server\ServerFirewallCommand;
 use Deployer\Console\Server\ServerInfoCommand;
 use Deployer\Console\Server\ServerInstallCommand;
 use Deployer\Console\Server\ServerListCommand;
@@ -138,9 +139,10 @@ final class SymfonyApp extends SymfonyApplication
 
             ServerAddCommand::class,
             ServerDeleteCommand::class,
-            ServerListCommand::class,
+            ServerFirewallCommand::class,
             ServerInfoCommand::class,
             ServerInstallCommand::class,
+            ServerListCommand::class,
             ServerLogsCommand::class,
             ServerRunCommand::class,
             ServerSshCommand::class,
