@@ -8,34 +8,41 @@ Extract features from a PRD into 02-FEATURES.md, organized around user journeys.
 
 Ask clarifying questions if User Journeys section is missing or unclear.
 
+## Process
+
+1. Read `docs/{feature}/01-PRD.md`
+2. Extract features following the process below
+3. Create Context section summarizing the PRD
+4. Save to `docs/{feature}/02-FEATURES.md`
+
 ## Extraction Process
 
-**1. Parse User Journeys**
+### 1. Parse User Journeys
 
 - Extract each journey from PRD's User Journeys section
 - Break into discrete steps (user actions + system responses)
 - Identify the happy path and variant flows
 
-**2. Map Features to Journey Steps**
+### 2. Map Features to Journey Steps
 
 - For each step, identify required features from Functional Requirements
 - Features enabling the same step are peers
 - Features in sequence have dependency relationships
 - Flag features appearing in multiple journeys (high-value, implement first)
 
-**3. Build Dependency Graph**
+### 3. Build Dependency Graph
 
 - Feature A enables Feature B if A's journey step precedes B's
 - Identify parallel features (no dependency, can build concurrently)
 - Detect features not in any journey (standalone utilities)
 
-**4. Identify Critical Path**
+### 4. Identify Critical Path
 
 - Longest chain of blocking dependencies
 - These features gate the most downstream work
 - Prioritize critical path features for early implementation
 
-**5. Detail Each Feature**
+### 5. Detail Each Feature
 
 - Map to source PRD section
 - List which journeys use it
@@ -46,14 +53,20 @@ Ask clarifying questions if User Journeys section is missing or unclear.
 ````markdown
 # Features - {Product Name}
 
+## Context
+
+{Summarize the PRD in a concise format so we have context for all the features}
+
+---
+
 ## Summary
 
-| Priority    | Count |
-| ----------- | ----- |
-| Must have   | X     |
-| Should have | X     |
-| Could have  | X     |
-| **Total**   | X     |
+| Priority     | Count |
+| ------------ | ----- |
+| Must have    | X     |
+| Should have  | X     |
+| Nice to have | X     |
+| **Total**    | X     |
 
 ## User Journeys
 
@@ -126,6 +139,5 @@ Longest blocking chain - prioritize for early implementation:
 1. 02-FEATURES.md following template above
 2. Every PRD requirement mapped to at least one feature
 3. Every feature mapped to at least one journey (or marked standalone)
-
-Save to same directory as PRD: `docs/{feature-name}/02-FEATURES.md`
+4. Context section summarizing PRD's key information
 ```
