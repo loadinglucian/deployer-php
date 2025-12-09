@@ -148,10 +148,13 @@ class ServerFirewallCommand extends BaseCommand
         /** @var bool $force */
         $force = $input->getOption('force');
 
-        $confirmed = $this->displayConfirmation($selectedPorts, $currentUfwPorts, $sshPort, $force);
+        $confirmed =  $this->io->promptConfirm(
+            label: 'Are you absolutely sure?',
+            default: false,
+        );
 
         if (!$confirmed) {
-            $this->info('Operation cancelled.');
+            $this->warn('Cancelled firewall configuration');
 
             return Command::SUCCESS;
         }
@@ -167,7 +170,7 @@ class ServerFirewallCommand extends BaseCommand
         $result = $this->executePlaybook(
             $server,
             'server-firewall',
-            'Applying firewall rules...',
+            'Configuring firewall...',
             [
                 'DEPLOYER_MODE' => 'apply',
                 'DEPLOYER_PERMS' => $permissions,
@@ -180,7 +183,7 @@ class ServerFirewallCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $this->yay('Firewall rules applied successfully');
+        $this->yay('Firewall configured successfully');
 
         //
         // Display applied rules summary
@@ -356,55 +359,6 @@ class ServerFirewallCommand extends BaseCommand
         );
 
         return $selected;
-    }
-
-    /**
-     * Display confirmation summary and prompt for approval (F6).
-     *
-     * @param array<int, int> $selectedPorts Ports selected by user
-     * @param array<int, int> $currentUfwPorts Currently allowed UFW ports
-     * @param int $sshPort SSH port (always allowed)
-     * @param bool $force Skip confirmation if true
-     * @return bool True if confirmed, false if cancelled
-     */
-    private function displayConfirmation(array $selectedPorts, array $currentUfwPorts, int $sshPort, bool $force): bool
-    {
-        // Calculate changes
-        // Ports to open = selected + SSH that aren't currently allowed
-        $allNewPorts = array_unique(array_merge([$sshPort], $selectedPorts));
-        $portsToOpen = array_diff($allNewPorts, $currentUfwPorts);
-
-        // Ports to close = currently allowed that won't be in new rules (excluding SSH)
-        $portsToClose = array_diff($currentUfwPorts, $allNewPorts);
-        // Never close SSH port
-        $portsToClose = array_filter($portsToClose, fn (int $port): bool => $port !== $sshPort);
-
-        // Determine if there are actual changes
-        $hasChanges = [] !== $portsToOpen || [] !== $portsToClose;
-
-        //
-        // Display summary
-        // ----
-
-        if (!$hasChanges && [] !== $currentUfwPorts) {
-            $this->info('No changes needed');
-
-            // No changes needed, skip confirmation
-            return true;
-        }
-
-        // Skip confirmation if --force
-        if ($force) {
-            return true;
-        }
-
-        $this->io->write("\n");
-
-        // Prompt for confirmation
-        return $this->io->promptConfirm(
-            label: 'Are you absolutely sure?',
-            default: false,
-        );
     }
 
     // ----
