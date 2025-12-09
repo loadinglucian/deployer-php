@@ -351,7 +351,6 @@ class ServerInfoCommand extends BaseCommand
             return;
         }
 
-        // UFW is active - show rules
         $this->displayDeets(['Firewall' => 'Active']);
 
         /** @var array<int, string> $ufwRules */
@@ -383,7 +382,6 @@ class ServerInfoCommand extends BaseCommand
         $ports = [];
 
         foreach ($rules as $rule) {
-            // Extract port from "port/proto" format
             if (preg_match('/^(\d+)/', $rule, $matches)) {
                 $ports[] = (int) $matches[1];
             }
