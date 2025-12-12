@@ -8,11 +8,12 @@ set -euo pipefail
 #
 # This should be executed by cron on the remote server.
 #
-# Environment variables provided by Deployer PHP:
-#   DEPLOYER_DOMAIN        - Site domain (example.com)
-#   DEPLOYER_SITE_PATH     - Absolute path to the site root (/home/deployer/sites/{domain})
-#   DEPLOYER_CURRENT_PATH  - Absolute path to the current/ symlink
+# Environment variables provided by runner script:
+#   DEPLOYER_RELEASE_PATH  - Absolute path to the current release directory
 #   DEPLOYER_SHARED_PATH   - Absolute path to the shared/ directory
+#   DEPLOYER_CURRENT_PATH  - Absolute path to the current/ symlink
+#   DEPLOYER_DOMAIN        - Site domain (example.com)
+#   DEPLOYER_BRANCH        - Git branch currently deployed
 #   DEPLOYER_PHP           - Absolute path to the PHP binary (e.g. /usr/bin/php8.4)
 #
 
