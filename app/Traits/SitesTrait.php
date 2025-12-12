@@ -8,6 +8,7 @@ use Deployer\DTOs\ServerDTO;
 use Deployer\DTOs\SiteDTO;
 use Deployer\Repositories\ServerRepository;
 use Deployer\Repositories\SiteRepository;
+use Deployer\Services\GitService;
 use Deployer\Services\IOService;
 use Deployer\Services\ProcessService;
 use Deployer\Services\SSHService;
@@ -23,6 +24,7 @@ use Symfony\Component\Console\Command\Command;
  * @property ServerRepository $servers
  * @property SiteRepository $sites
  * @property SSHService $ssh
+ * @property GitService $git
  */
 trait SitesTrait
 {
@@ -37,41 +39,28 @@ trait SitesTrait
     /**
      * Display a warning to add a site if no sites are available. Otherwise, return all sites.
      *
-     * @param array<int, SiteDTO>|null $sites Optional pre-fetched sites; if null, fetches from repository
      * @return array<int, SiteDTO>|int Returns array of sites or Command::SUCCESS if no sites available
      */
-    protected function ensureSitesAvailable(?array $sites = null): array|int
+    protected function ensureSitesAvailable(): array|int
     {
-        //
-        // Get all sites
-
-        $allSites = $sites ?? $this->sites->all();
-
-        //
-        // Check if no sites are available
-
-        if (0 === count($allSites)) {
-            $this->info('No servers found in your inventory:');
-            $this->ul('Run <fg=cyan>site:create</> to create a site');
+        if ([] === $this->sites->all()) {
+            $this->warn('No sites found in inventory:');
+            $this->info('Run <fg=cyan>site:create</> to create one');
 
             return Command::SUCCESS;
         }
 
-        return $allSites;
+        return $this->sites->all();
     }
 
     /**
      * Select a site from inventory by domain option or interactive prompt.
      *
-     * @param array<int, SiteDTO>|null $sites Optional pre-fetched sites; if null, fetches from repository
      * @return SiteDTO|int Returns SiteDTO on success, or Command::SUCCESS if empty inventory, or Command::FAILURE if not found
      */
-    protected function selectSite(?array $sites = null): SiteDTO|int
+    protected function selectSite(): SiteDTO|int
     {
-        //
-        // Get all sites
-
-        $allSites = $this->ensureSitesAvailable($sites);
+        $allSites = $this->ensureSitesAvailable();
 
         if (is_int($allSites)) {
             return $allSites;
@@ -277,5 +266,43 @@ trait SitesTrait
     protected function getSiteSharedPath(SiteDTO $site): string
     {
         return $this->getSiteRootPath($site) . '/shared';
+    }
+
+    /**
+     * Check if specific files exist in site's remote repository.
+     *
+     * Returns empty array if site has no repo/branch configured.
+     *
+     * @param SiteDTO $site
+     * @param list<string> $paths File paths relative to repo root
+     * @return array<string, bool> Map of path => exists boolean
+     * @throws \RuntimeException If git operations fail
+     */
+    protected function checkRemoteSiteFiles(SiteDTO $site, array $paths): array
+    {
+        if (null === $site->repo || null === $site->branch) {
+            return [];
+        }
+
+        return $this->git->checkRemoteFilesExist($site->repo, $site->branch, $paths);
+    }
+
+    /**
+     * List files in a directory of site's remote repository.
+     *
+     * Returns empty array if site has no repo/branch configured or directory doesn't exist.
+     *
+     * @param SiteDTO $site
+     * @param string $directory Directory path relative to repo root
+     * @return array<int, string> List of file paths relative to the directory
+     * @throws \RuntimeException If git operations fail
+     */
+    protected function listRemoteSiteDirectory(SiteDTO $site, string $directory): array
+    {
+        if (null === $site->repo || null === $site->branch) {
+            return [];
+        }
+
+        return $this->git->listRemoteDirectoryFiles($site->repo, $site->branch, $directory);
     }
 }

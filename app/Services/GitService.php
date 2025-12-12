@@ -73,7 +73,7 @@ final readonly class GitService
             $process = $this->proc->run(
                 ['git', 'clone', '--depth', '1', '--branch', $branch, '--single-branch', $repo, $tempDir],
                 sys_get_temp_dir(),
-                30.0
+                60.0
             );
 
             if (! $process->isSuccessful()) {
@@ -90,6 +90,68 @@ final readonly class GitService
             }
 
             return $results;
+        } finally {
+            // Clean up temp directory
+            if ($this->fs->isDirectory($tempDir)) {
+                $this->fs->remove($tempDir);
+            }
+        }
+    }
+
+    /**
+     * List all files in a directory of a remote repository.
+     *
+     * Uses shallow clone to minimize data transfer.
+     *
+     * @param string $repo Repository URL
+     * @param string $branch Branch name
+     * @param string $directory Directory path relative to repo root
+     * @return array<int, string> List of file paths relative to the directory
+     * @throws \RuntimeException If git operations fail
+     */
+    public function listRemoteDirectoryFiles(string $repo, string $branch, string $directory): array
+    {
+        $tempDir = sys_get_temp_dir().'/deployer-git-check-'.bin2hex(random_bytes(8));
+
+        try {
+            // Shallow clone with depth=1 to minimize data transfer
+            $process = $this->proc->run(
+                ['git', 'clone', '--depth', '1', '--branch', $branch, '--single-branch', $repo, $tempDir],
+                sys_get_temp_dir(),
+                60.0
+            );
+
+            if (! $process->isSuccessful()) {
+                throw new \RuntimeException(
+                    "Failed to access git repository '{$repo}' branch '{$branch}': ".trim($process->getErrorOutput())
+                );
+            }
+
+            // Check if directory exists
+            $fullPath = $tempDir.'/'.ltrim($directory, '/');
+            if (! $this->fs->exists($fullPath) || ! $this->fs->isDirectory($fullPath)) {
+                return [];
+            }
+
+            // Scan directory for files
+            $files = [];
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($fullPath, \RecursiveDirectoryIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::LEAVES_ONLY
+            );
+
+            /** @var \SplFileInfo $file */
+            foreach ($iterator as $file) {
+                if ($file->isFile()) {
+                    // Get path relative to the directory
+                    $relativePath = substr($file->getPathname(), strlen($fullPath) + 1);
+                    $files[] = $relativePath;
+                }
+            }
+
+            sort($files);
+
+            return $files;
         } finally {
             // Clean up temp directory
             if ($this->fs->isDirectory($tempDir)) {

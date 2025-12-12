@@ -465,20 +465,13 @@ class SiteDeployCommand extends BaseCommand
      */
     private function checkRemoteHooksExist(SiteDTO $site): array
     {
-        if (null === $site->repo || null === $site->branch) {
-            return [];
-        }
-
+        /** @var list<string> $hookPaths */
         $hookPaths = array_map(
             fn ($hook) => ".deployer/hooks/{$hook}",
             self::REQUIRED_HOOKS
         );
 
-        $remoteHooks = $this->git->checkRemoteFilesExist(
-            $site->repo,
-            $site->branch,
-            $hookPaths
-        );
+        $remoteHooks = $this->checkRemoteSiteFiles($site, $hookPaths);
 
         $missingHooks = [];
         foreach ($remoteHooks as $path => $exists) {

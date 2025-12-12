@@ -11,10 +11,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'scaffold:hooks',
-    description: 'Scaffold deployment hooks from templates'
+    name: 'scaffold:crons',
+    description: 'Scaffold cron job scripts from templates'
 )]
-class ScaffoldHooksCommand extends BaseCommand
+class ScaffoldCronsCommand extends BaseCommand
 {
     use ScaffoldsTrait;
 
@@ -27,8 +27,9 @@ class ScaffoldHooksCommand extends BaseCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         parent::execute($input, $output);
-        $this->h1('Scaffold Deployment Hooks');
 
-        return $this->scaffoldFiles('hooks');
+        $this->h1('Scaffold Cron Scripts');
+
+        return $this->scaffoldFiles('crons');
     }
 }
