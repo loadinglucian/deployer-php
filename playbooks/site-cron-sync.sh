@@ -18,7 +18,6 @@
 #   DEPLOYER_DISTRO        - Server distribution (ubuntu|debian)
 #   DEPLOYER_PERMS         - Permissions (root|sudo|none)
 #   DEPLOYER_SITE_DOMAIN   - Site domain for cron working directory
-#   DEPLOYER_PHP_VERSION   - PHP version for DEPLOYER_PHP env var
 #   DEPLOYER_CRONS         - JSON array of cron objects
 #
 # Cron JSON Format:
@@ -39,7 +38,6 @@ export DEBIAN_FRONTEND=noninteractive
 [[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 [[ -z $DEPLOYER_SITE_DOMAIN ]] && echo "Error: DEPLOYER_SITE_DOMAIN required" && exit 1
-[[ -z $DEPLOYER_PHP_VERSION ]] && echo "Error: DEPLOYER_PHP_VERSION required" && exit 1
 [[ -z $DEPLOYER_CRONS ]] && echo "Error: DEPLOYER_CRONS required" && exit 1
 export DEPLOYER_PERMS
 
@@ -47,32 +45,10 @@ export DEPLOYER_PERMS
 # source "$(dirname "$0")/helpers.sh"
 
 SITE_ROOT="/home/deployer/sites/${DEPLOYER_SITE_DOMAIN}"
-CURRENT_PATH="${SITE_ROOT}/current"
 SHARED_PATH="${SITE_ROOT}/shared"
 
 START_MARKER="# DEPLOYER-CRON-START ${DEPLOYER_SITE_DOMAIN}"
 END_MARKER="# DEPLOYER-CRON-END ${DEPLOYER_SITE_DOMAIN}"
-
-# ----
-# PHP Detection
-# ----
-
-#
-# Detect PHP binary path for specified version
-#
-# Sets PHP_BINARY variable with the full path
-
-detect_php_binary() {
-	if command -v "php${DEPLOYER_PHP_VERSION}" > /dev/null 2>&1; then
-		PHP_BINARY=$(command -v "php${DEPLOYER_PHP_VERSION}")
-	elif [[ -x "/usr/bin/php${DEPLOYER_PHP_VERSION}" ]]; then
-		PHP_BINARY="/usr/bin/php${DEPLOYER_PHP_VERSION}"
-	elif command -v php > /dev/null 2>&1; then
-		PHP_BINARY=$(command -v php)
-	else
-		PHP_BINARY="/usr/bin/php"
-	fi
-}
 
 # ----
 # JSON Parsing
@@ -104,22 +80,17 @@ parse_crons_json() {
 #
 # Generate cron block for a site
 #
-# Outputs the complete cron section including markers and environment variables
+# Outputs the complete cron section including markers and cron entries
+# Environment variables are provided by the site's runner.sh script
 
 generate_cron_block() {
 	local cron_block=""
+	local runner_path="${SITE_ROOT}/runner.sh"
 
 	# Start marker
 	cron_block="${START_MARKER}"$'\n'
 
-	# Environment variables block
-	cron_block+="DEPLOYER_PHP=${PHP_BINARY}"$'\n'
-	cron_block+="DEPLOYER_PHP_VERSION=${DEPLOYER_PHP_VERSION}"$'\n'
-	cron_block+="DEPLOYER_DOMAIN=${DEPLOYER_SITE_DOMAIN}"$'\n'
-	cron_block+="DEPLOYER_CURRENT_PATH=${CURRENT_PATH}"$'\n'
-	cron_block+="DEPLOYER_SHARED_PATH=${SHARED_PATH}"$'\n'
-
-	# Generate each cron entry
+	# Generate each cron entry using runner.sh
 	local i=0
 	while ((i < CRON_COUNT)); do
 		local script schedule
@@ -127,7 +98,7 @@ generate_cron_block() {
 		script=$(echo "$DEPLOYER_CRONS" | jq -r ".[$i].script")
 		schedule=$(echo "$DEPLOYER_CRONS" | jq -r ".[$i].schedule")
 
-		cron_block+="${schedule} cd ${CURRENT_PATH} && ./.deployer/crons/${script} >> /dev/null 2>&1"$'\n'
+		cron_block+="${schedule} ${runner_path} .deployer/crons/${script} >> /dev/null 2>&1"$'\n'
 
 		((i++))
 	done
@@ -219,7 +190,6 @@ write_output() {
 # ----
 
 main() {
-	detect_php_binary
 	parse_crons_json
 
 	local cron_block=""
