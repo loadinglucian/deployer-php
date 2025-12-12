@@ -312,6 +312,71 @@ reload_php_fpm() {
 }
 
 #
+# Runner Script
+# ----
+
+#
+# Create site runner script for cron jobs
+#
+# Generates runner.sh with hard-coded environment variables
+# that can securely execute scripts from within the current release
+
+create_runner_script() {
+	local runner_path="${SITE_ROOT}/runner.sh"
+
+	echo "→ Creating runner script..."
+
+	if ! cat > "$runner_path" <<- 'RUNNER_EOF'; then
+		#!/usr/bin/env bash
+		set -o pipefail
+
+		export DEPLOYER_RELEASE_PATH="__RELEASE_PATH__"
+		export DEPLOYER_SHARED_PATH="__SHARED_PATH__"
+		export DEPLOYER_CURRENT_PATH="__CURRENT_PATH__"
+		export DEPLOYER_DOMAIN="__DOMAIN__"
+		export DEPLOYER_BRANCH="__BRANCH__"
+		export DEPLOYER_PHP="__PHP__"
+
+		[[ -z ${1:-} ]] && echo "Error: Script path required" >&2 && exit 1
+
+		script_path="$1"
+
+		# Security: Reject absolute paths and parent traversal
+		[[ $script_path == /* ]] && echo "Error: Path must be relative" >&2 && exit 1
+		[[ $script_path == *..* ]] && echo "Error: Path cannot contain '..'" >&2 && exit 1
+
+		# Build and validate full path
+		full_path="${DEPLOYER_CURRENT_PATH}/${script_path}"
+		[[ ! -f $full_path ]] && echo "Error: Script not found: ${script_path}" >&2 && exit 1
+
+		# Verify script is within current release
+		resolved_path=$(realpath "$full_path" 2>/dev/null)
+		resolved_current=$(realpath "$DEPLOYER_CURRENT_PATH" 2>/dev/null)
+		[[ $resolved_path != ${resolved_current}/* ]] && echo "Error: Script must be within current release" >&2 && exit 1
+
+		# Make executable and run
+		[[ ! -x $full_path ]] && chmod +x "$full_path"
+		cd "$DEPLOYER_CURRENT_PATH" || exit 1
+		exec "$full_path"
+	RUNNER_EOF
+		fail "Failed to create runner script"
+	fi
+
+	# Replace placeholders with actual values
+	run_cmd sed -i \
+		-e "s|__RELEASE_PATH__|${RELEASE_PATH}|g" \
+		-e "s|__SHARED_PATH__|${SHARED_PATH}|g" \
+		-e "s|__CURRENT_PATH__|${CURRENT_PATH}|g" \
+		-e "s|__DOMAIN__|${DEPLOYER_SITE_DOMAIN}|g" \
+		-e "s|__BRANCH__|${DEPLOYER_SITE_BRANCH}|g" \
+		-e "s|__PHP__|${DEPLOYER_PHP}|g" \
+		"$runner_path" || fail "Failed to configure runner script"
+
+	run_cmd chown deployer:deployer "$runner_path" || fail "Failed to set runner script ownership"
+	run_cmd chmod 755 "$runner_path" || fail "Failed to set runner script permissions"
+}
+
+#
 # Output Generation
 # ----
 
@@ -357,6 +422,8 @@ run_hooks_sequence() {
 	reload_php_fpm
 
 	cleanup_releases
+
+	create_runner_script
 }
 
 # ----
