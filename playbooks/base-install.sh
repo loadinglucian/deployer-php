@@ -40,7 +40,7 @@ export DEPLOYER_PERMS
 install_packages() {
 	echo "→ Installing packages..."
 
-	local common_packages=(curl zip unzip caddy git rsync)
+	local common_packages=(curl zip unzip caddy git rsync ufw jq)
 	local distro_packages
 
 	case $DEPLOYER_DISTRO in

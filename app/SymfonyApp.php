@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Deployer;
 
+use Deployer\Console\Cron\CronCreateCommand;
+use Deployer\Console\Cron\CronDeleteCommand;
+use Deployer\Console\Cron\CronSyncCommand;
 use Deployer\Console\Key\KeyAddDigitalOceanCommand;
 use Deployer\Console\Key\KeyDeleteDigitalOceanCommand;
 use Deployer\Console\Key\KeyListDigitalOceanCommand;
+use Deployer\Console\ScaffoldCronsCommand;
 use Deployer\Console\ScaffoldHooksCommand;
 use Deployer\Console\Server\ServerAddCommand;
 use Deployer\Console\Server\ServerDeleteCommand;
 use Deployer\Console\Server\ServerFirewallCommand;
 use Deployer\Console\Server\ServerInfoCommand;
 use Deployer\Console\Server\ServerInstallCommand;
-use Deployer\Console\Server\ServerListCommand;
 use Deployer\Console\Server\ServerLogsCommand;
 use Deployer\Console\Server\ServerProvisionDigitalOceanCommand;
 use Deployer\Console\Server\ServerRunCommand;
@@ -22,7 +25,6 @@ use Deployer\Console\Site\SiteCreateCommand;
 use Deployer\Console\Site\SiteDeleteCommand;
 use Deployer\Console\Site\SiteDeployCommand;
 use Deployer\Console\Site\SiteHttpsCommand;
-use Deployer\Console\Site\SiteListCommand;
 use Deployer\Console\Site\SiteSharedPullCommand;
 use Deployer\Console\Site\SiteSharedPushCommand;
 use Deployer\Console\Site\SiteSshCommand;
@@ -125,6 +127,7 @@ final class SymfonyApp extends SymfonyApplication
             //
             // Scaffolding
 
+            ScaffoldCronsCommand::class,
             ScaffoldHooksCommand::class,
 
             //
@@ -142,7 +145,6 @@ final class SymfonyApp extends SymfonyApplication
             ServerFirewallCommand::class,
             ServerInfoCommand::class,
             ServerInstallCommand::class,
-            ServerListCommand::class,
             ServerLogsCommand::class,
             ServerRunCommand::class,
             ServerSshCommand::class,
@@ -155,12 +157,18 @@ final class SymfonyApp extends SymfonyApplication
 
             SiteCreateCommand::class,
             SiteDeleteCommand::class,
-            SiteListCommand::class,
             SiteHttpsCommand::class,
             SiteSharedPushCommand::class,
             SiteSharedPullCommand::class,
             SiteDeployCommand::class,
             SiteSshCommand::class,
+
+            //
+            // Cron management
+
+            CronCreateCommand::class,
+            CronDeleteCommand::class,
+            CronSyncCommand::class,
         ];
 
         foreach ($commands as $command) {

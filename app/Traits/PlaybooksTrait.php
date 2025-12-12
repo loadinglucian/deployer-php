@@ -31,7 +31,7 @@ trait PlaybooksTrait
      * @param ServerDTO $server
      * @param string $playbookName Playbook name without .sh extension (e.g., 'server-info', 'php-install', etc)
      * @param string $spinnerMessage Message to display while executing the playbook
-     * @param array<string, string> $playbookVars Playbook variables to pass to the playbook (don't pass sensitive data)
+     * @param array<string, scalar|array<mixed>> $playbookVars Playbook variables (arrays are auto-encoded to JSON)
      * @return array<string, mixed>|int Returns parsed YAML on success or Command::FAILURE on error
      */
     protected function executePlaybookSilently(
@@ -66,7 +66,7 @@ trait PlaybooksTrait
      * @param ServerDTO $server
      * @param string $playbookName Playbook name without .sh extension (e.g., 'server-info', 'php-install', etc)
      * @param string $statusMessage Message to display while executing the playbook
-     * @param array<string, string> $playbookVars Playbook variables to pass to the playbook (don't pass sensitive data)
+     * @param array<string, scalar|array<mixed>> $playbookVars Playbook variables (arrays are auto-encoded to JSON)
      * @param string|null $capture Variable passed by reference to capture raw output. If null, output is streamed to console. If provided, output is captured silently.
      * @return array<string, mixed>|int Returns parsed YAML on success or Command::FAILURE on error
      */
@@ -101,10 +101,11 @@ trait PlaybooksTrait
             ...$playbookVars,
         ];
 
-        // Build var prefix string
+        // Build var prefix string (arrays are auto-encoded to JSON)
         $varsPrefix = '';
         foreach ($vars as $key => $value) {
-            $varsPrefix .= sprintf('%s=%s ', $key, escapeshellarg((string) $value));
+            $encoded = is_array($value) ? json_encode($value, JSON_THROW_ON_ERROR) : (string) $value;
+            $varsPrefix .= sprintf('%s=%s ', $key, escapeshellarg($encoded));
         }
 
         // Wrap script with environment and heredoc

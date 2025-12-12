@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Deployer\Repositories;
 
+use Deployer\DTOs\CronDTO;
 use Deployer\DTOs\SiteDTO;
 use Deployer\Services\InventoryService;
 
@@ -173,6 +174,102 @@ final class SiteRepository
     }
 
     //
+    // Cron CRUD
+    // ----
+
+    /**
+     * Add a cron job to a site.
+     *
+     * @param string $domain The site's domain.
+     * @param CronDTO $cron The cron job to add.
+     * @throws \RuntimeException If the site does not exist or cron already exists.
+     */
+    public function addCron(string $domain, CronDTO $cron): void
+    {
+        $this->assertInventoryLoaded();
+
+        $site = $this->findByDomain($domain);
+        if (null === $site) {
+            throw new \RuntimeException("Site '{$domain}' not found");
+        }
+
+        // Check for duplicate script
+        foreach ($site->crons as $existing) {
+            if ($existing->script === $cron->script) {
+                throw new \RuntimeException("Cron '{$cron->script}' already exists for '{$domain}'");
+            }
+        }
+
+        // Add cron to site
+        $crons = $site->crons;
+        $crons[] = $cron;
+
+        $updatedSite = new SiteDTO(
+            domain: $site->domain,
+            repo: $site->repo,
+            branch: $site->branch,
+            server: $site->server,
+            crons: $crons,
+        );
+
+        $this->update($updatedSite);
+    }
+
+    /**
+     * Delete a cron job from a site.
+     *
+     * @param string $domain The site's domain.
+     * @param string $script The script name of the cron to delete.
+     * @throws \RuntimeException If the site does not exist.
+     */
+    public function deleteCron(string $domain, string $script): void
+    {
+        $this->assertInventoryLoaded();
+
+        $site = $this->findByDomain($domain);
+        if (null === $site) {
+            throw new \RuntimeException("Site '{$domain}' not found");
+        }
+
+        // Filter out the cron
+        $crons = [];
+        foreach ($site->crons as $existing) {
+            if ($existing->script !== $script) {
+                $crons[] = $existing;
+            }
+        }
+
+        $updatedSite = new SiteDTO(
+            domain: $site->domain,
+            repo: $site->repo,
+            branch: $site->branch,
+            server: $site->server,
+            crons: $crons,
+        );
+
+        $this->update($updatedSite);
+    }
+
+    /**
+     * Get all cron jobs for a site.
+     *
+     * @param string $domain The site's domain.
+     * @return array<int, CronDTO> Array of cron jobs.
+     * @throws \RuntimeException If the site does not exist.
+     */
+    public function getCrons(string $domain): array
+    {
+        $this->assertInventoryLoaded();
+
+        $site = $this->findByDomain($domain);
+        if (null === $site) {
+            throw new \RuntimeException("Site '{$domain}' not found");
+        }
+
+        return $site->crons;
+    }
+
+    //
     // Private
     // ----
 
@@ -192,10 +289,10 @@ final class SiteRepository
     /**
      * Serialize a SiteDTO into an associative array suitable for inventory storage.
      *
-     * Only includes repo and branch if they are set.
+     * Only includes repo and branch if they are set. Only includes crons if non-empty.
      *
      * @param SiteDTO $site The site DTO to serialize.
-     * @return array<string, mixed> Associative array with keys `domain`, `server`, and optionally `repo`, `branch`.
+     * @return array<string, mixed> Associative array with keys `domain`, `server`, and optionally `repo`, `branch`, `crons`.
      */
     private function dehydrateSiteDTO(SiteDTO $site): array
     {
@@ -212,7 +309,28 @@ final class SiteRepository
             $data['branch'] = $site->branch;
         }
 
+        if ([] !== $site->crons) {
+            $data['crons'] = array_map(
+                $this->dehydrateCronDTO(...),
+                $site->crons
+            );
+        }
+
         return $data;
+    }
+
+    /**
+     * Serialize a CronDTO into an associative array suitable for inventory storage.
+     *
+     * @param CronDTO $cron The cron DTO to serialize.
+     * @return array<string, mixed> Associative array with keys `script`, `schedule`.
+     */
+    private function dehydrateCronDTO(CronDTO $cron): array
+    {
+        return [
+            'script' => $cron->script,
+            'schedule' => $cron->schedule,
+        ];
     }
 
     /**
@@ -227,12 +345,42 @@ final class SiteRepository
         $repo = $data['repo'] ?? null;
         $branch = $data['branch'] ?? null;
         $server = $data['server'] ?? '';
+        $cronsData = $data['crons'] ?? [];
+
+        // Hydrate crons
+        $crons = [];
+        if (is_array($cronsData)) {
+            foreach ($cronsData as $cronData) {
+                if (is_array($cronData)) {
+                    /** @var array<string, mixed> $cronData */
+                    $crons[] = $this->hydrateCronDTO($cronData);
+                }
+            }
+        }
 
         return new SiteDTO(
             domain: is_string($domain) ? $domain : '',
             repo: is_string($repo) ? $repo : null,
             branch: is_string($branch) ? $branch : null,
             server: is_string($server) ? $server : '',
+            crons: $crons,
+        );
+    }
+
+    /**
+     * Create a CronDTO from raw inventory data.
+     *
+     * @param array<string,mixed> $data Raw associative array from inventory.
+     * @return CronDTO A CronDTO with script and schedule.
+     */
+    private function hydrateCronDTO(array $data): CronDTO
+    {
+        $script = $data['script'] ?? '';
+        $schedule = $data['schedule'] ?? '';
+
+        return new CronDTO(
+            script: is_string($script) ? $script : '',
+            schedule: is_string($schedule) ? $schedule : '',
         );
     }
 }

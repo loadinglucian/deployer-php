@@ -255,7 +255,7 @@ class InventoryService
         $path = $this->getInventoryPath();
 
         try {
-            $yaml = Yaml::dump($this->inventory, 2, 4, Yaml::DUMP_EMPTY_ARRAY_AS_SEQUENCE);
+            $yaml = Yaml::dump($this->inventory, 12, 2, Yaml::DUMP_EMPTY_ARRAY_AS_SEQUENCE);
             $this->fs->dumpFile($path, $yaml);
         } catch (\Throwable $e) {
             throw new \RuntimeException("Error writing inventory file at {$path}: " . $e->getMessage());
