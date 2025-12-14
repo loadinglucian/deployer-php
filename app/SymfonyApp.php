@@ -12,6 +12,7 @@ use Deployer\Console\Key\KeyDeleteDigitalOceanCommand;
 use Deployer\Console\Key\KeyListDigitalOceanCommand;
 use Deployer\Console\ScaffoldCronsCommand;
 use Deployer\Console\ScaffoldHooksCommand;
+use Deployer\Console\ScaffoldSupervisorsCommand;
 use Deployer\Console\Server\ServerAddCommand;
 use Deployer\Console\Server\ServerDeleteCommand;
 use Deployer\Console\Server\ServerFirewallCommand;
@@ -28,6 +29,10 @@ use Deployer\Console\Site\SiteHttpsCommand;
 use Deployer\Console\Site\SiteSharedPullCommand;
 use Deployer\Console\Site\SiteSharedPushCommand;
 use Deployer\Console\Site\SiteSshCommand;
+use Deployer\Console\Supervisor\SupervisorCreateCommand;
+use Deployer\Console\Supervisor\SupervisorDeleteCommand;
+use Deployer\Console\Supervisor\SupervisorRestartCommand;
+use Deployer\Console\Supervisor\SupervisorSyncCommand;
 use Deployer\Services\VersionService;
 use Symfony\Component\Console\Application as SymfonyApplication;
 use Symfony\Component\Console\Command\Command;
@@ -129,6 +134,7 @@ final class SymfonyApp extends SymfonyApplication
 
             ScaffoldCronsCommand::class,
             ScaffoldHooksCommand::class,
+            ScaffoldSupervisorsCommand::class,
 
             //
             // Provider key management
@@ -169,6 +175,14 @@ final class SymfonyApp extends SymfonyApplication
             CronCreateCommand::class,
             CronDeleteCommand::class,
             CronSyncCommand::class,
+
+            //
+            // Supervisor management
+
+            SupervisorCreateCommand::class,
+            SupervisorDeleteCommand::class,
+            SupervisorRestartCommand::class,
+            SupervisorSyncCommand::class,
         ];
 
         foreach ($commands as $command) {

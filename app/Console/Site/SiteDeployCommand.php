@@ -6,6 +6,7 @@ namespace Deployer\Console\Site;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\SiteDTO;
+use Deployer\DTOs\SupervisorDTO;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
@@ -82,12 +83,14 @@ class SiteDeployCommand extends BaseCommand
 
         [$repo, $branch, $needsUpdate] = $resolvedGit;
 
-        // Create updated site DTO with resolved repo/branch
+        // Create updated site DTO with resolved repo/branch (preserve crons and supervisors)
         $site = new SiteDTO(
             domain: $site->domain,
             repo: $repo,
             branch: $branch,
-            server: $site->server
+            server: $site->server,
+            crons: $site->crons,
+            supervisors: $site->supervisors,
         );
 
         //
@@ -130,7 +133,7 @@ class SiteDeployCommand extends BaseCommand
                 $this->out('  • ' . $hook);
             }
 
-            $this->info("Run <fg=cyan>scaffold:hooks</> in your project to create them");
+            $this->info("Run <fg=cyan>scaffold:hooks</> to create them");
             $this->io->write("\n");
 
             $skipConfirm = $this->io->getOptionOrPrompt(
@@ -233,6 +236,12 @@ class SiteDeployCommand extends BaseCommand
                 'DEPLOYER_SITE_BRANCH' => $branch,
                 'DEPLOYER_PHP_VERSION' => (string) $phpVersion,
                 'DEPLOYER_KEEP_RELEASES' => (string) $keepReleases,
+                'DEPLOYER_SUPERVISORS' => array_map(
+                    fn (SupervisorDTO $supervisor) => [
+                        'program' => $supervisor->program,
+                    ],
+                    $site->supervisors
+                ),
             ]
         );
 

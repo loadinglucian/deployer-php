@@ -32,6 +32,7 @@
 #
 # Optional Environment Variables:
 #   DEPLOYER_KEEP_RELEASES - Number of releases to keep (default: 5)
+#   DEPLOYER_SUPERVISORS   - JSON array of supervisor objects (for restart)
 #
 # Returns YAML with:
 #   - status: success
@@ -78,6 +79,11 @@ export DEPLOYER_DOMAIN="$DEPLOYER_SITE_DOMAIN"
 export DEPLOYER_BRANCH="$DEPLOYER_SITE_BRANCH"
 export DEPLOYER_KEEP_RELEASES
 
+# Variables to preserve when running hooks as deployer user via sudo.
+# By default sudo sanitizes the environment for security, but hooks need
+# access to deployment context (paths, domain, PHP version, etc).
+# Used by run_as_deployer() in helpers.sh with sudo --preserve-env.
+# shellcheck disable=SC2034 # Used by inlined helpers.sh
 PRESERVE_ENV_VARS="DEPLOYER_RELEASE_PATH,DEPLOYER_SHARED_PATH,DEPLOYER_CURRENT_PATH,DEPLOYER_REPO_PATH,DEPLOYER_DOMAIN,DEPLOYER_BRANCH,DEPLOYER_PHP_VERSION,DEPLOYER_PHP,DEPLOYER_KEEP_RELEASES,DEPLOYER_DISTRO,DEPLOYER_PERMS"
 
 # ----
@@ -311,6 +317,52 @@ reload_php_fpm() {
 	run_cmd systemctl reload "php${DEPLOYER_PHP_VERSION}-fpm" || fail "Failed to reload PHP-FPM"
 }
 
+# ----
+# Supervisor Management
+# ----
+
+#
+# Restart supervisor programs for this site
+#
+# Reads DEPLOYER_SUPERVISORS JSON and restarts each program.
+# Failures are warnings, not errors (deployment already succeeded).
+
+restart_supervisor_programs() {
+	# Skip if no supervisors configured
+	if [[ -z ${DEPLOYER_SUPERVISORS:-} ]]; then
+		return 0
+	fi
+
+	# Parse supervisor count
+	local supervisor_count
+	supervisor_count=$(echo "$DEPLOYER_SUPERVISORS" | jq 'length' 2> /dev/null) || supervisor_count=0
+
+	if ((supervisor_count == 0)); then
+		return 0
+	fi
+
+	echo "→ Restarting ${supervisor_count} supervisor program(s)..."
+
+	local i=0 failed=0
+	while ((i < supervisor_count)); do
+		local program full_name
+		program=$(echo "$DEPLOYER_SUPERVISORS" | jq -r ".[$i].program")
+		full_name="${DEPLOYER_SITE_DOMAIN}-${program}"
+
+		echo "→ Restarting ${full_name}..."
+		if ! run_cmd supervisorctl restart "$full_name" > /dev/null 2>&1; then
+			echo "Warning: Failed to restart ${full_name}" >&2
+			((failed++))
+		fi
+
+		((i++))
+	done
+
+	if ((failed > 0)); then
+		echo "Warning: ${failed} supervisor program(s) failed to restart"
+	fi
+}
+
 #
 # Runner Script
 # ----
@@ -402,7 +454,7 @@ write_output() {
 #
 # Execute full deployment hook sequence
 #
-# Runs hooks in order: build release -> link shared -> 1-building -> 2-releasing -> activate -> 3-finishing -> cleanup
+# Runs hooks in order: build release -> link shared -> 1-building -> 2-releasing -> activate -> 3-finishing -> cleanup -> restart supervisors
 
 run_hooks_sequence() {
 	clone_or_update_repo
@@ -424,6 +476,8 @@ run_hooks_sequence() {
 	cleanup_releases
 
 	create_runner_script
+
+	restart_supervisor_programs
 }
 
 # ----

@@ -84,7 +84,7 @@ class CronCreateCommand extends BaseCommand
 
         if ([] === $availableScripts) {
             $this->warn('No cron scripts found in repository');
-            $this->info("Run <fg=cyan>scaffold:crons</> in your project to create some");
+            $this->info("Run <fg=cyan>scaffold:crons</> to create some");
 
             return Command::FAILURE;
         }
