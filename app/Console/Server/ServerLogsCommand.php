@@ -439,6 +439,7 @@ class ServerLogsCommand extends BaseCommand
         // Handle common naming variations
         $variations = match ($process) {
             'sshd' => ['ssh', 'ssh.service'],
+            'supervisor' => ['supervisor', 'supervisord', 'supervisord.service'],
             'systemd-resolve' => ['systemd-resolved', 'systemd-resolved.service'],
             default => [],
         };

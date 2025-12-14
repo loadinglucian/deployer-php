@@ -6,6 +6,7 @@ namespace Deployer\Repositories;
 
 use Deployer\DTOs\CronDTO;
 use Deployer\DTOs\SiteDTO;
+use Deployer\DTOs\SupervisorDTO;
 use Deployer\Services\InventoryService;
 
 /**
@@ -210,6 +211,7 @@ final class SiteRepository
             branch: $site->branch,
             server: $site->server,
             crons: $crons,
+            supervisors: $site->supervisors,
         );
 
         $this->update($updatedSite);
@@ -245,19 +247,24 @@ final class SiteRepository
             branch: $site->branch,
             server: $site->server,
             crons: $crons,
+            supervisors: $site->supervisors,
         );
 
         $this->update($updatedSite);
     }
 
+    //
+    // Supervisor CRUD
+    // ----
+
     /**
-     * Get all cron jobs for a site.
+     * Add a supervisor program to a site.
      *
      * @param string $domain The site's domain.
-     * @return array<int, CronDTO> Array of cron jobs.
-     * @throws \RuntimeException If the site does not exist.
+     * @param SupervisorDTO $supervisor The supervisor program to add.
+     * @throws \RuntimeException If the site does not exist or program already exists.
      */
-    public function getCrons(string $domain): array
+    public function addSupervisor(string $domain, SupervisorDTO $supervisor): void
     {
         $this->assertInventoryLoaded();
 
@@ -266,7 +273,63 @@ final class SiteRepository
             throw new \RuntimeException("Site '{$domain}' not found");
         }
 
-        return $site->crons;
+        // Check for duplicate program
+        foreach ($site->supervisors as $existing) {
+            if ($existing->program === $supervisor->program) {
+                throw new \RuntimeException("Supervisor '{$supervisor->program}' already exists for '{$domain}'");
+            }
+        }
+
+        // Add supervisor to site
+        $supervisors = $site->supervisors;
+        $supervisors[] = $supervisor;
+
+        $updatedSite = new SiteDTO(
+            domain: $site->domain,
+            repo: $site->repo,
+            branch: $site->branch,
+            server: $site->server,
+            crons: $site->crons,
+            supervisors: $supervisors,
+        );
+
+        $this->update($updatedSite);
+    }
+
+    /**
+     * Delete a supervisor program from a site.
+     *
+     * @param string $domain The site's domain.
+     * @param string $program The program name of the supervisor to delete.
+     * @throws \RuntimeException If the site does not exist.
+     */
+    public function deleteSupervisor(string $domain, string $program): void
+    {
+        $this->assertInventoryLoaded();
+
+        $site = $this->findByDomain($domain);
+        if (null === $site) {
+            throw new \RuntimeException("Site '{$domain}' not found");
+        }
+
+        // Filter out the supervisor
+        $supervisors = [];
+        foreach ($site->supervisors as $existing) {
+            if ($existing->program !== $program) {
+                $supervisors[] = $existing;
+            }
+        }
+
+        $updatedSite = new SiteDTO(
+            domain: $site->domain,
+            repo: $site->repo,
+            branch: $site->branch,
+            server: $site->server,
+            crons: $site->crons,
+            supervisors: $supervisors,
+        );
+
+        $this->update($updatedSite);
     }
 
     //
@@ -289,10 +352,10 @@ final class SiteRepository
     /**
      * Serialize a SiteDTO into an associative array suitable for inventory storage.
      *
-     * Only includes repo and branch if they are set. Only includes crons if non-empty.
+     * Only includes repo and branch if they are set. Only includes crons/supervisors if non-empty.
      *
      * @param SiteDTO $site The site DTO to serialize.
-     * @return array<string, mixed> Associative array with keys `domain`, `server`, and optionally `repo`, `branch`, `crons`.
+     * @return array<string, mixed> Associative array with keys `domain`, `server`, and optionally `repo`, `branch`, `crons`, `supervisors`.
      */
     private function dehydrateSiteDTO(SiteDTO $site): array
     {
@@ -313,6 +376,13 @@ final class SiteRepository
             $data['crons'] = array_map(
                 $this->dehydrateCronDTO(...),
                 $site->crons
+            );
+        }
+
+        if ([] !== $site->supervisors) {
+            $data['supervisors'] = array_map(
+                $this->dehydrateSupervisorDTO(...),
+                $site->supervisors
             );
         }
 
@@ -346,6 +416,7 @@ final class SiteRepository
         $branch = $data['branch'] ?? null;
         $server = $data['server'] ?? '';
         $cronsData = $data['crons'] ?? [];
+        $supervisorsData = $data['supervisors'] ?? [];
 
         // Hydrate crons
         $crons = [];
@@ -358,12 +429,24 @@ final class SiteRepository
             }
         }
 
+        // Hydrate supervisors
+        $supervisors = [];
+        if (is_array($supervisorsData)) {
+            foreach ($supervisorsData as $supervisorData) {
+                if (is_array($supervisorData)) {
+                    /** @var array<string, mixed> $supervisorData */
+                    $supervisors[] = $this->hydrateSupervisorDTO($supervisorData);
+                }
+            }
+        }
+
         return new SiteDTO(
             domain: is_string($domain) ? $domain : '',
             repo: is_string($repo) ? $repo : null,
             branch: is_string($branch) ? $branch : null,
             server: is_string($server) ? $server : '',
             crons: $crons,
+            supervisors: $supervisors,
         );
     }
 
@@ -381,6 +464,49 @@ final class SiteRepository
         return new CronDTO(
             script: is_string($script) ? $script : '',
             schedule: is_string($schedule) ? $schedule : '',
+        );
+    }
+
+    /**
+     * Serialize a SupervisorDTO into an associative array suitable for inventory storage.
+     *
+     * @param SupervisorDTO $supervisor The supervisor DTO to serialize.
+     * @return array<string, mixed> Associative array with keys `program`, `script`, `autostart`, `autorestart`, `stopwaitsecs`, `numprocs`.
+     */
+    private function dehydrateSupervisorDTO(SupervisorDTO $supervisor): array
+    {
+        return [
+            'program' => $supervisor->program,
+            'script' => $supervisor->script,
+            'autostart' => $supervisor->autostart,
+            'autorestart' => $supervisor->autorestart,
+            'stopwaitsecs' => $supervisor->stopwaitsecs,
+            'numprocs' => $supervisor->numprocs,
+        ];
+    }
+
+    /**
+     * Create a SupervisorDTO from raw inventory data.
+     *
+     * @param array<string,mixed> $data Raw associative array from inventory.
+     * @return SupervisorDTO A SupervisorDTO with program, script, and supervisor options.
+     */
+    private function hydrateSupervisorDTO(array $data): SupervisorDTO
+    {
+        $program = $data['program'] ?? '';
+        $script = $data['script'] ?? '';
+        $autostart = $data['autostart'] ?? true;
+        $autorestart = $data['autorestart'] ?? true;
+        $stopwaitsecs = $data['stopwaitsecs'] ?? 3600;
+        $numprocs = $data['numprocs'] ?? 1;
+
+        return new SupervisorDTO(
+            program: is_string($program) ? $program : '',
+            script: is_string($script) ? $script : '',
+            autostart: is_bool($autostart) ? $autostart : true,
+            autorestart: is_bool($autorestart) ? $autorestart : true,
+            stopwaitsecs: is_int($stopwaitsecs) ? $stopwaitsecs : 3600,
+            numprocs: is_int($numprocs) ? $numprocs : 1,
         );
     }
 }

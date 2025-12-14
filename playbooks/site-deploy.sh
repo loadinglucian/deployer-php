@@ -78,6 +78,11 @@ export DEPLOYER_DOMAIN="$DEPLOYER_SITE_DOMAIN"
 export DEPLOYER_BRANCH="$DEPLOYER_SITE_BRANCH"
 export DEPLOYER_KEEP_RELEASES
 
+# Variables to preserve when running hooks as deployer user via sudo.
+# By default sudo sanitizes the environment for security, but hooks need
+# access to deployment context (paths, domain, PHP version, etc).
+# Used by run_as_deployer() in helpers.sh with sudo --preserve-env.
+# shellcheck disable=SC2034 # Used by inlined helpers.sh
 PRESERVE_ENV_VARS="DEPLOYER_RELEASE_PATH,DEPLOYER_SHARED_PATH,DEPLOYER_CURRENT_PATH,DEPLOYER_REPO_PATH,DEPLOYER_DOMAIN,DEPLOYER_BRANCH,DEPLOYER_PHP_VERSION,DEPLOYER_PHP,DEPLOYER_KEEP_RELEASES,DEPLOYER_DISTRO,DEPLOYER_PERMS"
 
 # ----

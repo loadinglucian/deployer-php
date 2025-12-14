@@ -130,7 +130,7 @@ class SiteDeployCommand extends BaseCommand
                 $this->out('  • ' . $hook);
             }
 
-            $this->info("Run <fg=cyan>scaffold:hooks</> in your project to create them");
+            $this->info("Run <fg=cyan>scaffold:hooks</> to create them");
             $this->io->write("\n");
 
             $skipConfirm = $this->io->getOptionOrPrompt(

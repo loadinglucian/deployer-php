@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Deployer\Console;
+
+use Deployer\Contracts\BaseCommand;
+use Deployer\Traits\ScaffoldsTrait;
+use Symfony\Component\Console\Attribute\AsCommand;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+
+#[AsCommand(
+    name: 'scaffold:supervisors',
+    description: 'Scaffold supervisor program scripts from templates'
+)]
+class ScaffoldSupervisorsCommand extends BaseCommand
+{
+    use ScaffoldsTrait;
+
+    protected function configure(): void
+    {
+        parent::configure();
+        $this->configureScaffoldOptions();
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        parent::execute($input, $output);
+
+        $this->h1('Scaffold Supervisor Scripts');
+
+        return $this->scaffoldFiles('supervisors');
+    }
+}
