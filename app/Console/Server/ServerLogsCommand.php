@@ -155,7 +155,7 @@ class ServerLogsCommand extends BaseCommand
         }
 
         /** @var array<string, mixed> $info */
-        $info = $server->info ?? [];
+        $info = $server->info;
 
         // 1. Detected listening services
         /** @var array<int, string> $ports */
@@ -267,7 +267,7 @@ class ServerLogsCommand extends BaseCommand
             } elseif (str_starts_with($service, 'supervisor:')) {
                 // Parse supervisor:{domain}/{program}
                 $parts = explode('/', substr($service, 11), 2);
-                if (count($parts) === 2) {
+                if (2 === count($parts)) {
                     [$domain, $program] = $parts;
                     $fullName = "{$domain}-{$program}";
                     $this->retrieveFileLogs(
@@ -276,6 +276,8 @@ class ServerLogsCommand extends BaseCommand
                         "/var/log/supervisor/{$fullName}.log",
                         $lines
                     );
+                } else {
+                    $this->warn("Invalid supervisor format: '{$service}'. Expected 'supervisor:{domain}/{program}'");
                 }
             } elseif (in_array($service, $sites, true)) {
                 $this->retrieveFileLogs(
