@@ -167,7 +167,7 @@ prepare_directories() {
 	run_cmd mkdir -p "$REPO_PATH" || fail "Failed to create repo directory"
 
 	# Ensure directories are owned by deployer
-	run_cmd chown deployer:deployer "${SITE_ROOT}/releases" "$SHARED_PATH" "$REPO_PATH" || fail "Failed to set directory ownership"
+	run_cmd chown deployer:deployer "$SITE_ROOT" "${SITE_ROOT}/releases" "$SHARED_PATH" "$REPO_PATH" || fail "Failed to set directory ownership"
 
 	if [[ -e $CURRENT_PATH && ! -L $CURRENT_PATH ]]; then
 		run_cmd rm -rf "$CURRENT_PATH" || fail "Failed to clean existing current path"
@@ -226,7 +226,6 @@ clone_or_update_repo() {
 	if [[ ! -d "${REPO_PATH}/objects" ]]; then
 		echo "→ Cloning repository..."
 		run_cmd rm -rf "$REPO_PATH" || true
-		run_cmd mkdir -p "$(dirname "$REPO_PATH")" || fail "Failed to prepare repo parent"
 		if ! run_as_deployer git clone --bare "$DEPLOYER_SITE_REPO" "$REPO_PATH"; then
 			fail "Failed to clone repository"
 		fi
