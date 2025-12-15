@@ -152,6 +152,32 @@ config_logrotate() {
 	fi
 }
 
+#
+# Supervisor logrotate config
+# ----
+
+config_supervisor_logrotate() {
+	echo "→ Setting up Supervisor logrotate..."
+
+	local logrotate_config="/etc/logrotate.d/supervisor-deployer"
+
+	if ! run_cmd tee "$logrotate_config" > /dev/null <<- 'EOF'; then
+		/var/log/supervisor/*.log {
+		    daily
+		    rotate 5
+		    maxage 30
+		    missingok
+		    notifempty
+		    compress
+		    delaycompress
+		    copytruncate
+		}
+	EOF
+		echo "Error: Failed to create Supervisor logrotate config" >&2
+		exit 1
+	fi
+}
+
 # ----
 # Main Execution
 # ----
@@ -161,6 +187,7 @@ main() {
 	install_packages
 	config_caddy
 	config_logrotate
+	config_supervisor_logrotate
 
 	# Write output YAML
 	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then

@@ -8,6 +8,7 @@ use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
+use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -22,13 +23,15 @@ class ServerLogsCommand extends BaseCommand
 {
     use PlaybooksTrait;
     use ServersTrait;
+    use SitesTrait;
 
     /**
      * @var array{
      *     options: array<string|int, string>,
      *     services: list<string>,
      *     phpVersions: list<string>,
-     *     sites: list<string>
+     *     sites: list<string>,
+     *     supervisors: list<array{domain: string, program: string}>
      * }|null
      */
     private ?array $processedServices = null;
@@ -70,7 +73,7 @@ class ServerLogsCommand extends BaseCommand
         // Get user input
         // ----
 
-        $processed = $this->getProcessedServices($server->info);
+        $processed = $this->getProcessedServices($server);
 
         /** @var array<string, string> $options */
         $options = $processed['options'];
@@ -115,7 +118,7 @@ class ServerLogsCommand extends BaseCommand
         // Retrieve logs
         // ----
 
-        $this->displayServiceLogs($server, $services, (int) $lines, $server->info);
+        $this->displayServiceLogs($server, $services, (int) $lines);
 
         //
         // Show command replay
@@ -135,21 +138,24 @@ class ServerLogsCommand extends BaseCommand
     // ----
 
     /**
-     * Process detected services, PHP versions, and sites to build options.
+     * Process detected services, PHP versions, sites, and supervisors to build options.
      *
-     * @param array<string, mixed> $info Server information from server-info playbook
      * @return array{
      *     options: array<string|int, string>,
      *     services: list<string>,
      *     phpVersions: list<string>,
-     *     sites: list<string>
+     *     sites: list<string>,
+     *     supervisors: list<array{domain: string, program: string}>
      * }
      */
-    protected function getProcessedServices(array $info): array
+    protected function getProcessedServices(ServerDTO $server): array
     {
         if ($this->processedServices !== null) {
             return $this->processedServices;
         }
+
+        /** @var array<string, mixed> $info */
+        $info = $server->info;
 
         // 1. Detected listening services
         /** @var array<int, string> $ports */
@@ -194,6 +200,20 @@ class ServerLogsCommand extends BaseCommand
             $sites = array_map(strval(...), array_keys($info['sites_config']));
         }
 
+        // 4. Supervisor programs (from inventory)
+        /** @var list<array{domain: string, program: string}> $supervisors */
+        $supervisors = [];
+        $serverSites = $this->sites->findByServer($server->name);
+
+        foreach ($serverSites as $siteDTO) {
+            foreach ($siteDTO->supervisors as $supervisor) {
+                $supervisors[] = [
+                    'domain' => $siteDTO->domain,
+                    'program' => $supervisor->program,
+                ];
+            }
+        }
+
         // Build options
         $options = [
             'system' => 'System logs',
@@ -215,11 +235,18 @@ class ServerLogsCommand extends BaseCommand
             $options[$site] = "Site: {$site}";
         }
 
+        // Supervisor programs
+        foreach ($supervisors as $sup) {
+            $key = "supervisor:{$sup['domain']}/{$sup['program']}";
+            $options[$key] = "Supervisor: {$sup['domain']}/{$sup['program']}";
+        }
+
         return $this->processedServices = [
             'options' => $options,
             'services' => $services,
             'phpVersions' => $phpVersions,
             'sites' => $sites,
+            'supervisors' => $supervisors,
         ];
     }
 
@@ -227,17 +254,31 @@ class ServerLogsCommand extends BaseCommand
      * Display logs for selected service(s).
      *
      * @param list<string> $services Selected services
-     * @param array<string, mixed> $info Server information
      */
-    protected function displayServiceLogs(ServerDTO $server, array $services, int $lines, array $info): void
+    protected function displayServiceLogs(ServerDTO $server, array $services, int $lines): void
     {
-        $processed = $this->getProcessedServices($info);
-        /** @var array<int, string> $sites */
+        $processed = $this->getProcessedServices($server);
+        /** @var list<string> $sites */
         $sites = $processed['sites'];
 
         foreach ($services as $service) {
             if ($service === 'system') {
                 $this->retrieveServiceLogs($server, 'System', '', $lines);
+            } elseif (str_starts_with($service, 'supervisor:')) {
+                // Parse supervisor:{domain}/{program}
+                $parts = explode('/', substr($service, 11), 2);
+                if (2 === count($parts)) {
+                    [$domain, $program] = $parts;
+                    $fullName = "{$domain}-{$program}";
+                    $this->retrieveFileLogs(
+                        $server,
+                        "Supervisor: {$domain}/{$program}",
+                        "/var/log/supervisor/{$fullName}.log",
+                        $lines
+                    );
+                } else {
+                    $this->warn("Invalid supervisor format: '{$service}'. Expected 'supervisor:{domain}/{program}'");
+                }
             } elseif (in_array($service, $sites, true)) {
                 $this->retrieveFileLogs(
                     $server,
