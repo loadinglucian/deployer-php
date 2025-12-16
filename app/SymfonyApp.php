@@ -10,6 +10,11 @@ use Deployer\Console\Cron\CronSyncCommand;
 use Deployer\Console\Key\KeyAddDigitalOceanCommand;
 use Deployer\Console\Key\KeyDeleteDigitalOceanCommand;
 use Deployer\Console\Key\KeyListDigitalOceanCommand;
+use Deployer\Console\Mariadb\MariadbInstallCommand;
+use Deployer\Console\Mariadb\MariadbRestartCommand;
+use Deployer\Console\Mariadb\MariadbStartCommand;
+use Deployer\Console\Mariadb\MariadbStatusCommand;
+use Deployer\Console\Mariadb\MariadbStopCommand;
 use Deployer\Console\Mysql\MysqlInstallCommand;
 use Deployer\Console\Mysql\MysqlRestartCommand;
 use Deployer\Console\Mysql\MysqlStartCommand;
@@ -203,6 +208,15 @@ final class SymfonyApp extends SymfonyApplication
             MysqlStartCommand::class,
             MysqlStatusCommand::class,
             MysqlStopCommand::class,
+
+            //
+            // MariaDB management
+
+            MariadbInstallCommand::class,
+            MariadbRestartCommand::class,
+            MariadbStartCommand::class,
+            MariadbStatusCommand::class,
+            MariadbStopCommand::class,
         ];
 
         foreach ($commands as $command) {
