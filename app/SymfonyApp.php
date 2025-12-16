@@ -10,6 +10,11 @@ use Deployer\Console\Cron\CronSyncCommand;
 use Deployer\Console\Key\KeyAddDigitalOceanCommand;
 use Deployer\Console\Key\KeyDeleteDigitalOceanCommand;
 use Deployer\Console\Key\KeyListDigitalOceanCommand;
+use Deployer\Console\Mysql\MysqlInstallCommand;
+use Deployer\Console\Mysql\MysqlRestartCommand;
+use Deployer\Console\Mysql\MysqlStartCommand;
+use Deployer\Console\Mysql\MysqlStatusCommand;
+use Deployer\Console\Mysql\MysqlStopCommand;
 use Deployer\Console\ScaffoldCronsCommand;
 use Deployer\Console\ScaffoldHooksCommand;
 use Deployer\Console\ScaffoldSupervisorsCommand;
@@ -183,6 +188,15 @@ final class SymfonyApp extends SymfonyApplication
             SupervisorDeleteCommand::class,
             SupervisorRestartCommand::class,
             SupervisorSyncCommand::class,
+
+            //
+            // MySQL management
+
+            MysqlInstallCommand::class,
+            MysqlRestartCommand::class,
+            MysqlStartCommand::class,
+            MysqlStatusCommand::class,
+            MysqlStopCommand::class,
         ];
 
         foreach ($commands as $command) {
