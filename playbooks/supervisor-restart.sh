@@ -83,7 +83,7 @@ restart_program_graceful() {
 	local program=$1
 	local full_name="${DEPLOYER_SITE_DOMAIN}-${program}"
 
-	echo "-> Restarting ${full_name}..."
+	echo "→ Restarting ${full_name}..."
 
 	if ! run_cmd supervisorctl restart "$full_name" > /dev/null 2>&1; then
 		echo "Warning: Failed to restart ${full_name}" >&2
@@ -105,7 +105,7 @@ restart_program_force() {
 	local program=$1
 	local full_name="${DEPLOYER_SITE_DOMAIN}-${program}"
 
-	echo "-> Force restarting ${full_name}..."
+	echo "→ Force restarting ${full_name}..."
 
 	# Stop immediately (ignore errors - program might not be running)
 	run_cmd supervisorctl stop "$full_name" > /dev/null 2>&1 || true
@@ -125,11 +125,11 @@ restart_program_force() {
 
 restart_all_programs() {
 	if ((SUPERVISOR_COUNT == 0)); then
-		echo "-> No supervisors to restart..."
+		echo "→ No supervisors to restart..."
 		return 0
 	fi
 
-	echo "-> Restarting ${SUPERVISOR_COUNT} supervisor program(s)..."
+	echo "→ Restarting ${SUPERVISOR_COUNT} supervisor program(s)..."
 
 	local i=0
 	while ((i < SUPERVISOR_COUNT)); do

@@ -6,6 +6,7 @@ namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
+use Deployer\Traits\LogsTrait;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
@@ -21,6 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class ServerLogsCommand extends BaseCommand
 {
+    use LogsTrait;
     use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
@@ -94,7 +96,7 @@ class ServerLogsCommand extends BaseCommand
             fn () => $this->io->promptText(
                 label: 'Number of lines:',
                 default: '50',
-                validate: fn ($value) => is_numeric($value) && (int) $value > 0 ? null : 'Must be a positive number'
+                validate: fn ($value) => $this->validateLineCount($value)
             )
         );
 
@@ -413,56 +415,6 @@ class ServerLogsCommand extends BaseCommand
         } catch (\RuntimeException) {
             return null;
         }
-    }
-
-    /**
-     * Highlight error keywords in log content.
-     */
-    protected function highlightErrors(string $content): string
-    {
-        // 1. Text keywords (substring match)
-        $textKeywords = [
-            'error',
-            'exception',
-            'fail',
-            'failed',
-            'fatal',
-            'panic',
-        ];
-
-        // 2. Numeric status codes (regex word boundary match)
-        // Matches 500, 502, 503, 504 as distinct words
-        $statusPattern = '/\b(500|502|503|504)\b/';
-
-        $lines = explode("\n", $content);
-        $processedLines = [];
-
-        foreach ($lines as $line) {
-            $lowerLine = strtolower($line);
-            $hasError = false;
-
-            // Check text keywords
-            foreach ($textKeywords as $keyword) {
-                if (str_contains($lowerLine, $keyword)) {
-                    $hasError = true;
-                    break;
-                }
-            }
-
-            // Check numeric status codes if no text error found yet
-            if (!$hasError && preg_match($statusPattern, $line)) {
-                $hasError = true;
-            }
-
-            if ($hasError) {
-                // Highlight the entire line in red
-                $processedLines[] = "<fg=red>{$line}</>";
-            } else {
-                $processedLines[] = $line;
-            }
-        }
-
-        return implode("\n", $processedLines);
     }
 
     /**

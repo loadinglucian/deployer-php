@@ -65,6 +65,24 @@ final readonly class FilesystemService
     }
 
     /**
+     * Append contents to a file, creating it if it doesn't exist.
+     *
+     * @throws \RuntimeException If file cannot be written
+     */
+    public function appendFile(string $path, string $content): void
+    {
+        $this->fs->appendToFile($path, $content);
+    }
+
+    /**
+     * Change file permissions.
+     */
+    public function chmod(string $path, int $mode): void
+    {
+        $this->fs->chmod($path, $mode);
+    }
+
+    /**
      * Remove files or directories.
      *
      * @param string|iterable<string> $files A filename, an array of files, or a \Traversable instance to remove
