@@ -116,18 +116,21 @@ secure_installation() {
 		exit 1
 	fi
 
+	# Use MYSQL_PWD to avoid exposing password in process listings
+	export MYSQL_PWD="${ROOT_PASS}"
+
 	# Remove anonymous users
-	run_cmd mysql -u root -p"${ROOT_PASS}" -e "DELETE FROM mysql.user WHERE User='';" 2> /dev/null || true
+	run_cmd mysql -u root -e "DELETE FROM mysql.user WHERE User='';" 2> /dev/null || true
 
 	# Remove remote root login
-	run_cmd mysql -u root -p"${ROOT_PASS}" -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');" 2> /dev/null || true
+	run_cmd mysql -u root -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');" 2> /dev/null || true
 
 	# Remove test database
-	run_cmd mysql -u root -p"${ROOT_PASS}" -e "DROP DATABASE IF EXISTS test;" 2> /dev/null || true
-	run_cmd mysql -u root -p"${ROOT_PASS}" -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';" 2> /dev/null || true
+	run_cmd mysql -u root -e "DROP DATABASE IF EXISTS test;" 2> /dev/null || true
+	run_cmd mysql -u root -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';" 2> /dev/null || true
 
 	# Flush privileges
-	run_cmd mysql -u root -p"${ROOT_PASS}" -e "FLUSH PRIVILEGES;" 2> /dev/null || true
+	run_cmd mysql -u root -e "FLUSH PRIVILEGES;" 2> /dev/null || true
 }
 
 #
@@ -138,9 +141,9 @@ secure_installation() {
 # Create deployer user
 
 create_deployer_user() {
-	# Check if user already exists
+	# Check if user already exists (MYSQL_PWD already exported in secure_installation)
 	local user_exists
-	user_exists=$(run_cmd mysql -u root -p"${ROOT_PASS}" -N -e "SELECT COUNT(*) FROM mysql.user WHERE User='${DEPLOYER_USER}' AND Host='localhost';" 2> /dev/null)
+	user_exists=$(run_cmd mysql -u root -N -e "SELECT COUNT(*) FROM mysql.user WHERE User='${DEPLOYER_USER}' AND Host='localhost';" 2> /dev/null)
 
 	if [[ $user_exists == "1" ]]; then
 		echo "→ Deployer user already exists, skipping user creation..."
@@ -149,7 +152,7 @@ create_deployer_user() {
 
 	echo "→ Creating deployer user..."
 
-	if ! run_cmd mysql -u root -p"${ROOT_PASS}" -e "CREATE USER '${DEPLOYER_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DEPLOYER_PASS}';" 2> /dev/null; then
+	if ! run_cmd mysql -u root -e "CREATE USER '${DEPLOYER_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DEPLOYER_PASS}';" 2> /dev/null; then
 		echo "Error: Failed to create deployer user" >&2
 		exit 1
 	fi
@@ -163,26 +166,26 @@ create_deployer_user() {
 # Create deployer database
 
 create_deployer_database() {
-	# Check if database already exists
+	# Check if database already exists (MYSQL_PWD already exported in secure_installation)
 	local db_exists
-	db_exists=$(run_cmd mysql -u root -p"${ROOT_PASS}" -N -e "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='${DEPLOYER_DATABASE}';" 2> /dev/null)
+	db_exists=$(run_cmd mysql -u root -N -e "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='${DEPLOYER_DATABASE}';" 2> /dev/null)
 
 	if [[ $db_exists == "1" ]]; then
 		echo "→ Deployer database already exists, skipping database creation..."
 		# Still ensure grants are in place
-		run_cmd mysql -u root -p"${ROOT_PASS}" -e "GRANT ALL PRIVILEGES ON ${DEPLOYER_DATABASE}.* TO '${DEPLOYER_USER}'@'localhost'; FLUSH PRIVILEGES;" 2> /dev/null || true
+		run_cmd mysql -u root -e "GRANT ALL PRIVILEGES ON ${DEPLOYER_DATABASE}.* TO '${DEPLOYER_USER}'@'localhost'; FLUSH PRIVILEGES;" 2> /dev/null || true
 		return 0
 	fi
 
 	echo "→ Creating deployer database..."
 
-	if ! run_cmd mysql -u root -p"${ROOT_PASS}" -e "CREATE DATABASE ${DEPLOYER_DATABASE} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2> /dev/null; then
+	if ! run_cmd mysql -u root -e "CREATE DATABASE ${DEPLOYER_DATABASE} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2> /dev/null; then
 		echo "Error: Failed to create deployer database" >&2
 		exit 1
 	fi
 
 	# Grant privileges
-	if ! run_cmd mysql -u root -p"${ROOT_PASS}" -e "GRANT ALL PRIVILEGES ON ${DEPLOYER_DATABASE}.* TO '${DEPLOYER_USER}'@'localhost'; FLUSH PRIVILEGES;" 2> /dev/null; then
+	if ! run_cmd mysql -u root -e "GRANT ALL PRIVILEGES ON ${DEPLOYER_DATABASE}.* TO '${DEPLOYER_USER}'@'localhost'; FLUSH PRIVILEGES;" 2> /dev/null; then
 		echo "Error: Failed to grant privileges to deployer user" >&2
 		exit 1
 	fi

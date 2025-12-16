@@ -5,10 +5,26 @@ declare(strict_types=1);
 namespace Deployer\Traits;
 
 /**
- * Provides log content highlighting for error detection.
+ * Provides shared utilities for log-viewing commands.
  */
-trait LogHighlightingTrait
+trait LogsTrait
 {
+    /**
+     * Validate line count input for log retrieval.
+     */
+    protected function validateLineCount(mixed $value): ?string
+    {
+        if (!is_numeric($value) || (int) $value <= 0) {
+            return 'Must be a positive number';
+        }
+
+        if ((int) $value > 1000) {
+            return 'Cannot exceed 1000 lines';
+        }
+
+        return null;
+    }
+
     /**
      * Highlight error keywords in log content.
      */

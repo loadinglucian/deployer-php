@@ -12,6 +12,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Filesystem\Filesystem;
 
 #[AsCommand(
     name: 'mysql:install',
@@ -31,6 +32,7 @@ class MysqlInstallCommand extends BaseCommand
         parent::configure();
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
+        $this->addOption('save-credentials', null, InputOption::VALUE_REQUIRED, 'Save credentials to file (0600 permissions)');
     }
 
     // ----
@@ -102,22 +104,36 @@ class MysqlInstallCommand extends BaseCommand
 
             $this->yay('MySQL installation completed successfully');
 
-            $this->out([
-                '',
-                'Root Credentials (admin access):',
-                "  Password: {$rootPass}",
-                '',
-                'Application Credentials:',
-                "  Database: {$deployerDatabase}",
-                "  Username: {$deployerUser}",
-                "  Password: {$deployerPass}",
-                '',
-                'Connection string:',
-                "  mysql://{$deployerUser}:{$deployerPass}@localhost/{$deployerDatabase}",
-                '',
-            ]);
+            /** @var string|null $saveCredentials */
+            $saveCredentials = $input->getOption('save-credentials');
 
-            $this->warn('Save these credentials somewhere safe. They will not be displayed again.');
+            if (null !== $saveCredentials) {
+                $this->saveCredentialsToFile(
+                    $saveCredentials,
+                    $server->name,
+                    $rootPass,
+                    $deployerUser,
+                    $deployerPass,
+                    $deployerDatabase
+                );
+            } else {
+                $this->out([
+                    '',
+                    'Root Credentials (admin access):',
+                    "  Password: {$rootPass}",
+                    '',
+                    'Application Credentials:',
+                    "  Database: {$deployerDatabase}",
+                    "  Username: {$deployerUser}",
+                    "  Password: {$deployerPass}",
+                    '',
+                    'Connection string:',
+                    "  mysql://{$deployerUser}:{$deployerPass}@localhost/{$deployerDatabase}",
+                    '',
+                ]);
+
+                $this->warn('Save these credentials somewhere safe. They will not be displayed again.');
+            }
         }
 
         //
@@ -129,5 +145,54 @@ class MysqlInstallCommand extends BaseCommand
         ]);
 
         return Command::SUCCESS;
+    }
+
+    // ----
+    // Helpers
+    // ----
+
+    /**
+     * Save credentials to a secure file with 0600 permissions.
+     */
+    protected function saveCredentialsToFile(
+        string $filePath,
+        string $serverName,
+        string $rootPass,
+        string $deployerUser,
+        string $deployerPass,
+        string $deployerDatabase
+    ): void {
+        $fs = new Filesystem();
+
+        $content = <<<CREDS
+            # MySQL Credentials for {$serverName}
+            # Generated: {$this->now()}
+            # WARNING: Keep this file secure!
+
+            ## Root Credentials (admin access)
+            MYSQL_ROOT_PASSWORD={$rootPass}
+
+            ## Application Credentials
+            MYSQL_DATABASE={$deployerDatabase}
+            MYSQL_USER={$deployerUser}
+            MYSQL_PASSWORD={$deployerPass}
+
+            ## Connection String
+            DATABASE_URL=mysql://{$deployerUser}:{$deployerPass}@localhost/{$deployerDatabase}
+            CREDS;
+
+        $fs->dumpFile($filePath, $content);
+        $fs->chmod($filePath, 0600);
+
+        $this->yay("Credentials saved to: {$filePath}");
+        $this->info('File permissions set to 0600 (owner read/write only)');
+    }
+
+    /**
+     * Get current timestamp for credential file.
+     */
+    protected function now(): string
+    {
+        return date('Y-m-d H:i:s T');
     }
 }

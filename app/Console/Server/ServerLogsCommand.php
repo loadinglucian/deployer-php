@@ -6,7 +6,7 @@ namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
-use Deployer\Traits\LogHighlightingTrait;
+use Deployer\Traits\LogsTrait;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
@@ -22,7 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class ServerLogsCommand extends BaseCommand
 {
-    use LogHighlightingTrait;
+    use LogsTrait;
     use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
@@ -96,9 +96,7 @@ class ServerLogsCommand extends BaseCommand
             fn () => $this->io->promptText(
                 label: 'Number of lines:',
                 default: '50',
-                validate: fn ($value) => !is_numeric($value) || (int) $value <= 0
-                    ? 'Must be a positive number'
-                    : ((int) $value > 1000 ? 'Cannot exceed 1000 lines' : null)
+                validate: fn ($value) => $this->validateLineCount($value)
             )
         );
 

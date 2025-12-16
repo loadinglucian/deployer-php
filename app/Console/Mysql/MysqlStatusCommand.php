@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Mysql;
 
 use Deployer\Contracts\BaseCommand;
-use Deployer\Traits\LogHighlightingTrait;
+use Deployer\Traits\LogsTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -19,7 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class MysqlStatusCommand extends BaseCommand
 {
-    use LogHighlightingTrait;
+    use LogsTrait;
     use ServersTrait;
 
     // ----
@@ -64,9 +64,7 @@ class MysqlStatusCommand extends BaseCommand
             fn () => $this->io->promptText(
                 label: 'Number of lines:',
                 default: '50',
-                validate: fn ($value) => !is_numeric($value) || (int) $value <= 0
-                    ? 'Must be a positive number'
-                    : ((int) $value > 1000 ? 'Cannot exceed 1000 lines' : null)
+                validate: fn ($value) => $this->validateLineCount($value)
             )
         );
 

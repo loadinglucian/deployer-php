@@ -42,18 +42,63 @@ export DEPLOYER_PERMS
 
 execute_action() {
 	case $DEPLOYER_ACTION in
-		start | stop | restart)
+		start | restart)
 			echo "→ Running systemctl ${DEPLOYER_ACTION} mysql..."
 			if ! run_cmd systemctl "$DEPLOYER_ACTION" mysql; then
 				echo "Error: Failed to ${DEPLOYER_ACTION} MySQL" >&2
 				exit 1
 			fi
+			verify_service_active
+			;;
+		stop)
+			echo "→ Running systemctl stop mysql..."
+			if ! run_cmd systemctl stop mysql; then
+				echo "Error: Failed to stop MySQL" >&2
+				exit 1
+			fi
+			verify_service_stopped
 			;;
 		*)
 			echo "Error: Invalid action '${DEPLOYER_ACTION}'" >&2
 			exit 1
 			;;
 	esac
+}
+
+#
+# Verify MySQL service is active
+
+verify_service_active() {
+	echo "→ Verifying MySQL is running..."
+	local max_wait=10
+	local waited=0
+
+	while ! systemctl is-active --quiet mysql 2> /dev/null; do
+		if ((waited >= max_wait)); then
+			echo "Error: MySQL service failed to start" >&2
+			exit 1
+		fi
+		sleep 1
+		waited=$((waited + 1))
+	done
+}
+
+#
+# Verify MySQL service is stopped
+
+verify_service_stopped() {
+	echo "→ Verifying MySQL is stopped..."
+	local max_wait=10
+	local waited=0
+
+	while systemctl is-active --quiet mysql 2> /dev/null; do
+		if ((waited >= max_wait)); then
+			echo "Error: MySQL service failed to stop" >&2
+			exit 1
+		fi
+		sleep 1
+		waited=$((waited + 1))
+	done
 }
 
 # ----
