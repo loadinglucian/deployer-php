@@ -295,6 +295,13 @@ class ServerLogsCommand extends BaseCommand
                     "/var/log/{$service}.log",
                     $lines
                 );
+            } elseif ('mysqld' === $service) {
+                $this->retrieveFileLogs(
+                    $server,
+                    'MySQL',
+                    '/var/log/mysql/error.log',
+                    $lines
+                );
             } else {
                 // Generic service (journalctl)
                 $this->retrieveServiceLogs($server, $service, $service, $lines);
@@ -372,8 +379,13 @@ class ServerLogsCommand extends BaseCommand
     protected function tryTraditionalLogs(ServerDTO $server, string $service, int $lines): void
     {
         try {
-            $serviceLower = strtolower($service);
-            $findCommand = "find /var/log -type f -iname '*{$serviceLower}*' 2>/dev/null | head -5";
+            $searchPatterns = $this->getLogSearchPatterns($service);
+            $namePatterns = implode(' -o ', array_map(
+                static fn (string $p): string => "-iname '*{$p}*'",
+                $searchPatterns
+            ));
+
+            $findCommand = "find /var/log -type f \\( {$namePatterns} \\) 2>/dev/null | head -5";
             $result = $this->ssh->executeCommand($server, $findCommand);
 
             if (0 === $result['exit_code'] && '' !== trim($result['output'])) {
@@ -396,6 +408,21 @@ class ServerLogsCommand extends BaseCommand
         }
 
         $this->warn("No {$service} logs found");
+    }
+
+    /**
+     * Get log file search patterns for a service name.
+     *
+     * @return list<string>
+     */
+    protected function getLogSearchPatterns(string $service): array
+    {
+        $serviceLower = strtolower($service);
+
+        return match ($serviceLower) {
+            'mysqld' => ['mysql'],
+            default => [$serviceLower],
+        };
     }
 
     /**
@@ -431,6 +458,7 @@ class ServerLogsCommand extends BaseCommand
 
         // Handle common naming variations
         $variations = match ($process) {
+            'mysqld' => ['mysql', 'mysql.service'],
             'sshd' => ['ssh', 'ssh.service'],
             'supervisor' => ['supervisor', 'supervisord', 'supervisord.service'],
             'systemd-resolve' => ['systemd-resolved', 'systemd-resolved.service'],
