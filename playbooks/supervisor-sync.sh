@@ -67,11 +67,6 @@ LOGROTATE_DIR="/etc/logrotate.d"
 # Returns: Number of supervisors parsed, sets SUPERVISOR_COUNT and PROGRAM_NAMES array
 
 parse_supervisors_json() {
-	if ! command -v jq > /dev/null 2>&1; then
-		echo "Error: jq is required but not installed" >&2
-		exit 1
-	fi
-
 	if ! echo "$DEPLOYER_SUPERVISORS" | jq empty 2> /dev/null; then
 		echo "Error: Invalid DEPLOYER_SUPERVISORS JSON" >&2
 		exit 1
@@ -204,30 +199,42 @@ write_logrotate_configs() {
 }
 
 #
-# Remove orphaned config files for this domain
+# Remove orphaned config files from a directory
 #
-# Removes any {domain}-*.conf files that are not in the current config list
+# Arguments:
+#   $1 - directory to search
+#   $2 - file pattern to match
+#   $3 - prefix to strip from basename (empty for none)
+#   $4 - label for messages (e.g., "config", "logrotate config")
 
-cleanup_orphaned_configs() {
-	echo "→ Checking for orphaned configs..."
+cleanup_orphaned_files() {
+	local search_dir=$1
+	local pattern=$2
+	local prefix=$3
+	local label=$4
 
-	# List existing configs for this domain
-	local existing_configs
-	existing_configs=$(run_cmd find "$CONF_DIR" -maxdepth 1 -name "${DEPLOYER_SITE_DOMAIN}-*.conf" -type f 2> /dev/null) || existing_configs=""
+	echo "→ Checking for orphaned ${label}s..."
 
-	if [[ -z $existing_configs ]]; then
+	local existing_files
+	existing_files=$(run_cmd find "$search_dir" -maxdepth 1 -name "$pattern" -type f 2> /dev/null) || existing_files=""
+
+	if [[ -z $existing_files ]]; then
 		return 0
 	fi
 
-	# Check each existing config
-	while IFS= read -r config_file; do
-		[[ -z $config_file ]] && continue
+	while IFS= read -r file_path; do
+		[[ -z $file_path ]] && continue
 
-		local basename="${config_file##*/}"
+		local basename="${file_path##*/}"
 		local program_name="${basename%.conf}"
+
+		# Strip prefix if provided
+		if [[ -n $prefix ]]; then
+			program_name="${program_name#"$prefix"}"
+		fi
+
 		local is_orphan=true
 
-		# Check if this config is in our current list
 		for name in "${PROGRAM_NAMES[@]}"; do
 			if [[ $program_name == "$name" ]]; then
 				is_orphan=false
@@ -236,51 +243,10 @@ cleanup_orphaned_configs() {
 		done
 
 		if [[ $is_orphan == true ]]; then
-			echo "→ Removing orphaned config: ${basename}..."
-			run_cmd rm -f "$config_file" || fail "Failed to remove ${config_file}"
+			echo "→ Removing orphaned ${label}: ${basename}..."
+			run_cmd rm -f "$file_path" || fail "Failed to remove ${file_path}"
 		fi
-	done <<< "$existing_configs"
-}
-
-#
-# Remove orphaned logrotate config files for this domain
-#
-# Removes any supervisor-{domain}-*.conf files that are not in the current config list
-
-cleanup_orphaned_logrotate_configs() {
-	echo "→ Checking for orphaned logrotate configs..."
-
-	# List existing logrotate configs for this domain's supervisors
-	local existing_configs
-	existing_configs=$(run_cmd find "$LOGROTATE_DIR" -maxdepth 1 -name "supervisor-${DEPLOYER_SITE_DOMAIN}-*.conf" -type f 2> /dev/null) || existing_configs=""
-
-	if [[ -z $existing_configs ]]; then
-		return 0
-	fi
-
-	# Check each existing config
-	while IFS= read -r config_file; do
-		[[ -z $config_file ]] && continue
-
-		local basename="${config_file##*/}"
-		# Extract program name: supervisor-{domain}-{program}.conf -> {domain}-{program}
-		local program_name="${basename#supervisor-}"
-		program_name="${program_name%.conf}"
-		local is_orphan=true
-
-		# Check if this config is in our current list
-		for name in "${PROGRAM_NAMES[@]}"; do
-			if [[ $program_name == "$name" ]]; then
-				is_orphan=false
-				break
-			fi
-		done
-
-		if [[ $is_orphan == true ]]; then
-			echo "→ Removing orphaned logrotate config: ${basename}..."
-			run_cmd rm -f "$config_file" || fail "Failed to remove ${config_file}"
-		fi
-	done <<< "$existing_configs"
+	done <<< "$existing_files"
 }
 
 # ----
@@ -329,8 +295,8 @@ main() {
 	parse_supervisors_json
 	write_supervisor_configs
 	write_logrotate_configs
-	cleanup_orphaned_configs
-	cleanup_orphaned_logrotate_configs
+	cleanup_orphaned_files "$CONF_DIR" "${DEPLOYER_SITE_DOMAIN}-*.conf" "" "config"
+	cleanup_orphaned_files "$LOGROTATE_DIR" "supervisor-${DEPLOYER_SITE_DOMAIN}-*.conf" "supervisor-" "logrotate config"
 	reload_supervisor
 	write_output
 }
