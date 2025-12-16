@@ -67,7 +67,7 @@ class ServerLogsCommand extends BaseCommand
 
         $server = $this->selectServer();
 
-        if (is_int($server) || $server->info === null) {
+        if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
 
@@ -100,6 +100,14 @@ class ServerLogsCommand extends BaseCommand
             )
         );
 
+        // Validate CLI-provided value
+        $lineError = $this->validateLineCount($lines);
+        if (null !== $lineError) {
+            $this->nay($lineError);
+
+            return Command::FAILURE;
+        }
+
         // Handle CLI option (comma-separated string)
         if (is_string($services)) {
             $services = array_filter(
@@ -108,7 +116,22 @@ class ServerLogsCommand extends BaseCommand
             );
         }
 
-        if (!is_array($services) || $services === []) {
+        // Validate services against allowed options (prevents command injection)
+        if (is_array($services)) {
+            $allowedServices = array_keys($options);
+            $invalidServices = array_diff($services, $allowedServices);
+            if ([] !== $invalidServices) {
+                $this->nay(sprintf(
+                    "Invalid service(s): %s",
+                    implode(', ', array_map(static fn (string|int $s): string => "'{$s}'", $invalidServices))
+                ));
+                $this->info('Allowed: ' . implode(', ', $allowedServices));
+
+                return Command::FAILURE;
+            }
+        }
+
+        if (!is_array($services) || [] === $services) {
             $this->nay('No services selected');
 
             return Command::FAILURE;
@@ -152,7 +175,7 @@ class ServerLogsCommand extends BaseCommand
      */
     protected function getProcessedServices(ServerDTO $server): array
     {
-        if ($this->processedServices !== null) {
+        if (null !== $this->processedServices) {
             return $this->processedServices;
         }
 
@@ -189,7 +212,7 @@ class ServerLogsCommand extends BaseCommand
                     $version = (string) $versionData;
                 }
 
-                if ($version !== null) {
+                if (null !== $version) {
                     $phpVersions[] = $version;
                 }
             }
@@ -295,6 +318,13 @@ class ServerLogsCommand extends BaseCommand
                     "/var/log/{$service}.log",
                     $lines
                 );
+            } elseif ('mysqld' === $service) {
+                $this->retrieveFileLogs(
+                    $server,
+                    'MySQL',
+                    '/var/log/mysql/error.log',
+                    $lines
+                );
             } else {
                 // Generic service (journalctl)
                 $this->retrieveServiceLogs($server, $service, $service, $lines);
@@ -310,7 +340,7 @@ class ServerLogsCommand extends BaseCommand
         $this->h2($service);
 
         try {
-            if ($unit === '') {
+            if ('' === $unit) {
                 $command = sprintf('journalctl -n %d --no-pager 2>&1', $lines);
             } else {
                 $unitArgs = array_map(
@@ -327,7 +357,7 @@ class ServerLogsCommand extends BaseCommand
                               str_contains($output, 'Failed to add filter');
             $noData = $output === '' || $output === '-- No entries --';
 
-            if ($result['exit_code'] !== 0 && !$serviceNotFound) {
+            if (0 !== $result['exit_code'] && !$serviceNotFound) {
                 $this->nay("Failed to retrieve {$service} logs");
                 $this->io->write($this->highlightErrors($output), true);
                 $this->out('───');
@@ -358,7 +388,7 @@ class ServerLogsCommand extends BaseCommand
 
         $content = $this->readLogFile($server, $filepath, $lines);
 
-        if ($content !== null) {
+        if (null !== $content) {
             $this->io->write($this->highlightErrors($content), true);
             $this->out('───');
         } else {
@@ -372,8 +402,19 @@ class ServerLogsCommand extends BaseCommand
     protected function tryTraditionalLogs(ServerDTO $server, string $service, int $lines): void
     {
         try {
-            $serviceLower = strtolower($service);
-            $findCommand = "find /var/log -type f -iname '*{$serviceLower}*' 2>/dev/null | head -5";
+            $searchPatterns = $this->getLogSearchPatterns($service);
+            if ([] === $searchPatterns) {
+                $this->warn("No {$service} logs found");
+
+                return;
+            }
+
+            $namePatterns = implode(' -o ', array_map(
+                static fn (string $p): string => "-iname '*{$p}*'",
+                $searchPatterns
+            ));
+
+            $findCommand = "find /var/log -type f \\( {$namePatterns} \\) 2>/dev/null | head -5";
             $result = $this->ssh->executeCommand($server, $findCommand);
 
             if (0 === $result['exit_code'] && '' !== trim($result['output'])) {
@@ -399,6 +440,21 @@ class ServerLogsCommand extends BaseCommand
     }
 
     /**
+     * Get log file search patterns for a service name.
+     *
+     * @return list<string>
+     */
+    protected function getLogSearchPatterns(string $service): array
+    {
+        $serviceLower = strtolower($service);
+
+        return match ($serviceLower) {
+            'mysqld' => ['mysql'],
+            default => [$serviceLower],
+        };
+    }
+
+    /**
      * Attempt to read a log file from the server.
      */
     protected function readLogFile(ServerDTO $server, string $logFile, int $lines): ?string
@@ -407,7 +463,7 @@ class ServerLogsCommand extends BaseCommand
             $safeLogFile = escapeshellarg($logFile);
             $result = $this->ssh->executeCommand($server, "tail -n {$lines} {$safeLogFile} 2>/dev/null");
 
-            if ($result['exit_code'] === 0 && trim($result['output']) !== '') {
+            if (0 === $result['exit_code'] && '' !== trim($result['output'])) {
                 return trim($result['output']);
             }
 
@@ -431,6 +487,7 @@ class ServerLogsCommand extends BaseCommand
 
         // Handle common naming variations
         $variations = match ($process) {
+            'mysqld' => ['mysql', 'mysql.service'],
             'sshd' => ['ssh', 'ssh.service'],
             'supervisor' => ['supervisor', 'supervisord', 'supervisord.service'],
             'systemd-resolve' => ['systemd-resolved', 'systemd-resolved.service'],
