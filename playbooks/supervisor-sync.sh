@@ -8,8 +8,8 @@
 #
 # This playbook manages supervisor program configurations for a site.
 # It generates INI config files in /etc/supervisor/conf.d/ for each
-# supervisor defined in the inventory, removes orphaned configs, and
-# triggers supervisor to reload.
+# supervisor defined in the inventory, creates per-program logrotate
+# configs, removes orphaned configs, and triggers supervisor to reload.
 #
 # Supervisor scripts must exist in the site's repository at .deployer/supervisors/
 # The playbook only generates config files - supervisord handles script execution.
@@ -55,6 +55,7 @@ SITE_ROOT="/home/deployer/sites/${DEPLOYER_SITE_DOMAIN}"
 CURRENT_PATH="${SITE_ROOT}/current"
 RUNNER_PATH="${SITE_ROOT}/runner.sh"
 CONF_DIR="/etc/supervisor/conf.d"
+LOGROTATE_DIR="/etc/logrotate.d"
 
 # ----
 # JSON Parsing
@@ -66,11 +67,6 @@ CONF_DIR="/etc/supervisor/conf.d"
 # Returns: Number of supervisors parsed, sets SUPERVISOR_COUNT and PROGRAM_NAMES array
 
 parse_supervisors_json() {
-	if ! command -v jq > /dev/null 2>&1; then
-		echo "Error: jq is required but not installed" >&2
-		exit 1
-	fi
-
 	if ! echo "$DEPLOYER_SUPERVISORS" | jq empty 2> /dev/null; then
 		echo "Error: Invalid DEPLOYER_SUPERVISORS JSON" >&2
 		exit 1
@@ -170,30 +166,75 @@ write_supervisor_configs() {
 }
 
 #
-# Remove orphaned config files for this domain
-#
-# Removes any {domain}-*.conf files that are not in the current config list
+# Write logrotate config files for all programs
 
-cleanup_orphaned_configs() {
-	echo "→ Checking for orphaned configs..."
-
-	# List existing configs for this domain
-	local existing_configs
-	existing_configs=$(run_cmd find "$CONF_DIR" -maxdepth 1 -name "${DEPLOYER_SITE_DOMAIN}-*.conf" -type f 2> /dev/null) || existing_configs=""
-
-	if [[ -z $existing_configs ]]; then
+write_logrotate_configs() {
+	if ((SUPERVISOR_COUNT == 0)); then
 		return 0
 	fi
 
-	# Check each existing config
-	while IFS= read -r config_file; do
-		[[ -z $config_file ]] && continue
+	echo "→ Writing ${SUPERVISOR_COUNT} logrotate config(s)..."
 
-		local basename="${config_file##*/}"
+	for name in "${PROGRAM_NAMES[@]}"; do
+		local logrotate_file="${LOGROTATE_DIR}/supervisor-${name}.conf"
+
+		echo "→ Writing logrotate for ${name}..."
+
+		if ! run_cmd tee "$logrotate_file" > /dev/null <<- EOF; then
+			/var/log/supervisor/${name}.log {
+			    daily
+			    rotate 5
+			    maxage 30
+			    missingok
+			    notifempty
+			    compress
+			    delaycompress
+			    copytruncate
+			}
+		EOF
+			echo "Error: Failed to write ${logrotate_file}" >&2
+			exit 1
+		fi
+	done
+}
+
+#
+# Remove orphaned config files from a directory
+#
+# Arguments:
+#   $1 - directory to search
+#   $2 - file pattern to match
+#   $3 - prefix to strip from basename (empty for none)
+#   $4 - label for messages (e.g., "config", "logrotate config")
+
+cleanup_orphaned_files() {
+	local search_dir=$1
+	local pattern=$2
+	local prefix=$3
+	local label=$4
+
+	echo "→ Checking for orphaned ${label}s..."
+
+	local existing_files
+	existing_files=$(run_cmd find "$search_dir" -maxdepth 1 -name "$pattern" -type f 2> /dev/null) || existing_files=""
+
+	if [[ -z $existing_files ]]; then
+		return 0
+	fi
+
+	while IFS= read -r file_path; do
+		[[ -z $file_path ]] && continue
+
+		local basename="${file_path##*/}"
 		local program_name="${basename%.conf}"
+
+		# Strip prefix if provided
+		if [[ -n $prefix ]]; then
+			program_name="${program_name#"$prefix"}"
+		fi
+
 		local is_orphan=true
 
-		# Check if this config is in our current list
 		for name in "${PROGRAM_NAMES[@]}"; do
 			if [[ $program_name == "$name" ]]; then
 				is_orphan=false
@@ -202,10 +243,10 @@ cleanup_orphaned_configs() {
 		done
 
 		if [[ $is_orphan == true ]]; then
-			echo "→ Removing orphaned config: ${basename}..."
-			run_cmd rm -f "$config_file" || fail "Failed to remove ${config_file}"
+			echo "→ Removing orphaned ${label}: ${basename}..."
+			run_cmd rm -f "$file_path" || fail "Failed to remove ${file_path}"
 		fi
-	done <<< "$existing_configs"
+	done <<< "$existing_files"
 }
 
 # ----
@@ -253,7 +294,9 @@ write_output() {
 main() {
 	parse_supervisors_json
 	write_supervisor_configs
-	cleanup_orphaned_configs
+	write_logrotate_configs
+	cleanup_orphaned_files "$CONF_DIR" "${DEPLOYER_SITE_DOMAIN}-*.conf" "" "config"
+	cleanup_orphaned_files "$LOGROTATE_DIR" "supervisor-${DEPLOYER_SITE_DOMAIN}-*.conf" "supervisor-" "logrotate config"
 	reload_supervisor
 	write_output
 }
