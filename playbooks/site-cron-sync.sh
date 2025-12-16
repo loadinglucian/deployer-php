@@ -60,11 +60,6 @@ END_MARKER="# DEPLOYER-CRON-END ${DEPLOYER_SITE_DOMAIN}"
 # Returns: Number of crons parsed, sets CRONS array
 
 parse_crons_json() {
-	if ! command -v jq > /dev/null 2>&1; then
-		echo "Error: jq is required but not installed" >&2
-		exit 1
-	fi
-
 	if ! echo "$DEPLOYER_CRONS" | jq empty 2> /dev/null; then
 		echo "Error: Invalid DEPLOYER_CRONS" >&2
 		exit 1

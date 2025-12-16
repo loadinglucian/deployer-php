@@ -59,11 +59,6 @@ PROGRAMS_FAILED=0
 # Returns: Number of supervisors parsed, sets SUPERVISOR_COUNT
 
 parse_supervisors_json() {
-	if ! command -v jq > /dev/null 2>&1; then
-		echo "Error: jq is required but not installed" >&2
-		exit 1
-	fi
-
 	if ! echo "$DEPLOYER_SUPERVISORS" | jq empty 2> /dev/null; then
 		echo "Error: Invalid DEPLOYER_SUPERVISORS JSON" >&2
 		exit 1
