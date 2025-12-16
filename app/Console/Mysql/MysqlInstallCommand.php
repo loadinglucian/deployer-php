@@ -240,7 +240,9 @@ class MysqlInstallCommand extends BaseCommand
             DATABASE_URL=mysql://{$deployerUser}:{$deployerPass}@localhost/{$deployerDatabase}
             CREDS;
 
-        $this->fs->appendFile($filePath, $content);
+        $oldUmask = umask(0077);
+        $this->fs->dumpFile($filePath, $content);
+        umask($oldUmask);
         $this->fs->chmod($filePath, 0600);
 
         $this->yay("Credentials saved to: {$filePath}");
