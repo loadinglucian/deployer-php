@@ -67,7 +67,7 @@ class ServerLogsCommand extends BaseCommand
 
         $server = $this->selectServer();
 
-        if (is_int($server) || $server->info === null) {
+        if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
 
@@ -175,7 +175,7 @@ class ServerLogsCommand extends BaseCommand
      */
     protected function getProcessedServices(ServerDTO $server): array
     {
-        if ($this->processedServices !== null) {
+        if (null !== $this->processedServices) {
             return $this->processedServices;
         }
 
@@ -212,7 +212,7 @@ class ServerLogsCommand extends BaseCommand
                     $version = (string) $versionData;
                 }
 
-                if ($version !== null) {
+                if (null !== $version) {
                     $phpVersions[] = $version;
                 }
             }
@@ -388,7 +388,7 @@ class ServerLogsCommand extends BaseCommand
 
         $content = $this->readLogFile($server, $filepath, $lines);
 
-        if ($content !== null) {
+        if (null !== $content) {
             $this->io->write($this->highlightErrors($content), true);
             $this->out('───');
         } else {
@@ -403,8 +403,6 @@ class ServerLogsCommand extends BaseCommand
     {
         try {
             $searchPatterns = $this->getLogSearchPatterns($service);
-
-            // defense in depth: skip if sanitization removed everything
             if ([] === $searchPatterns) {
                 $this->warn("No {$service} logs found");
 
@@ -448,15 +446,7 @@ class ServerLogsCommand extends BaseCommand
      */
     protected function getLogSearchPatterns(string $service): array
     {
-        // defense in depth: strip non-safe characters
-        // Primary protection is allowlist validation in execute()
-        $sanitized = preg_replace('/[^a-zA-Z0-9._:-]/', '', $service);
-
-        if (null === $sanitized || '' === $sanitized) {
-            return [];
-        }
-
-        $serviceLower = strtolower($sanitized);
+        $serviceLower = strtolower($service);
 
         return match ($serviceLower) {
             'mysqld' => ['mysql'],
