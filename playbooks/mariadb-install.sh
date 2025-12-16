@@ -137,12 +137,16 @@ secure_installation() {
 
 	# Set root password for mysql_native_password auth (for remote tools)
 	# Socket authentication for local root access is preserved
-	if ! run_cmd mariadb -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${ROOT_PASS}'); FLUSH PRIVILEGES;" 2> /dev/null; then
+	# Use heredoc to pass SQL via stdin (avoids exposing password in process listings)
+	if ! run_cmd mariadb <<- EOSQL 2> /dev/null; then
+		ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${ROOT_PASS}');
+		FLUSH PRIVILEGES;
+	EOSQL
 		echo "Error: Failed to set root password" >&2
 		exit 1
 	fi
 
-	# Use MYSQL_PWD to avoid exposing password in process listings
+	# Use MYSQL_PWD to avoid exposing password in process listings for subsequent commands
 	export MYSQL_PWD="${ROOT_PASS}"
 
 	# Remove anonymous users
@@ -178,7 +182,10 @@ create_deployer_user() {
 
 	echo "→ Creating deployer user..."
 
-	if ! run_cmd mariadb -u root -e "CREATE USER '${DEPLOYER_USER}'@'localhost' IDENTIFIED BY '${DEPLOYER_PASS}';" 2> /dev/null; then
+	# Use heredoc to pass SQL via stdin (avoids exposing password in process listings)
+	if ! run_cmd mariadb -u root <<- EOSQL 2> /dev/null; then
+		CREATE USER '${DEPLOYER_USER}'@'localhost' IDENTIFIED BY '${DEPLOYER_PASS}';
+	EOSQL
 		echo "Error: Failed to create deployer user" >&2
 		exit 1
 	fi

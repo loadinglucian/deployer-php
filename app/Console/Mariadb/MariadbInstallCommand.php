@@ -203,7 +203,7 @@ class MariadbInstallCommand extends BaseCommand
     }
 
     /**
-     * Save credentials to a secure file with 0600 permissions.
+     * Save credentials to a secure file with 0600 permissions (appends if file exists).
      */
     protected function saveCredentialsToFile(
         string $filePath,
@@ -230,12 +230,15 @@ class MariadbInstallCommand extends BaseCommand
             DATABASE_URL=mysql://{$deployerUser}:{$deployerPass}@localhost/{$deployerDatabase}
             CREDS;
 
+        $fileExists = $this->fs->exists($filePath);
+
         $oldUmask = umask(0077);
-        $this->fs->dumpFile($filePath, $content);
+        $this->fs->appendFile($filePath, ($fileExists ? "\n\n" : '') . $content);
         umask($oldUmask);
         $this->fs->chmod($filePath, 0600);
 
-        $this->yay("Credentials saved to: {$filePath}");
+        $action = $fileExists ? 'appended to' : 'saved to';
+        $this->yay("Credentials {$action}: {$filePath}");
         $this->info('File permissions set to 0600 (owner read/write only)');
     }
 
