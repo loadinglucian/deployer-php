@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 
 #
-# MySQL Installation Playbook - Ubuntu/Debian Only
+# MariaDB Installation Playbook - Ubuntu/Debian Only
 #
-# Install MySQL server and configure deployer user/database
+# Install MariaDB server and configure deployer user/database
 # ----
 #
-# This playbook handles MySQL installation and configuration including:
-# - Package installation (mysql-server, mysql-client)
+# This playbook handles MariaDB installation and configuration including:
+# - Conflict detection (fails if MySQL is installed)
+# - Package installation (mariadb-server, mariadb-client)
 # - Root password configuration for remote tools
 # - Creating deployer user with generated password
 # - Creating deployer database with proper permissions
-# - Logrotate configuration for MySQL logs
+# - Logrotate configuration for MariaDB logs
 #
 # Note: Local root access via unix socket authentication is preserved.
 # The root password is set for mysql_native_password auth (remote tools).
@@ -26,7 +27,7 @@
 #
 # Returns YAML with:
 #   - status: success
-#   - root_pass: MySQL root password (generated)
+#   - root_pass: MariaDB root password (generated)
 #   - deployer_user: Database username (deployer)
 #   - deployer_pass: Database password (generated)
 #   - deployer_database: Database name (deployer)
@@ -54,22 +55,22 @@ DEPLOYER_DATABASE="deployer"
 # ----
 
 #
-# Check for MariaDB conflict before installation
+# Check for MySQL conflict before installation
 
-check_mariadb_conflict() {
-	# Check if MariaDB service is running
-	if systemctl is-active --quiet mariadb 2> /dev/null; then
-		echo "Error: MariaDB is already installed and running on this server" >&2
+check_mysql_conflict() {
+	# Check if MySQL service is running
+	if systemctl is-active --quiet mysql 2> /dev/null || systemctl is-active --quiet mysqld 2> /dev/null; then
+		echo "Error: MySQL is already installed and running on this server" >&2
 		echo "Both MySQL and MariaDB use port 3306 and cannot coexist." >&2
-		echo "Please uninstall MariaDB first if you want to use MySQL." >&2
+		echo "Please uninstall MySQL first if you want to use MariaDB." >&2
 		exit 1
 	fi
 
-	# Check if MariaDB packages are installed (even if service is stopped)
-	if dpkg -l mariadb-server 2> /dev/null | grep -q '^ii'; then
-		echo "Error: MariaDB packages are installed on this server" >&2
+	# Check if MySQL packages are installed (even if service is stopped)
+	if dpkg -l mysql-server 2> /dev/null | grep -q '^ii'; then
+		echo "Error: MySQL packages are installed on this server" >&2
 		echo "Both MySQL and MariaDB use port 3306 and cannot coexist." >&2
-		echo "Please remove MariaDB packages first: apt-get purge mariadb-server mariadb-client" >&2
+		echo "Please remove MySQL packages first: apt-get purge mysql-server mysql-client" >&2
 		exit 1
 	fi
 }
@@ -83,40 +84,40 @@ check_mariadb_conflict() {
 # ----
 
 #
-# Install MySQL packages
+# Install MariaDB packages
 
 install_packages() {
-	echo "→ Installing MySQL..."
+	echo "→ Installing MariaDB..."
 
-	local packages=(mysql-server mysql-client)
+	local packages=(mariadb-server mariadb-client)
 
 	if ! apt_get_with_retry install -y "${packages[@]}" 2>&1; then
-		echo "Error: Failed to install MySQL packages" >&2
+		echo "Error: Failed to install MariaDB packages" >&2
 		exit 1
 	fi
 
-	# Enable and start MySQL service
-	if ! systemctl is-enabled --quiet mysql 2> /dev/null; then
-		if ! run_cmd systemctl enable --quiet mysql; then
-			echo "Error: Failed to enable MySQL service" >&2
+	# Enable and start MariaDB service
+	if ! systemctl is-enabled --quiet mariadb 2> /dev/null; then
+		if ! run_cmd systemctl enable --quiet mariadb; then
+			echo "Error: Failed to enable MariaDB service" >&2
 			exit 1
 		fi
 	fi
 
-	if ! systemctl is-active --quiet mysql 2> /dev/null; then
-		if ! run_cmd systemctl start mysql; then
-			echo "Error: Failed to start MySQL service" >&2
+	if ! systemctl is-active --quiet mariadb 2> /dev/null; then
+		if ! run_cmd systemctl start mariadb; then
+			echo "Error: Failed to start MariaDB service" >&2
 			exit 1
 		fi
 	fi
 
-	# Verify MySQL is accepting connections
-	echo "→ Waiting for MySQL to accept connections..."
+	# Verify MariaDB is accepting connections
+	echo "→ Waiting for MariaDB to accept connections..."
 	local max_wait=30
 	local waited=0
-	while ! run_cmd mysqladmin ping --silent 2> /dev/null; do
+	while ! run_cmd mariadb-admin ping --silent 2> /dev/null; do
 		if ((waited >= max_wait)); then
-			echo "Error: MySQL started but is not accepting connections" >&2
+			echo "Error: MariaDB started but is not accepting connections" >&2
 			exit 1
 		fi
 		sleep 1
@@ -129,14 +130,14 @@ install_packages() {
 # ----
 
 #
-# Secure MySQL installation
+# Secure MariaDB installation
 
 secure_installation() {
-	echo "→ Securing MySQL installation..."
+	echo "→ Securing MariaDB installation..."
 
 	# Set root password for mysql_native_password auth (for remote tools)
 	# Socket authentication for local root access is preserved
-	if ! run_cmd mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '${ROOT_PASS}'; FLUSH PRIVILEGES;" 2> /dev/null; then
+	if ! run_cmd mariadb -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${ROOT_PASS}'); FLUSH PRIVILEGES;" 2> /dev/null; then
 		echo "Error: Failed to set root password" >&2
 		exit 1
 	fi
@@ -145,17 +146,17 @@ secure_installation() {
 	export MYSQL_PWD="${ROOT_PASS}"
 
 	# Remove anonymous users
-	run_cmd mysql -u root -e "DELETE FROM mysql.user WHERE User='';" 2> /dev/null || true
+	run_cmd mariadb -u root -e "DELETE FROM mysql.user WHERE User='';" 2> /dev/null || true
 
 	# Remove remote root login
-	run_cmd mysql -u root -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');" 2> /dev/null || true
+	run_cmd mariadb -u root -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');" 2> /dev/null || true
 
 	# Remove test database
-	run_cmd mysql -u root -e "DROP DATABASE IF EXISTS test;" 2> /dev/null || true
-	run_cmd mysql -u root -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';" 2> /dev/null || true
+	run_cmd mariadb -u root -e "DROP DATABASE IF EXISTS test;" 2> /dev/null || true
+	run_cmd mariadb -u root -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';" 2> /dev/null || true
 
 	# Flush privileges
-	run_cmd mysql -u root -e "FLUSH PRIVILEGES;" 2> /dev/null || true
+	run_cmd mariadb -u root -e "FLUSH PRIVILEGES;" 2> /dev/null || true
 }
 
 #
@@ -168,7 +169,7 @@ secure_installation() {
 create_deployer_user() {
 	# Check if user already exists (MYSQL_PWD already exported in secure_installation)
 	local user_exists
-	user_exists=$(run_cmd mysql -u root -N -e "SELECT COUNT(*) FROM mysql.user WHERE User='${DEPLOYER_USER}' AND Host='localhost';" 2> /dev/null)
+	user_exists=$(run_cmd mariadb -u root -N -e "SELECT COUNT(*) FROM mysql.user WHERE User='${DEPLOYER_USER}' AND Host='localhost';" 2> /dev/null)
 
 	if [[ $user_exists == "1" ]]; then
 		echo "→ Deployer user already exists, skipping user creation..."
@@ -177,7 +178,7 @@ create_deployer_user() {
 
 	echo "→ Creating deployer user..."
 
-	if ! run_cmd mysql -u root -e "CREATE USER '${DEPLOYER_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DEPLOYER_PASS}';" 2> /dev/null; then
+	if ! run_cmd mariadb -u root -e "CREATE USER '${DEPLOYER_USER}'@'localhost' IDENTIFIED BY '${DEPLOYER_PASS}';" 2> /dev/null; then
 		echo "Error: Failed to create deployer user" >&2
 		exit 1
 	fi
@@ -193,24 +194,24 @@ create_deployer_user() {
 create_deployer_database() {
 	# Check if database already exists (MYSQL_PWD already exported in secure_installation)
 	local db_exists
-	db_exists=$(run_cmd mysql -u root -N -e "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='${DEPLOYER_DATABASE}';" 2> /dev/null)
+	db_exists=$(run_cmd mariadb -u root -N -e "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='${DEPLOYER_DATABASE}';" 2> /dev/null)
 
 	if [[ $db_exists == "1" ]]; then
 		echo "→ Deployer database already exists, skipping database creation..."
 		# Still ensure grants are in place
-		run_cmd mysql -u root -e "GRANT ALL PRIVILEGES ON ${DEPLOYER_DATABASE}.* TO '${DEPLOYER_USER}'@'localhost'; FLUSH PRIVILEGES;" 2> /dev/null || true
+		run_cmd mariadb -u root -e "GRANT ALL PRIVILEGES ON ${DEPLOYER_DATABASE}.* TO '${DEPLOYER_USER}'@'localhost'; FLUSH PRIVILEGES;" 2> /dev/null || true
 		return 0
 	fi
 
 	echo "→ Creating deployer database..."
 
-	if ! run_cmd mysql -u root -e "CREATE DATABASE ${DEPLOYER_DATABASE} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2> /dev/null; then
+	if ! run_cmd mariadb -u root -e "CREATE DATABASE ${DEPLOYER_DATABASE} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2> /dev/null; then
 		echo "Error: Failed to create deployer database" >&2
 		exit 1
 	fi
 
 	# Grant privileges
-	if ! run_cmd mysql -u root -e "GRANT ALL PRIVILEGES ON ${DEPLOYER_DATABASE}.* TO '${DEPLOYER_USER}'@'localhost'; FLUSH PRIVILEGES;" 2> /dev/null; then
+	if ! run_cmd mariadb -u root -e "GRANT ALL PRIVILEGES ON ${DEPLOYER_DATABASE}.* TO '${DEPLOYER_USER}'@'localhost'; FLUSH PRIVILEGES;" 2> /dev/null; then
 		echo "Error: Failed to grant privileges to deployer user" >&2
 		exit 1
 	fi
@@ -221,12 +222,12 @@ create_deployer_database() {
 # ----
 
 #
-# Configure logrotate for MySQL logs
+# Configure logrotate for MariaDB logs
 
 config_logrotate() {
-	echo "→ Setting up MySQL logrotate..."
+	echo "→ Setting up MariaDB logrotate..."
 
-	local logrotate_config="/etc/logrotate.d/mysql-deployer"
+	local logrotate_config="/etc/logrotate.d/mariadb-deployer"
 
 	if ! run_cmd tee "$logrotate_config" > /dev/null <<- 'EOF'; then
 		/var/log/mysql/*.log {
@@ -240,7 +241,7 @@ config_logrotate() {
 		    copytruncate
 		}
 	EOF
-		echo "Error: Failed to create MySQL logrotate config" >&2
+		echo "Error: Failed to create MariaDB logrotate config" >&2
 		exit 1
 	fi
 }
@@ -250,12 +251,12 @@ config_logrotate() {
 # ----
 
 main() {
-	# Check for MariaDB conflict FIRST (before any installation)
-	check_mariadb_conflict
+	# Check for MySQL conflict FIRST (before any installation)
+	check_mysql_conflict
 
-	# Check if MySQL is already installed - exit gracefully if so
-	if systemctl is-active --quiet mysql 2> /dev/null || systemctl is-active --quiet mysqld 2> /dev/null; then
-		echo "→ MySQL server is already installed and running"
+	# Check if MariaDB is already installed - exit gracefully if so
+	if systemctl is-active --quiet mariadb 2> /dev/null; then
+		echo "→ MariaDB server is already installed and running"
 
 		# Return success with marker indicating already installed
 		if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
