@@ -14,10 +14,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'supervisor:restart',
-    description: 'Restart supervisord service'
+    name: 'supervisor:start',
+    description: 'Start supervisord service'
 )]
-class SupervisorRestartCommand extends BaseCommand
+class SupervisorStartCommand extends BaseCommand
 {
     use PlaybooksTrait;
     use ServersTrait;
@@ -41,7 +41,7 @@ class SupervisorRestartCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('Restart Supervisord Service');
+        $this->h1('Start Supervisord Service');
 
         //
         // Select server
@@ -62,33 +62,33 @@ class SupervisorRestartCommand extends BaseCommand
         /** @var string $permissions */
 
         //
-        // Restart supervisord service
+        // Start supervisord service
         // ----
 
         $result = $this->executePlaybookSilently(
             $server,
             'supervisor-service',
-            'Restarting supervisord service...',
+            'Starting supervisord service...',
             [
                 'DEPLOYER_DISTRO' => $distro,
                 'DEPLOYER_PERMS' => $permissions,
-                'DEPLOYER_ACTION' => 'restart',
+                'DEPLOYER_ACTION' => 'start',
             ],
         );
 
         if (is_int($result)) {
-            $this->nay('Failed to restart supervisord service');
+            $this->nay('Failed to start supervisord service');
 
             return Command::FAILURE;
         }
 
-        $this->yay('Supervisord service restarted');
+        $this->yay('Supervisord service started');
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('supervisor:restart', [
+        $this->commandReplay('supervisor:start', [
             'server' => $server->name,
         ]);
 

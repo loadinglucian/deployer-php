@@ -37,6 +37,9 @@ use Deployer\Console\Site\SiteSshCommand;
 use Deployer\Console\Supervisor\SupervisorCreateCommand;
 use Deployer\Console\Supervisor\SupervisorDeleteCommand;
 use Deployer\Console\Supervisor\SupervisorRestartCommand;
+use Deployer\Console\Supervisor\SupervisorStartCommand;
+use Deployer\Console\Supervisor\SupervisorStatusCommand;
+use Deployer\Console\Supervisor\SupervisorStopCommand;
 use Deployer\Console\Supervisor\SupervisorSyncCommand;
 use Deployer\Services\VersionService;
 use Symfony\Component\Console\Application as SymfonyApplication;
@@ -187,6 +190,9 @@ final class SymfonyApp extends SymfonyApplication
             SupervisorCreateCommand::class,
             SupervisorDeleteCommand::class,
             SupervisorRestartCommand::class,
+            SupervisorStartCommand::class,
+            SupervisorStatusCommand::class,
+            SupervisorStopCommand::class,
             SupervisorSyncCommand::class,
 
             //
