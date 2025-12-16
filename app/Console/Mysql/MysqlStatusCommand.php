@@ -58,15 +58,20 @@ class MysqlStatusCommand extends BaseCommand
         // Get number of lines
         // ----
 
-        /** @var string $lines */
-        $lines = $this->io->getOptionOrPrompt(
+        /** @var ?string $lines */
+        $lines = $this->io->getValidatedOptionOrPrompt(
             'lines',
-            fn () => $this->io->promptText(
+            fn ($validate) => $this->io->promptText(
                 label: 'Number of lines:',
                 default: '50',
-                validate: fn ($value) => $this->validateLineCount($value)
-            )
+                validate: $validate
+            ),
+            fn ($value) => $this->validateLineCount($value)
         );
+
+        if (null === $lines) {
+            return Command::FAILURE;
+        }
 
         $lineCount = (int) $lines;
 
