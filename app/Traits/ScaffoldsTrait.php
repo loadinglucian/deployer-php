@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Deployer\Traits;
 
+use Deployer\Exceptions\ValidationException;
 use Deployer\Services\FilesystemService;
 use Deployer\Services\IOService;
 use Symfony\Component\Console\Command\Command;
@@ -23,43 +24,46 @@ use Symfony\Component\Console\Input\InputOption;
 trait ScaffoldsTrait
 {
     // ----
-    // Configuration
+    // Helpers
     // ----
 
+    /**
+     * Configure scaffold command options.
+     */
     protected function configureScaffoldOptions(): void
     {
         $this->addOption('destination', null, InputOption::VALUE_REQUIRED, 'Project root directory');
     }
 
-    // ----
-    // Helpers
-    // ----
-
     /**
      * Scaffold files from templates to destination.
      *
      * @param string $type Scaffold type (e.g., 'crons', 'hooks')
+     *
+     * @throws ValidationException When CLI option validation fails
      */
     protected function scaffoldFiles(string $type): int
     {
         // Get destination directory
         /** @var string $destinationDir */
-        $destinationDir = $this->io->getOptionOrPrompt(
+        $destinationDir = $this->io->getValidatedOptionOrPrompt(
             'destination',
-            fn () => $this->io->promptText(
+            fn ($validate) => $this->io->promptText(
                 label: 'Destination directory:',
                 placeholder: $this->fs->getCwd(),
                 default: $this->fs->getCwd(),
-                required: true
-            )
+                required: true,
+                validate: $validate
+            ),
+            fn ($value) => $this->validateDestinationInput($value)
         );
 
         // Convert relative path to absolute if needed
         if (! str_starts_with($destinationDir, '/')) {
-            $destinationDir = $this->fs->getCwd().'/'.$destinationDir;
+            $destinationDir = $this->fs->getCwd() . '/' . $destinationDir;
         }
 
-        $targetDir = $destinationDir.'/.deployer/'.$type;
+        $targetDir = $destinationDir . '/.deployer/' . $type;
 
         // Copy templates
         try {
@@ -117,5 +121,27 @@ trait ScaffoldsTrait
         }
 
         $this->displayDeets($status);
+    }
+
+    // ----
+    // Validation
+    // ----
+
+    /**
+     * Validate destination path is not empty.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateDestinationInput(mixed $path): ?string
+    {
+        if (! is_string($path)) {
+            return 'Path must be a string';
+        }
+
+        if ('' === trim($path)) {
+            return 'Path cannot be empty';
+        }
+
+        return null;
     }
 }

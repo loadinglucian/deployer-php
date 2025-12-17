@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Deployer\Traits;
 
+use Deployer\Exceptions\ValidationException;
 use Deployer\Services\DigitalOceanService;
 use Deployer\Services\EnvService;
 use Deployer\Services\IOService;
@@ -122,27 +123,29 @@ trait DigitalOceanTrait
         //
         // Prompt for selection
 
-        /** @var string $selectedKey */
-        $selectedKey = $this->io->getOptionOrPrompt(
-            'key',
-            fn (): string => (string) $this->io->promptSelect(
-                label: 'Select public SSH key:',
-                options: $availableKeys
-            )
-        );
-
-        //
-        // Validate key exists (in case user passed --key option)
-
-        if (!isset($availableKeys[$selectedKey])) {
-            $this->nay("Public SSH key '{$selectedKey}' not found");
+        try {
+            /** @var string|int $selectedKey */
+            $selectedKey = $this->io->getValidatedOptionOrPrompt(
+                'key',
+                fn ($validate): string => (string) $this->io->promptSelect(
+                    label: 'Select public SSH key:',
+                    options: $availableKeys,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateKeySelection($value, $availableKeys)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }
 
+        /** @var string $description */
+        $description = $availableKeys[$selectedKey];
+
         return [
             'id' => $selectedKey,
-            'description' => $availableKeys[$selectedKey],
+            'description' => $description,
         ];
     }
 
@@ -151,25 +154,25 @@ trait DigitalOceanTrait
     // ----
 
     /**
-     * Validate region against available regions.
+     * Validate image against available images.
      *
-     * @param array<string, string> $validRegions Available regions from account
+     * @param array<string, string> $validImages Available images from account
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateDigitalOceanRegion(mixed $region, array $validRegions): ?string
+    protected function validateDigitalOceanDropletImage(mixed $image, array $validImages): ?string
     {
-        if (!is_string($region)) {
-            return 'Region must be a string';
+        if (!is_string($image)) {
+            return 'Droplet image must be a string';
         }
 
-        if (trim($region) === '') {
-            return 'Region cannot be empty';
+        if (trim($image) === '') {
+            return 'Droplet image cannot be empty';
         }
 
-        // Check if region exists in account's available regions
-        if (!isset($validRegions[$region])) {
-            return "Invalid region: '{$region}' is not available in your DigitalOcean account";
+        // Check if image exists in account's available images
+        if (!isset($validImages[$image])) {
+            return "Invalid droplet image: '{$image}' is not available in your DigitalOcean account";
         }
 
         return null;
@@ -201,50 +204,25 @@ trait DigitalOceanTrait
     }
 
     /**
-     * Validate image against available images.
+     * Validate region against available regions.
      *
-     * @param array<string, string> $validImages Available images from account
-     *
-     * @return string|null Error message if invalid, null if valid
-     */
-    protected function validateDigitalOceanDropletImage(mixed $image, array $validImages): ?string
-    {
-        if (!is_string($image)) {
-            return 'Droplet image must be a string';
-        }
-
-        if (trim($image) === '') {
-            return 'Droplet image cannot be empty';
-        }
-
-        // Check if image exists in account's available images
-        if (!isset($validImages[$image])) {
-            return "Invalid droplet image: '{$image}' is not available in your DigitalOcean account";
-        }
-
-        return null;
-    }
-
-    /**
-     * Validate VPC UUID format.
+     * @param array<string, string> $validRegions Available regions from account
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateDigitalOceanVPCUUID(mixed $uuid): ?string
+    protected function validateDigitalOceanRegion(mixed $region, array $validRegions): ?string
     {
-        if (!is_string($uuid)) {
-            return 'VPC UUID must be a string';
+        if (!is_string($region)) {
+            return 'Region must be a string';
         }
 
-        // Empty is allowed (optional) - will use default VPC
-        if (trim($uuid) === '' || $uuid === 'default') {
-            return null;
+        if (trim($region) === '') {
+            return 'Region cannot be empty';
         }
 
-        // Validate RFC 4122 UUID format
-        $uuidPattern = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
-        if (!preg_match($uuidPattern, $uuid)) {
-            return 'VPC UUID must be a valid UUID (e.g., 12345678-1234-1234-1234-123456789abc) or "default"';
+        // Check if region exists in account's available regions
+        if (!isset($validRegions[$region])) {
+            return "Invalid region: '{$region}' is not available in your DigitalOcean account";
         }
 
         return null;
@@ -279,4 +257,50 @@ trait DigitalOceanTrait
         return null;
     }
 
+    /**
+     * Validate VPC UUID format.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateDigitalOceanVPCUUID(mixed $uuid): ?string
+    {
+        if (!is_string($uuid)) {
+            return 'VPC UUID must be a string';
+        }
+
+        // Empty is allowed (optional) - will use default VPC
+        if (trim($uuid) === '' || $uuid === 'default') {
+            return null;
+        }
+
+        // Validate RFC 4122 UUID format
+        $uuidPattern = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
+        if (!preg_match($uuidPattern, $uuid)) {
+            return 'VPC UUID must be a valid UUID (e.g., 12345678-1234-1234-1234-123456789abc) or "default"';
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate key selection exists in available keys.
+     *
+     * @param array<int|string, string> $validKeys Available SSH keys from account (key ID => description)
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateKeySelection(mixed $keyId, array $validKeys): ?string
+    {
+        if (! is_string($keyId) && ! is_int($keyId)) {
+            return 'Key ID must be a string or integer';
+        }
+
+        // Allow loose comparison for string/int key IDs
+        $keyIds = array_keys($validKeys);
+        if (! in_array($keyId, $keyIds, false)) {
+            return 'SSH key not found';
+        }
+
+        return null;
+    }
 }

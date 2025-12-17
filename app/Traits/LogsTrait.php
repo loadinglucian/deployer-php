@@ -9,21 +9,9 @@ namespace Deployer\Traits;
  */
 trait LogsTrait
 {
-    /**
-     * Validate line count input for log retrieval.
-     */
-    protected function validateLineCount(mixed $value): ?string
-    {
-        if (!is_numeric($value) || (int) $value <= 0) {
-            return 'Must be a positive number';
-        }
-
-        if ((int) $value > 1000) {
-            return 'Cannot exceed 1000 lines';
-        }
-
-        return null;
-    }
+    // ----
+    // Helpers
+    // ----
 
     /**
      * Highlight error keywords in log content.
@@ -67,5 +55,25 @@ trait LogsTrait
         }
 
         return implode("\n", $processedLines);
+    }
+
+    // ----
+    // Validation
+    // ----
+
+    /**
+     * Validate line count input for log retrieval.
+     */
+    protected function validateLineCount(mixed $value): ?string
+    {
+        if (!is_numeric($value) || (int) $value <= 0) {
+            return 'Must be a positive number';
+        }
+
+        if ((int) $value > 1000) {
+            return 'Cannot exceed 1000 lines';
+        }
+
+        return null;
     }
 }
