@@ -258,18 +258,20 @@ trait DigitalOceanTrait
     }
 
     /**
-     * Validate VPC UUID format.
+     * Validate VPC UUID format and existence.
+     *
+     * @param array<string, string> $availableVpcs Available VPCs (UUID => name)
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateDigitalOceanVPCUUID(mixed $uuid): ?string
+    protected function validateDigitalOceanVPCUUID(mixed $uuid, array $availableVpcs = []): ?string
     {
         if (!is_string($uuid)) {
             return 'VPC UUID must be a string';
         }
 
         // Empty is allowed (optional) - will use default VPC
-        if (trim($uuid) === '' || $uuid === 'default') {
+        if ('' === trim($uuid) || 'default' === $uuid) {
             return null;
         }
 
@@ -277,6 +279,11 @@ trait DigitalOceanTrait
         $uuidPattern = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
         if (!preg_match($uuidPattern, $uuid)) {
             return 'VPC UUID must be a valid UUID (e.g., 12345678-1234-1234-1234-123456789abc) or "default"';
+        }
+
+        // Validate VPC exists in available VPCs for region
+        if ([] !== $availableVpcs && !isset($availableVpcs[$uuid])) {
+            return sprintf('VPC not found in region. Available: %s', implode(', ', array_keys($availableVpcs)));
         }
 
         return null;
