@@ -65,6 +65,9 @@ class ServerDeleteCommand extends BaseCommand
         // Display deletion info
         // ----
 
+        /** @var bool $inventoryOnly */
+        $inventoryOnly = $input->getOption('inventory-only');
+
         $deletionInfo = [
             'Remove the server from inventory',
         ];
@@ -75,12 +78,16 @@ class ServerDeleteCommand extends BaseCommand
             $deletionInfo[] = "Delete {$siteCount} associated site(s): {$sitesList}";
         }
 
-        if ($server->isDigitalOcean()) {
+        if ($server->isDigitalOcean() && !$inventoryOnly) {
             $deletionInfo[] = "Destroy the droplet on DigitalOcean (ID: {$server->dropletId})";
         }
 
-        $this->info('This will:');
-        $this->ul($deletionInfo);
+        if (1 === count($deletionInfo)) {
+            $this->info('This will ' . lcfirst($deletionInfo[0]));
+        } else {
+            $this->info('This will:');
+            $this->ul($deletionInfo);
+        }
 
         //
         // Confirm deletion with extra safety
@@ -121,9 +128,6 @@ class ServerDeleteCommand extends BaseCommand
         // ----
 
         $destroyed = false;
-
-        /** @var bool $inventoryOnly */
-        $inventoryOnly = $input->getOption('inventory-only');
 
         if ($server->isDigitalOcean() && !$inventoryOnly) {
             try {
