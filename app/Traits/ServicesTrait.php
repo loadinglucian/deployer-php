@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Deployer\Traits;
+
+/**
+ * Centralized service display formatting.
+ *
+ * Maps process names (from ss/netstat) to consistent display labels.
+ */
+trait ServicesTrait
+{
+    /**
+     * Canonical service labels (key = process name from ss/netstat).
+     *
+     * @var array<string, string>
+     */
+    private const SERVICE_LABELS = [
+        'caddy' => 'Caddy',
+        'mariadb' => 'MariaDB',
+        'mysqld' => 'MySQL',
+        'postgres' => 'PostgreSQL',
+        'redis-server' => 'Redis',
+        'sshd' => 'SSH',
+    ];
+
+    // ----
+    // Helpers
+    // ----
+
+    /**
+     * Get display label for a service/process.
+     */
+    protected function getServiceLabel(string $process): string
+    {
+        $key = strtolower($process);
+
+        return self::SERVICE_LABELS[$key] ?? ucfirst($process);
+    }
+
+    /**
+     * Format port with service label.
+     */
+    protected function formatPortService(int $port, string $process): string
+    {
+        return sprintf('%d (%s)', $port, $this->getServiceLabel($process));
+    }
+}

@@ -6,6 +6,7 @@ namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\DigitalOceanTrait;
 use Deployer\Traits\KeysTrait;
 use Deployer\Traits\ServersTrait;
@@ -86,7 +87,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
 
         $deets = $this->gatherProvisioningDeets($accountData);
 
-        if ($deets === null) {
+        if (is_int($deets)) {
             return Command::FAILURE;
         }
 
@@ -137,7 +138,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
         // Configure droplet with automatic rollback on failure
         // ----
 
-        $shouldKeepDroplet = false;
+        $provisionSuccess = false;
 
         try {
             // Wait for droplet to become active
@@ -152,7 +153,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             $ipAddress = $this->digitalOcean->droplet->getDropletIp($dropletId);
 
             // Create server DTO
-            $server = $this->serverInfo(new ServerDTO(
+            $server = $this->getServerInfo(new ServerDTO(
                 name: $name,
                 host: $ipAddress,
                 port: 22,
@@ -176,16 +177,23 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
                 'Or run <|cyan>server:install</> to install your new server',
             ]);
 
-            $shouldKeepDroplet = true;
+            $provisionSuccess = true;
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
-        } finally {
-            if (!$shouldKeepDroplet) {
-                $this->rollbackDroplet($dropletId);
-            }
         }
 
-        if (!$shouldKeepDroplet) {
+        if (!$provisionSuccess) {
+            try {
+                $this->io->promptSpin(
+                    fn () => $this->digitalOcean->droplet->destroyDroplet($dropletId),
+                    'Rolling back droplet...'
+                );
+
+                $this->warn('Rolled back droplet');
+            } catch (\Throwable $cleanupError) {
+                $this->nay($cleanupError->getMessage());
+            }
+
             return Command::FAILURE;
         }
 
@@ -217,163 +225,139 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
      * Gather provisioning details from user input or CLI options.
      *
      * @param array{keys: array<int|string, string>, regions: array<string, string>, sizes: array<string, string>, images: array<string, string>} $accountData
-     * @return array{name: string, region: string, size: string, image: string, sshKeyId: int, sshKeyIds: array<int, int>, privateKeyPath: string, backups: bool, monitoring: bool, ipv6: bool, vpcUuid: string|null, vpcUuidDisplay: string}|null
+     * @return array{name: string, region: string, size: string, image: string, sshKeyId: int, sshKeyIds: array<int, int>, privateKeyPath: string, backups: bool, monitoring: bool, ipv6: bool, vpcUuid: string|null, vpcUuidDisplay: string}|int
      */
-    protected function gatherProvisioningDeets(array $accountData): ?array
+    protected function gatherProvisioningDeets(array $accountData): array|int
     {
-        /** @var string|null $name */
-        $name = $this->io->getValidatedOptionOrPrompt(
-            'name',
-            fn ($validate) => $this->io->promptText(
-                label: 'Server name:',
-                placeholder: 'web1',
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateServerName($value)
-        );
+        try {
+            /** @var string $name */
+            $name = $this->io->getValidatedOptionOrPrompt(
+                'name',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Server name:',
+                    placeholder: 'web1',
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateServerName($value)
+            );
 
-        if ($name === null) {
-            return null;
+            /** @var string $region */
+            $region = $this->io->getValidatedOptionOrPrompt(
+                'region',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'Select region:',
+                    options: $accountData['regions'],
+                    hint: 'Choose the datacenter location',
+                    default: '',
+                    scroll: 15
+                ),
+                fn ($value) => $this->validateDigitalOceanRegion($value, $accountData['regions'])
+            );
+
+            /** @var string $size */
+            $size = $this->io->getValidatedOptionOrPrompt(
+                'size',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'Select droplet size:',
+                    options: $accountData['sizes'],
+                    hint: 'Choose CPU, RAM, and storage',
+                    default: '',
+                    scroll: 15
+                ),
+                fn ($value) => $this->validateDigitalOceanDropletSize($value, $accountData['sizes'])
+            );
+
+            /** @var string $image */
+            $image = $this->io->getValidatedOptionOrPrompt(
+                'image',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'Select OS image:',
+                    options: $accountData['images'],
+                    hint: 'Supported Linux distributions',
+                    default: 'ubuntu-24-04-x64',
+                    scroll: 15
+                ),
+                fn ($value) => $this->validateDigitalOceanDropletImage($value, $accountData['images'])
+            );
+
+            //
+            // Select SSH key
+
+            /** @var array<int, string> $keys */
+            $keys = $accountData['keys'];
+
+            /** @var int|string $selectedKey */
+            $selectedKey = $this->io->getValidatedOptionOrPrompt(
+                'ssh-key-id',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'Select public SSH key for droplet access:',
+                    options: $accountData['keys'],
+                    validate: $validate
+                ),
+                fn (mixed $value): ?string => $this->validateDigitalOceanSSHKey($value, $keys)
+            );
+
+            // Convert to integer if string was provided
+            $sshKeyId = is_int($selectedKey) ? $selectedKey : (int) $selectedKey;
+
+            // API expects array of SSH key IDs
+            /** @var array<int, int> $sshKeyIds */
+            $sshKeyIds = [$sshKeyId];
+
+            //
+            // Prompt for local private key path
+
+            $privateKeyPath = $this->promptPrivateKeyPath();
+
+            //
+            // Gather optional parameters
+
+            $backups = $this->io->getBooleanOptionOrPrompt(
+                'backups',
+                fn () => $this->io->promptConfirm(
+                    label: 'Enable automatic backups?',
+                    default: false,
+                    hint: 'Costs extra if enabled'
+                )
+            );
+
+            $monitoring = $this->io->getBooleanOptionOrPrompt(
+                'monitoring',
+                fn () => $this->io->promptConfirm(
+                    label: 'Enable monitoring?',
+                    default: true,
+                    hint: 'Free - shows CPU, memory, disk metrics'
+                )
+            );
+
+            $ipv6 = $this->io->getBooleanOptionOrPrompt(
+                'ipv6',
+                fn () => $this->io->promptConfirm(
+                    label: 'Enable IPv6?',
+                    default: true,
+                    hint: 'Free - provides an IPv6 address'
+                )
+            );
+
+            /** @var string $vpcUuid */
+            $vpcUuid = $this->io->getValidatedOptionOrPrompt(
+                'vpc-uuid',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'Select VPC:',
+                    options: $this->digitalOcean->account->getUserVpcs($region),
+                    hint: 'Virtual Private Cloud for network isolation'
+                ),
+                fn ($value) => $this->validateDigitalOceanVPCUUID($value)
+            );
+
+            // Convert "default" to null for API
+            $vpcUuidForApi = ($vpcUuid === 'default') ? null : $vpcUuid;
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
         }
-
-        /** @var string|null $region */
-        $region = $this->io->getValidatedOptionOrPrompt(
-            'region',
-            fn ($validate) => $this->io->promptSelect(
-                label: 'Select region:',
-                options: $accountData['regions'],
-                hint: 'Choose the datacenter location',
-                default: '',
-                scroll: 15
-            ),
-            fn ($value) => $this->validateDigitalOceanRegion($value, $accountData['regions'])
-        );
-
-        if ($region === null) {
-            return null;
-        }
-
-        /** @var string|null $size */
-        $size = $this->io->getValidatedOptionOrPrompt(
-            'size',
-            fn ($validate) => $this->io->promptSelect(
-                label: 'Select droplet size:',
-                options: $accountData['sizes'],
-                hint: 'Choose CPU, RAM, and storage',
-                default: '',
-                scroll: 15
-            ),
-            fn ($value) => $this->validateDigitalOceanDropletSize($value, $accountData['sizes'])
-        );
-
-        if ($size === null) {
-            return null;
-        }
-
-        /** @var string|null $image */
-        $image = $this->io->getValidatedOptionOrPrompt(
-            'image',
-            fn ($validate) => $this->io->promptSelect(
-                label: 'Select OS image:',
-                options: $accountData['images'],
-                hint: 'Supported Linux distributions',
-                default: 'ubuntu-24-04-x64',
-                scroll: 15
-            ),
-            fn ($value) => $this->validateDigitalOceanDropletImage($value, $accountData['images'])
-        );
-
-        if ($image === null) {
-            return null;
-        }
-
-        //
-        // Select SSH key
-
-        /** @var array<int, string> $keys */
-        $keys = $accountData['keys'];
-
-        /** @var int|string|null $selectedKey */
-        $selectedKey = $this->io->getValidatedOptionOrPrompt(
-            'ssh-key-id',
-            fn ($validate) => $this->io->promptSelect(
-                label: 'Select public SSH key for droplet access:',
-                options: $accountData['keys'],
-                validate: $validate
-            ),
-            fn (mixed $value): ?string => $this->validateDigitalOceanSSHKey($value, $keys)
-        );
-
-        if ($selectedKey === null) {
-            return null;
-        }
-
-        // Convert to integer if string was provided
-        $sshKeyId = is_int($selectedKey) ? $selectedKey : (int) $selectedKey;
-
-        // API expects array of SSH key IDs
-        /** @var array<int, int> $sshKeyIds */
-        $sshKeyIds = [$sshKeyId];
-
-        //
-        // Prompt for local private key path
-
-        $privateKeyPath = $this->promptPrivateKeyPath();
-        if (is_int($privateKeyPath)) {
-            return null;
-        }
-
-        //
-        // Gather optional parameters
-
-        /** @var bool $backups */
-        $backups = $this->io->getOptionOrPrompt(
-            'backups',
-            fn () => $this->io->promptConfirm(
-                label: 'Enable automatic backups?',
-                default: false,
-                hint: 'Costs extra if enabled'
-            )
-        );
-
-        /** @var bool $monitoring */
-        $monitoring = $this->io->getOptionOrPrompt(
-            'monitoring',
-            fn () => $this->io->promptConfirm(
-                label: 'Enable monitoring?',
-                default: true,
-                hint: 'Free - shows CPU, memory, disk metrics'
-            )
-        );
-
-        /** @var bool $ipv6 */
-        $ipv6 = $this->io->getOptionOrPrompt(
-            'ipv6',
-            fn () => $this->io->promptConfirm(
-                label: 'Enable IPv6?',
-                default: true,
-                hint: 'Free - provides an IPv6 address'
-            )
-        );
-
-        /** @var string|null $vpcUuid */
-        $vpcUuid = $this->io->getValidatedOptionOrPrompt(
-            'vpc-uuid',
-            fn ($validate) => $this->io->promptSelect(
-                label: 'Select VPC:',
-                options: $this->digitalOcean->account->getUserVpcs($region),
-                hint: 'Virtual Private Cloud for network isolation'
-            ),
-            fn ($value) => $this->validateDigitalOceanVPCUUID($value)
-        );
-
-        if ($vpcUuid === null) {
-            return null;
-        }
-
-        // Convert "default" to null for API
-        $vpcUuidForApi = ($vpcUuid === 'default') ? null : $vpcUuid;
 
         return [
             'name' => $name,
@@ -389,24 +373,5 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             'vpcUuid' => $vpcUuidForApi,
             'vpcUuidDisplay' => $vpcUuid,
         ];
-    }
-
-    /**
-     * Destroy a droplet after failed provisioning.
-     *
-     * @param int $dropletId The droplet ID to destroy
-     */
-    protected function rollbackDroplet(int $dropletId): void
-    {
-        try {
-            $this->io->promptSpin(
-                fn () => $this->digitalOcean->droplet->destroyDroplet($dropletId),
-                'Rolling back droplet...'
-            );
-
-            $this->warn('Rolled back droplet');
-        } catch (\Throwable $cleanupError) {
-            $this->warn($cleanupError->getMessage());
-        }
     }
 }

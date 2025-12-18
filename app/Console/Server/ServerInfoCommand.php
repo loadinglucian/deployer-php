@@ -8,6 +8,7 @@ use Deployer\Contracts\BaseCommand;
 use Deployer\Enums\Distribution;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
+use Deployer\Traits\ServicesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -20,8 +21,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class ServerInfoCommand extends BaseCommand
 {
-    use ServersTrait;
     use PlaybooksTrait;
+    use ServersTrait;
+    use ServicesTrait;
 
     // ----
     // Configuration
@@ -45,12 +47,12 @@ class ServerInfoCommand extends BaseCommand
         $this->h1('Server Information');
 
         //
-        // Select server & display details
+        // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
-        if (is_int($server) || $server->info === null) {
+        if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
 
@@ -134,7 +136,7 @@ class ServerInfoCommand extends BaseCommand
             $portsList = [];
             foreach ($info['ports'] as $port => $process) {
                 if (is_numeric($port) && is_string($process)) {
-                    $portsList["Port {$port}"] = $process;
+                    $portsList["Port {$port}"] = $this->getServiceLabel($process);
                 }
             }
 

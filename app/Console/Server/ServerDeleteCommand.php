@@ -47,67 +47,41 @@ class ServerDeleteCommand extends BaseCommand
         $this->h1('Delete Server');
 
         //
-        // Select server & display details
+        // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server)) {
             return $server;
         }
 
-        $isDigitalOceanServer = $server->provider === 'digitalocean' && $server->dropletId !== null;
-
         $serverSites = $this->sites->findByServer($server->name);
 
+        $siteCount = count($serverSites);
+
+        $isDigitalOceanServer = $server->provider === 'digitalocean' && $server->dropletId !== null;
+
         //
-        // Prepare site deletion info
+        // Display deletion info
         // ----
 
-        $siteCount = count($serverSites);
-        $hasSites = $siteCount > 0;
-        $sitesList = '';
+        $deletionInfo = [
+            'Remove the server from inventory',
+        ];
 
-        if ($hasSites) {
+        if ($siteCount > 0) {
             $siteDomains = array_map(fn ($site) => $site->domain, $serverSites);
             $sitesList = implode(', ', $siteDomains);
+            $deletionInfo[] = "Delete {$siteCount} associated site(s): {$sitesList}";
         }
-
-        //
-        // Display warning for cloud provider servers
-        // ----
 
         if ($isDigitalOceanServer) {
-            $this->info('This is a DigitalOcean droplet (ID: ' . $server->dropletId . ')');
-
-            $messages = [
-                'Destroy the droplet on DigitalOcean',
-                'Remove the server from inventory',
-            ];
-
-            if ($hasSites) {
-                $messages[] = "Delete {$siteCount} associated site(s): {$sitesList}";
-            }
-
-            $this->info('This will:');
-            $this->ul($messages);
-        } elseif ($hasSites) {
-            $this->info('This will:');
-            $this->ul([
-                'Remove the server from inventory',
-                "Delete {$siteCount} associated site(s): {$sitesList}",
-            ]);
+            $deletionInfo[] = "Destroy the droplet on DigitalOcean (ID: {$server->dropletId})";
         }
 
-        //
-        // Initialize provider API
-        // ----
-
-        if ($isDigitalOceanServer && Command::FAILURE === $this->initializeDigitalOceanAPI()) {
-            $this->nay('Cannot delete server: DigitalOcean API authentication failed.');
-
-            return Command::FAILURE;
-        }
+        $this->info('This will:');
+        $this->ul($deletionInfo);
 
         //
         // Confirm deletion with extra safety
@@ -129,8 +103,7 @@ class ServerDeleteCommand extends BaseCommand
             }
         }
 
-        /** @var bool $confirmed */
-        $confirmed = $this->io->getOptionOrPrompt(
+        $confirmed = $this->io->getBooleanOptionOrPrompt(
             'yes',
             fn (): bool => $this->io->promptConfirm(
                 label: 'Are you absolutely sure?',
@@ -152,16 +125,20 @@ class ServerDeleteCommand extends BaseCommand
 
         if ($isDigitalOceanServer && $server->dropletId !== null) {
             try {
+                if (Command::FAILURE === $this->initializeDigitalOceanAPI()) {
+                    throw new \RuntimeException('Destroying droplet failed');
+                }
+
                 $this->io->promptSpin(
                     fn () => $this->digitalOcean->droplet->destroyDroplet($server->dropletId),
                     "Destroying droplet (ID: {$server->dropletId})"
                 );
 
                 $this->yay('Droplet destroyed (ID: ' . $server->dropletId . ')');
+
                 $destroyed = true;
             } catch (\RuntimeException $e) {
                 $this->nay($e->getMessage());
-                $this->out('');
 
                 $continueAnyway = $this->io->promptConfirm(
                     label: 'Remove from inventory anyway?',
@@ -186,7 +163,7 @@ class ServerDeleteCommand extends BaseCommand
         // Delete associated sites
         // ----
 
-        if ($hasSites) {
+        if (count($serverSites) > 0) {
             foreach ($serverSites as $site) {
                 $this->sites->delete($site->domain);
             }
@@ -196,10 +173,8 @@ class ServerDeleteCommand extends BaseCommand
         }
 
         if (!$destroyed) {
-            $this->info('Your server may still be running and incurring costs:');
-            $this->out([
-                'Check with your cloud provider to ensure it is fully terminated.',
-            ]);
+            $this->warn('Your server may still be running and incurring costs');
+            $this->out('Check with your cloud provider to ensure it is fully terminated');
         }
 
         //

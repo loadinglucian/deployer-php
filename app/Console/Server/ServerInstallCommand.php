@@ -6,9 +6,11 @@ namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\KeysTrait;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
+use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -24,6 +26,7 @@ class ServerInstallCommand extends BaseCommand
     use KeysTrait;
     use PlaybooksTrait;
     use ServersTrait;
+    use SitesTrait;
 
     // ----
     // Configuration
@@ -55,19 +58,11 @@ class ServerInstallCommand extends BaseCommand
         // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
-        if (is_int($server) || $server->info === null) {
+        if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
-
-        [
-            'distro' => $distro,
-            'permissions' => $permissions,
-        ] = $server->info;
-
-        /** @var string $distro */
-        /** @var string $permissions */
 
         //
         // Prepare packages
@@ -78,8 +73,6 @@ class ServerInstallCommand extends BaseCommand
             'package-list',
             'Preparing packages...',
             [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_GATHER_PHP' => 'true',
             ],
         );
@@ -96,10 +89,6 @@ class ServerInstallCommand extends BaseCommand
             $server,
             'base-install',
             'Installing base packages...',
-            [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-            ],
         );
 
         if (is_int($result)) {
@@ -130,9 +119,6 @@ class ServerInstallCommand extends BaseCommand
             $server,
             'bun-install',
             'Installing Bun...',
-            [
-                'DEPLOYER_PERMS' => $permissions,
-            ],
         );
 
         if (is_int($bunResult)) {
@@ -143,7 +129,7 @@ class ServerInstallCommand extends BaseCommand
         // Setup deployer user
         // ----
 
-        $deployKeyResult = $this->setupDeployerUser($input, $server, $distro, $permissions);
+        $deployKeyResult = $this->setupDeployerUser($input, $server);
 
         if (is_int($deployKeyResult)) {
             return $deployKeyResult;
@@ -203,7 +189,7 @@ class ServerInstallCommand extends BaseCommand
      *
      * @return array{deploy_key_path: string|null, deploy_public_key: string}|int
      */
-    private function setupDeployerUser(InputInterface $input, ServerDTO $server, string $distro, string $permissions): array|int
+    private function setupDeployerUser(InputInterface $input, ServerDTO $server): array|int
     {
         //
         // Get deploy key configuration
@@ -220,54 +206,47 @@ class ServerInstallCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        if ($generateKey) {
-            $deployKeyPath = null;
-        } elseif ($customKeyPath !== null) {
-            $deployKeyPath = $customKeyPath;
-        } else {
-            $choice = $this->io->promptSelect(
-                label: 'Deploy key:',
-                options: [
-                    'generate' => 'Use server-generated key pair',
-                    'custom' => 'Use your own key pair',
-                ],
-                default: 'generate'
-            );
+        //
+        // Determine deploy key path
+        // ----
 
-            if ($choice === 'generate') {
+        try {
+            if ($generateKey) {
                 $deployKeyPath = null;
+            } elseif ($customKeyPath !== null) {
+                // CLI option provided - validate via trait method
+                $deployKeyPath = $this->promptDeployKeyPairPath();
             } else {
-                $deployKeyPath = $this->io->promptText(
-                    label: 'Path to private key:',
-                    placeholder: '~/.ssh/deploy_key',
-                    required: true,
-                    hint: 'Public key expected at same path + .pub'
+                // Interactive: ask user to choose
+                $choice = $this->io->promptSelect(
+                    label: 'Deploy key:',
+                    options: [
+                        'generate' => 'Use server-generated key pair',
+                        'custom' => 'Use your own key pair',
+                    ],
+                    default: 'generate'
                 );
+
+                $deployKeyPath = ($choice === 'generate')
+                    ? null
+                    : $this->promptDeployKeyPairPath();
             }
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
         }
 
         //
         // Prepare playbook variables
         // ----
 
-        $playbookVars = [
-            'DEPLOYER_DISTRO' => $distro,
-            'DEPLOYER_PERMS' => $permissions,
-            'DEPLOYER_SERVER_NAME' => $server->name,
-        ];
+        $playbookVars = [];
 
-        if ($deployKeyPath !== null && $deployKeyPath !== '') {
-            $validationError = $this->validateDeployKeyPairInput($deployKeyPath);
-
-            if ($validationError !== null) {
-                $this->nay($validationError);
-
-                return Command::FAILURE;
-            }
-
-            $expandedPath = $this->fs->expandPath($deployKeyPath);
-            $privateKeyContent = $this->fs->readFile($expandedPath);
-            $publicKeyContent = $this->fs->readFile($expandedPath . '.pub');
+        if ($deployKeyPath !== null) {
+            // Path already validated and expanded by promptDeployKeyPairPath()
+            $privateKeyContent = $this->fs->readFile($deployKeyPath);
+            $publicKeyContent = $this->fs->readFile($deployKeyPath . '.pub');
 
             $playbookVars['DEPLOYER_KEY_PRIVATE'] = base64_encode($privateKeyContent);
             $playbookVars['DEPLOYER_KEY_PUBLIC'] = base64_encode($publicKeyContent);
@@ -379,20 +358,21 @@ class ServerInstallCommand extends BaseCommand
         // ----
 
         $defaultVersion = in_array('8.5', $phpVersions) ? '8.5' : $phpVersions[0];
-        $phpVersion = (string) $this->io->getOptionOrPrompt(
-            'php-version',
-            fn () => $this->io->promptSelect(
-                label: 'PHP version:',
-                options: $phpVersions,
-                default: $defaultVersion
-            )
-        );
 
-        // Validate CLI-provided version exists in available versions
-        if (!in_array($phpVersion, $phpVersions, true)) {
-            $this->nay(
-                "PHP version {$phpVersion} is not available. Available versions: " . implode(', ', $phpVersions)
+        try {
+            /** @var string $phpVersion */
+            $phpVersion = $this->io->getValidatedOptionOrPrompt(
+                'php-version',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'PHP version:',
+                    options: $phpVersions,
+                    default: $defaultVersion,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validatePhpVersionInput($value, $phpVersions)
             );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }
@@ -424,15 +404,23 @@ class ServerInstallCommand extends BaseCommand
         // Filter defaults to only those available for this version
         $preSelected = array_values(array_intersect($defaultExtensions, $availableExtensions));
 
-        $selectedExtensions = $this->io->getOptionOrPrompt(
-            'php-extensions',
-            fn () => $this->io->promptMultiselect(
-                label: 'Select PHP extensions:',
-                options: $availableExtensions,
-                default: $preSelected,
-                scroll: 15
-            )
-        );
+        try {
+            $selectedExtensions = $this->io->getValidatedOptionOrPrompt(
+                'php-extensions',
+                fn ($validate) => $this->io->promptMultiselect(
+                    label: 'Select PHP extensions:',
+                    options: $availableExtensions,
+                    default: $preSelected,
+                    scroll: 15,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validatePhpExtensionsInput($value, $availableExtensions)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
+        }
 
         // Handle both array (from prompt) and string (from CLI option)
         if (is_string($selectedExtensions)) {
@@ -442,11 +430,7 @@ class ServerInstallCommand extends BaseCommand
             );
         }
 
-        if (!is_array($selectedExtensions)) {
-            $this->nay('Invalid PHP extensions selection');
-
-            return Command::FAILURE;
-        }
+        /** @var array<int, string> $selectedExtensions */
 
         // Validate all selected extensions exist for this PHP version
         $unknownExtensions = array_diff($selectedExtensions, $availableExtensions);
@@ -486,7 +470,7 @@ class ServerInstallCommand extends BaseCommand
             } else {
                 // PHP already installed but not default - ask user
                 $defaultPrompted = true;
-                $setAsDefault = (bool) $this->io->getOptionOrPrompt(
+                $setAsDefault = $this->io->getBooleanOptionOrPrompt(
                     'php-default',
                     fn () => $this->io->promptConfirm(
                         label: "Set PHP {$phpVersion} as default?",
@@ -500,18 +484,11 @@ class ServerInstallCommand extends BaseCommand
         // Execute installation playbook
         // ----
 
-        /** @var string $distro */
-        $distro = $info['distro'];
-        /** @var string $permissions */
-        $permissions = $info['permissions'];
-
         $result = $this->executePlaybook(
             $server,
             'php-install',
             "Installing PHP...",
             [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_PHP_VERSION' => $phpVersion,
                 'DEPLOYER_PHP_SET_DEFAULT' => $setAsDefault ? 'true' : 'false',
                 'DEPLOYER_PHP_EXTENSIONS' => implode(',', $selectedExtensions),
@@ -531,5 +508,59 @@ class ServerInstallCommand extends BaseCommand
             'php_default_prompted' => $defaultPrompted,
             'php_extensions' => implode(',', $selectedExtensions),
         ];
+    }
+
+    // ----
+    // Validation
+    // ----
+
+    /**
+     * Validate PHP version selection.
+     *
+     * @param array<int, string> $availableVersions Available PHP versions
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    private function validatePhpVersionInput(mixed $value, array $availableVersions): ?string
+    {
+        if (! is_string($value)) {
+            return 'PHP version must be a string';
+        }
+
+        if (! in_array($value, $availableVersions, true)) {
+            return "PHP version {$value} is not available. Available versions: " . implode(', ', $availableVersions);
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate PHP extensions selection.
+     *
+     * @param array<int|string, string> $availableExtensions Available PHP extensions
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    private function validatePhpExtensionsInput(mixed $value, array $availableExtensions): ?string
+    {
+        // CLI provides comma-separated string, prompt provides array
+        $extensions = $value;
+        if (is_string($extensions)) {
+            $extensions = array_filter(
+                array_map(trim(...), explode(',', $extensions)),
+                static fn (string $ext): bool => $ext !== ''
+            );
+        }
+
+        if (! is_array($extensions)) {
+            return 'Invalid PHP extensions selection';
+        }
+
+        $unknownExtensions = array_diff($extensions, $availableExtensions);
+        if ([] !== $unknownExtensions) {
+            return 'Unknown extension(s): ' . implode(', ', $unknownExtensions);
+        }
+
+        return null;
     }
 }

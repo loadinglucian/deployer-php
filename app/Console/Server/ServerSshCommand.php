@@ -44,30 +44,26 @@ class ServerSshCommand extends BaseCommand
         $this->h1('SSH into Server');
 
         //
-        // Select server & validate connection
+        // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server)) {
             return $server;
         }
 
         //
-        // Resolve SSH binary
+        // Build SSH command
         // ----
 
         $sshBinary = $this->findSshBinary();
 
         if (null === $sshBinary) {
-            $this->nay('SSH binary not found in PATH');
+            $this->nay('Couldn not find ssh in PATH');
 
             return Command::FAILURE;
         }
-
-        //
-        // Build SSH command arguments
-        // ----
 
         $sshArgs = [
             '-o', 'StrictHostKeyChecking=accept-new',
