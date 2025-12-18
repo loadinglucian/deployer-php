@@ -145,7 +145,11 @@ class ServerInfoCommand extends BaseCommand
             }
         }
 
-        $this->displayDeets(['Services' => $services]);
+        if ([] === $services) {
+            $this->displayDeets(['Services' => 'None detected']);
+        } else {
+            $this->displayDeets(['Services' => $services]);
+        }
 
         $this->displayFirewallDeets($info);
 

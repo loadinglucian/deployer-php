@@ -10,7 +10,6 @@ use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\KeysTrait;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
-use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -26,7 +25,6 @@ class ServerInstallCommand extends BaseCommand
     use KeysTrait;
     use PlaybooksTrait;
     use ServersTrait;
-    use SitesTrait;
 
     // ----
     // Configuration
@@ -245,8 +243,14 @@ class ServerInstallCommand extends BaseCommand
 
         if ($deployKeyPath !== null) {
             // Path already validated and expanded by promptDeployKeyPairPath()
-            $privateKeyContent = $this->fs->readFile($deployKeyPath);
-            $publicKeyContent = $this->fs->readFile($deployKeyPath . '.pub');
+            try {
+                $privateKeyContent = $this->fs->readFile($deployKeyPath);
+                $publicKeyContent = $this->fs->readFile($deployKeyPath . '.pub');
+            } catch (\RuntimeException $e) {
+                $this->nay($e->getMessage());
+
+                return Command::FAILURE;
+            }
 
             $playbookVars['DEPLOYER_KEY_PRIVATE'] = base64_encode($privateKeyContent);
             $playbookVars['DEPLOYER_KEY_PUBLIC'] = base64_encode($publicKeyContent);
@@ -432,22 +436,6 @@ class ServerInstallCommand extends BaseCommand
 
         /** @var array<int, string> $selectedExtensions */
 
-        // Validate all selected extensions exist for this PHP version
-        $unknownExtensions = array_diff($selectedExtensions, $availableExtensions);
-        if ($unknownExtensions !== []) {
-            $this->nay(
-                'Unknown PHP extensions for PHP ' . $phpVersion . ': ' . implode(', ', $unknownExtensions)
-            );
-
-            return Command::FAILURE;
-        }
-
-        if ($selectedExtensions === []) {
-            $this->nay('At least one extension must be selected');
-
-            return Command::FAILURE;
-        }
-
         //
         // Determine if setting as default
         // ----
@@ -496,9 +484,7 @@ class ServerInstallCommand extends BaseCommand
         );
 
         if (is_int($result)) {
-            $this->nay('PHP installation failed');
-
-            return Command::FAILURE;
+            return $result;
         }
 
         return [
@@ -554,6 +540,10 @@ class ServerInstallCommand extends BaseCommand
 
         if (! is_array($extensions)) {
             return 'Invalid PHP extensions selection';
+        }
+
+        if ($extensions === []) {
+            return 'At least one extension must be selected';
         }
 
         $unknownExtensions = array_diff($extensions, $availableExtensions);

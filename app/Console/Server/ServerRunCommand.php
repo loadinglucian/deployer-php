@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Exceptions\SSHTimeoutException;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -90,9 +91,24 @@ class ServerRunCommand extends BaseCommand
 
             $this->out('───');
 
-            if ($result['exit_code'] !== 0) {
+            if (0 !== $result['exit_code']) {
                 throw new \RuntimeException("Command failed with exit code {$result['exit_code']}");
             }
+        } catch (SSHTimeoutException $e) {
+            $this->nay($e->getMessage());
+            $this->warn('The command took longer than expected. Either:');
+            $this->ul([
+                'The command requires more time to complete',
+                'Server has a slow network connection',
+                'Server is under heavy load',
+            ]);
+            $this->warn('You can try:');
+            $this->ul([
+                'Running the command again',
+                'Checking server load with <|cyan>server:info</>',
+            ]);
+
+            return Command::FAILURE;
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
 

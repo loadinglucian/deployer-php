@@ -33,7 +33,8 @@ class ServerDeleteCommand extends BaseCommand
         $this
             ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the server name to confirm')
-            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
+            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt')
+            ->addOption('inventory-only', null, InputOption::VALUE_NONE, 'Only remove from inventory, skip cloud provider destruction');
     }
 
     // ----
@@ -60,8 +61,6 @@ class ServerDeleteCommand extends BaseCommand
 
         $siteCount = count($serverSites);
 
-        $isDigitalOceanServer = $server->provider === 'digitalocean' && $server->dropletId !== null;
-
         //
         // Display deletion info
         // ----
@@ -76,7 +75,7 @@ class ServerDeleteCommand extends BaseCommand
             $deletionInfo[] = "Delete {$siteCount} associated site(s): {$sitesList}";
         }
 
-        if ($isDigitalOceanServer) {
+        if ($server->isDigitalOcean()) {
             $deletionInfo[] = "Destroy the droplet on DigitalOcean (ID: {$server->dropletId})";
         }
 
@@ -88,7 +87,7 @@ class ServerDeleteCommand extends BaseCommand
         // ----
 
         /** @var bool $forceSkip */
-        $forceSkip = $input->getOption('force') ?? false;
+        $forceSkip = $input->getOption('force');
 
         if (!$forceSkip) {
             $typedName = $this->io->promptText(
@@ -123,26 +122,35 @@ class ServerDeleteCommand extends BaseCommand
 
         $destroyed = false;
 
-        if ($isDigitalOceanServer && $server->dropletId !== null) {
+        /** @var bool $inventoryOnly */
+        $inventoryOnly = $input->getOption('inventory-only');
+
+        if ($server->isDigitalOcean() && !$inventoryOnly) {
             try {
                 if (Command::FAILURE === $this->initializeDigitalOceanAPI()) {
                     throw new \RuntimeException('Destroying droplet failed');
                 }
 
+                /** @var int $dropletId */
+                $dropletId = $server->dropletId;
+
                 $this->io->promptSpin(
-                    fn () => $this->digitalOcean->droplet->destroyDroplet($server->dropletId),
-                    "Destroying droplet (ID: {$server->dropletId})"
+                    fn () => $this->digitalOcean->droplet->destroyDroplet($dropletId),
+                    "Destroying droplet (ID: {$dropletId})"
                 );
 
-                $this->yay('Droplet destroyed (ID: ' . $server->dropletId . ')');
+                $this->yay('Droplet destroyed (ID: ' . $dropletId . ')');
 
                 $destroyed = true;
             } catch (\RuntimeException $e) {
                 $this->nay($e->getMessage());
 
-                $continueAnyway = $this->io->promptConfirm(
-                    label: 'Remove from inventory anyway?',
-                    default: true
+                $continueAnyway = $this->io->getBooleanOptionOrPrompt(
+                    'inventory-only',
+                    fn (): bool => $this->io->promptConfirm(
+                        label: 'Remove from inventory anyway?',
+                        default: true
+                    )
                 );
 
                 if (!$continueAnyway) {
@@ -172,6 +180,7 @@ class ServerDeleteCommand extends BaseCommand
             $this->yay("Deleted {$siteCount} associated {$sitesText}");
         }
 
+        // Either we failed to destroy the server or the user provisioned their server manually somewhere else
         if (!$destroyed) {
             $this->warn('Your server may still be running and incurring costs');
             $this->out('Check with your cloud provider to ensure it is fully terminated');
@@ -181,11 +190,19 @@ class ServerDeleteCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('server:delete', [
+        $replayOptions = [
             'server' => $server->name,
             'force' => true,
-            'yes' => $confirmed,
-        ]);
+            'yes' => true,
+        ];
+
+        // If we made it this far with a provisioned server that wasn't destroyed,
+        // we should add the --inventory-only option to the command replay
+        if ($server->isProvisioned() && !$destroyed) {
+            $replayOptions['inventory-only'] = true;
+        }
+
+        $this->commandReplay('server:delete', $replayOptions);
 
         return Command::SUCCESS;
     }

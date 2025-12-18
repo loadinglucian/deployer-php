@@ -178,6 +178,8 @@ class ServerFirewallCommand extends BaseCommand
                     explode(',', $selectedPorts)
                 )));
             }
+
+            /** @var array<int, int> $selectedPorts */
         } catch (ValidationException $e) {
             $this->nay($e->getMessage());
             return Command::FAILURE;
@@ -216,6 +218,10 @@ class ServerFirewallCommand extends BaseCommand
         $ports = is_string($value)
             ? array_filter(array_map(fn ($p) => (int) trim($p), explode(',', $value)))
             : $value;
+
+        if ([] === $ports) {
+            return 'At least one port must be selected';
+        }
 
         // Validate port range
         /** @var int $port */

@@ -65,15 +65,21 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $accountData = $this->io->promptSpin(
-            fn () => [
-                'keys' => $this->digitalOcean->account->getPublicKeys(),
-                'regions' => $this->digitalOcean->account->getAvailableRegions(),
-                'sizes' => $this->digitalOcean->account->getAvailableSizes(),
-                'images' => $this->digitalOcean->account->getAvailableImages(),
-            ],
-            'Retrieving account information...'
-        );
+        try {
+            $accountData = $this->io->promptSpin(
+                fn () => [
+                    'keys' => $this->digitalOcean->account->getPublicKeys(),
+                    'regions' => $this->digitalOcean->account->getAvailableRegions(),
+                    'sizes' => $this->digitalOcean->account->getAvailableSizes(),
+                    'images' => $this->digitalOcean->account->getAvailableImages(),
+                ],
+                'Retrieving account information...'
+            );
+        } catch (\RuntimeException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
+        }
 
         $keys = $this->ensureKeysAvailable($accountData['keys']);
 
@@ -129,7 +135,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             $dropletId = $dropletData['id'];
             $this->yay("Droplet provisioned (ID: {$dropletId})");
         } catch (\RuntimeException $e) {
-            $this->nay('Failed to provision droplet: ' . $e->getMessage());
+            $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }
@@ -163,21 +169,19 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
                 dropletId: $dropletId
             ));
 
-            if (is_int($server)) {
-                return Command::FAILURE;
+            if (!is_int($server)) {
+                // Add to inventory
+                $this->servers->create($server);
+
+                $this->yay('Server added to inventory');
+
+                $this->ul([
+                    'Run <|cyan>server:info</> to view server information',
+                    'Or run <|cyan>server:install</> to install your new server',
+                ]);
+
+                $provisionSuccess = true;
             }
-
-            // Add to inventory
-            $this->servers->create($server);
-
-            $this->yay('Server added to inventory');
-
-            $this->ul([
-                'Run <|cyan>server:info</> to view server information',
-                'Or run <|cyan>server:install</> to install your new server',
-            ]);
-
-            $provisionSuccess = true;
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
         }
@@ -250,7 +254,8 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
                     options: $accountData['regions'],
                     hint: 'Choose the datacenter location',
                     default: '',
-                    scroll: 15
+                    scroll: 15,
+                    validate: $validate
                 ),
                 fn ($value) => $this->validateDigitalOceanRegion($value, $accountData['regions'])
             );
@@ -263,7 +268,8 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
                     options: $accountData['sizes'],
                     hint: 'Choose CPU, RAM, and storage',
                     default: '',
-                    scroll: 15
+                    scroll: 15,
+                    validate: $validate
                 ),
                 fn ($value) => $this->validateDigitalOceanDropletSize($value, $accountData['sizes'])
             );
@@ -276,7 +282,8 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
                     options: $accountData['images'],
                     hint: 'Supported Linux distributions',
                     default: 'ubuntu-24-04-x64',
-                    scroll: 15
+                    scroll: 15,
+                    validate: $validate
                 ),
                 fn ($value) => $this->validateDigitalOceanDropletImage($value, $accountData['images'])
             );
@@ -340,20 +347,23 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
                 )
             );
 
+            $availableVpcs = $this->digitalOcean->account->getUserVpcs($region);
+
             /** @var string $vpcUuid */
             $vpcUuid = $this->io->getValidatedOptionOrPrompt(
                 'vpc-uuid',
                 fn ($validate) => $this->io->promptSelect(
                     label: 'Select VPC:',
-                    options: $this->digitalOcean->account->getUserVpcs($region),
-                    hint: 'Virtual Private Cloud for network isolation'
+                    options: $availableVpcs,
+                    hint: 'Virtual Private Cloud for network isolation',
+                    validate: $validate
                 ),
-                fn ($value) => $this->validateDigitalOceanVPCUUID($value)
+                fn ($value) => $this->validateDigitalOceanVPCUUID($value, $availableVpcs)
             );
 
             // Convert "default" to null for API
             $vpcUuidForApi = ($vpcUuid === 'default') ? null : $vpcUuid;
-        } catch (ValidationException $e) {
+        } catch (ValidationException|\RuntimeException $e) {
             $this->nay($e->getMessage());
 
             return Command::FAILURE;

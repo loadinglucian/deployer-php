@@ -10,7 +10,6 @@ use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\KeysTrait;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
-use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -26,7 +25,6 @@ class ServerAddCommand extends BaseCommand
     use KeysTrait;
     use PlaybooksTrait;
     use ServersTrait;
-    use SitesTrait;
 
     // ----
     // Configuration

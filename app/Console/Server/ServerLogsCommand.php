@@ -281,9 +281,13 @@ class ServerLogsCommand extends BaseCommand
                 $source = self::PORT_SOURCES[$key];
                 $label = $this->getServiceLabel($key);
 
-                match ($source['type']) {
-                    'journalctl' => $this->retrieveJournalLogs($server, $label, $source['unit'], $lines),
-                    'file' => $this->retrieveFileLogs($server, $label, $source['path'], $lines),
+                /** @var string $sourceType */
+                $sourceType = $source['type'];
+
+                match ($sourceType) {
+                    'journalctl' => $this->retrieveJournalLogs($server, $label, $source['unit'] ?? null, $lines),
+                    'file' => $this->retrieveFileLogs($server, $label, $source['path'] ?? '', $lines),
+                    default => $this->warn("Unknown log type: {$sourceType}"),
                 };
 
                 continue;
@@ -304,16 +308,20 @@ class ServerLogsCommand extends BaseCommand
             if (str_starts_with($key, 'cron:')) {
                 $parts = explode('/', substr($key, 5), 2);
 
-                if (2 === count($parts)) {
-                    [$domain, $script] = $parts;
-                    $scriptBase = pathinfo($script, PATHINFO_FILENAME);
-                    $this->retrieveFileLogs(
-                        $server,
-                        "Cron: {$domain}/{$script}",
-                        "/var/log/cron/{$domain}-{$scriptBase}.log",
-                        $lines
-                    );
+                if (2 !== count($parts)) {
+                    $this->warn("Invalid cron key format: {$key}");
+
+                    continue;
                 }
+
+                [$domain, $script] = $parts;
+                $scriptBase = pathinfo($script, PATHINFO_FILENAME);
+                $this->retrieveFileLogs(
+                    $server,
+                    "Cron: {$domain}/{$script}",
+                    "/var/log/cron/{$domain}-{$scriptBase}.log",
+                    $lines
+                );
 
                 continue;
             }
@@ -324,15 +332,19 @@ class ServerLogsCommand extends BaseCommand
             if (str_starts_with($key, 'supervisor:')) {
                 $parts = explode('/', substr($key, 11), 2);
 
-                if (2 === count($parts)) {
-                    [$domain, $program] = $parts;
-                    $this->retrieveFileLogs(
-                        $server,
-                        "Supervisor: {$domain}/{$program}",
-                        "/var/log/supervisor/{$domain}-{$program}.log",
-                        $lines
-                    );
+                if (2 !== count($parts)) {
+                    $this->warn("Invalid supervisor key format: {$key}");
+
+                    continue;
                 }
+
+                [$domain, $program] = $parts;
+                $this->retrieveFileLogs(
+                    $server,
+                    "Supervisor: {$domain}/{$program}",
+                    "/var/log/supervisor/{$domain}-{$program}.log",
+                    $lines
+                );
 
                 continue;
             }
