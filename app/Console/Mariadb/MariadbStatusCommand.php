@@ -32,6 +32,8 @@ class MariadbStatusCommand extends BaseCommand
         parent::configure();
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
+
+        // No default value: omitting --lines displays a prompt with its own default
         $this->addOption('lines', 'n', InputOption::VALUE_REQUIRED, 'Number of lines to retrieve');
     }
 

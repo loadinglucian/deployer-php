@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Mariadb;
+namespace Deployer\Console\Postgresql;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\PlaybooksTrait;
@@ -14,10 +14,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'mariadb:install',
-    description: 'Install MariaDB server on a server'
+    name: 'postgresql:install',
+    description: 'Install PostgreSQL server on a server'
 )]
-class MariadbInstallCommand extends BaseCommand
+class PostgresqlInstallCommand extends BaseCommand
 {
     use PlaybooksTrait;
     use ServersTrait;
@@ -43,7 +43,7 @@ class MariadbInstallCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('Install MariaDB');
+        $this->h1('Install PostgreSQL');
 
         //
         // Select server
@@ -86,20 +86,20 @@ class MariadbInstallCommand extends BaseCommand
             } else {
                 $saveCredentialsPath = $this->io->promptText(
                     label: 'Save credentials to:',
-                    placeholder: './.env.mariadb',
+                    placeholder: './.env.postgresql',
                     required: true
                 );
             }
         }
 
         //
-        // Install MariaDB
+        // Install PostgreSQL
         // ----
 
         $result = $this->executePlaybook(
             $server,
-            'mariadb-install',
-            'Installing MariaDB...',
+            'postgresql-install',
+            'Installing PostgreSQL...',
         );
 
         if (is_int($result)) {
@@ -111,32 +111,32 @@ class MariadbInstallCommand extends BaseCommand
         // ----
 
         if (!($result['already_installed'] ?? false)) {
-            $rootPass = $result['root_pass'] ?? null;
+            $postgresPass = $result['postgres_pass'] ?? null;
             $deployerPass = $result['deployer_pass'] ?? null;
 
-            if (null === $rootPass || '' === $rootPass || null === $deployerPass || '' === $deployerPass) {
-                $this->nay('MariaDB installation completed but credentials were not returned');
+            if (null === $postgresPass || '' === $postgresPass || null === $deployerPass || '' === $deployerPass) {
+                $this->nay('PostgreSQL installation completed but credentials were not returned');
 
                 return Command::FAILURE;
             }
 
-            /** @var string $rootPass */
+            /** @var string $postgresPass */
             /** @var string $deployerPass */
             /** @var string $deployerUser */
             $deployerUser = $result['deployer_user'] ?? 'deployer';
             /** @var string $deployerDatabase */
             $deployerDatabase = $result['deployer_database'] ?? 'deployer';
 
-            $this->yay('MariaDB installation completed successfully');
+            $this->yay('PostgreSQL installation completed successfully');
 
             if ($displayCredentials) {
-                $this->displayCredentialsOnScreen($rootPass, $deployerUser, $deployerPass, $deployerDatabase);
+                $this->displayCredentialsOnScreen($postgresPass, $deployerUser, $deployerPass, $deployerDatabase);
             } else {
                 try {
                     $this->saveCredentialsToFile(
                         $saveCredentialsPath,
                         $server->name,
-                        $rootPass,
+                        $postgresPass,
                         $deployerUser,
                         $deployerPass,
                         $deployerDatabase
@@ -144,11 +144,11 @@ class MariadbInstallCommand extends BaseCommand
                 } catch (\RuntimeException $e) {
                     $this->nay($e->getMessage());
                     $this->info('Credentials will be displayed on screen instead:');
-                    $this->displayCredentialsOnScreen($rootPass, $deployerUser, $deployerPass, $deployerDatabase);
+                    $this->displayCredentialsOnScreen($postgresPass, $deployerUser, $deployerPass, $deployerDatabase);
                 }
             }
         } else {
-            $this->info('MariaDB is already installed on this server');
+            $this->info('PostgreSQL is already installed on this server');
         }
 
         //
@@ -165,7 +165,7 @@ class MariadbInstallCommand extends BaseCommand
             }
         }
 
-        $this->commandReplay('mariadb:install', $replayOptions);
+        $this->commandReplay('postgresql:install', $replayOptions);
 
         return Command::SUCCESS;
     }
@@ -178,15 +178,15 @@ class MariadbInstallCommand extends BaseCommand
      * Display credentials on the console screen.
      */
     protected function displayCredentialsOnScreen(
-        string $rootPass,
+        string $postgresPass,
         string $deployerUser,
         string $deployerPass,
         string $deployerDatabase
     ): void {
         $this->out([
             '',
-            'Root Credentials (admin access):',
-            "  Password: {$rootPass}",
+            'Postgres Credentials (admin access):',
+            "  Password: {$postgresPass}",
             '',
             'Application Credentials:',
             "  Database: {$deployerDatabase}",
@@ -194,7 +194,7 @@ class MariadbInstallCommand extends BaseCommand
             "  Password: {$deployerPass}",
             '',
             'Connection string:',
-            "  mysql://{$deployerUser}:{$deployerPass}@localhost/{$deployerDatabase}",
+            "  postgresql://{$deployerUser}:{$deployerPass}@localhost/{$deployerDatabase}",
             '',
         ]);
 
@@ -207,26 +207,26 @@ class MariadbInstallCommand extends BaseCommand
     protected function saveCredentialsToFile(
         string $filePath,
         string $serverName,
-        string $rootPass,
+        string $postgresPass,
         string $deployerUser,
         string $deployerPass,
         string $deployerDatabase
     ): void {
         $content = <<<CREDS
-            # MariaDB Credentials for {$serverName}
+            # PostgreSQL Credentials for {$serverName}
             # Generated: {$this->now()}
             # WARNING: Keep this file secure!
 
-            ## Root Credentials (admin access)
-            MARIADB_ROOT_PASSWORD={$rootPass}
+            ## Postgres Credentials (admin access)
+            POSTGRES_PASSWORD={$postgresPass}
 
             ## Application Credentials
-            MARIADB_DATABASE={$deployerDatabase}
-            MARIADB_USER={$deployerUser}
-            MARIADB_PASSWORD={$deployerPass}
+            POSTGRES_DATABASE={$deployerDatabase}
+            POSTGRES_USER={$deployerUser}
+            POSTGRES_USER_PASSWORD={$deployerPass}
 
             ## Connection String
-            DATABASE_URL=mysql://{$deployerUser}:{$deployerPass}@localhost/{$deployerDatabase}
+            DATABASE_URL=postgresql://{$deployerUser}:{$deployerPass}@localhost/{$deployerDatabase}
             CREDS;
 
         $fileExists = $this->fs->exists($filePath);

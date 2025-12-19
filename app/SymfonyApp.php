@@ -20,6 +20,11 @@ use Deployer\Console\Mysql\MysqlRestartCommand;
 use Deployer\Console\Mysql\MysqlStartCommand;
 use Deployer\Console\Mysql\MysqlStatusCommand;
 use Deployer\Console\Mysql\MysqlStopCommand;
+use Deployer\Console\Postgresql\PostgresqlInstallCommand;
+use Deployer\Console\Postgresql\PostgresqlRestartCommand;
+use Deployer\Console\Postgresql\PostgresqlStartCommand;
+use Deployer\Console\Postgresql\PostgresqlStatusCommand;
+use Deployer\Console\Postgresql\PostgresqlStopCommand;
 use Deployer\Console\ScaffoldCronsCommand;
 use Deployer\Console\ScaffoldHooksCommand;
 use Deployer\Console\ScaffoldSupervisorsCommand;
@@ -217,6 +222,15 @@ final class SymfonyApp extends SymfonyApplication
             MariadbStartCommand::class,
             MariadbStatusCommand::class,
             MariadbStopCommand::class,
+
+            //
+            // PostgreSQL management
+
+            PostgresqlInstallCommand::class,
+            PostgresqlRestartCommand::class,
+            PostgresqlStartCommand::class,
+            PostgresqlStatusCommand::class,
+            PostgresqlStopCommand::class,
         ];
 
         foreach ($commands as $command) {

@@ -7,7 +7,6 @@ namespace Deployer\Console\Mysql;
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
-use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -22,7 +21,6 @@ class MysqlInstallCommand extends BaseCommand
 {
     use PlaybooksTrait;
     use ServersTrait;
-    use SitesTrait;
 
     // ----
     // Configuration
@@ -134,14 +132,20 @@ class MysqlInstallCommand extends BaseCommand
             if ($displayCredentials) {
                 $this->displayCredentialsOnScreen($rootPass, $deployerUser, $deployerPass, $deployerDatabase);
             } else {
-                $this->saveCredentialsToFile(
-                    $saveCredentialsPath,
-                    $server->name,
-                    $rootPass,
-                    $deployerUser,
-                    $deployerPass,
-                    $deployerDatabase
-                );
+                try {
+                    $this->saveCredentialsToFile(
+                        $saveCredentialsPath,
+                        $server->name,
+                        $rootPass,
+                        $deployerUser,
+                        $deployerPass,
+                        $deployerDatabase
+                    );
+                } catch (\RuntimeException $e) {
+                    $this->nay($e->getMessage());
+                    $this->info('Credentials will be displayed on screen instead:');
+                    $this->displayCredentialsOnScreen($rootPass, $deployerUser, $deployerPass, $deployerDatabase);
+                }
             }
         } else {
             $this->info('MySQL is already installed on this server');

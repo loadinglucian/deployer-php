@@ -52,6 +52,7 @@ class ServerLogsCommand extends BaseCommand
         'sshd' => ['type' => 'journalctl', 'unit' => 'ssh'],
         'mysqld' => ['type' => 'both', 'unit' => 'mysql', 'path' => '/var/log/mysql/error.log'],
         'mariadb' => ['type' => 'both', 'unit' => 'mariadb', 'path' => '/var/log/mysql/error.log'],
+        'postgres' => ['type' => 'both', 'unit' => 'postgresql', 'path' => '/var/log/postgresql/postgresql.log'],
     ];
 
     // ----
