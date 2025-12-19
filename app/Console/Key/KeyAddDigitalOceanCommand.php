@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Key;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\DigitalOceanTrait;
 use Deployer\Traits\KeysTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -59,7 +60,7 @@ class KeyAddDigitalOceanCommand extends BaseCommand
 
         $deets = $this->gatherKeyDeets();
 
-        if ($deets === null) {
+        if (is_int($deets)) {
             return Command::FAILURE;
         }
 
@@ -104,52 +105,48 @@ class KeyAddDigitalOceanCommand extends BaseCommand
     /**
      * Gather key details from user input or CLI options.
      *
-     * @return array{publicKeyPath: string, keyName: string}|null
+     * @return array{publicKeyPath: string, keyName: string}|int
      */
-    protected function gatherKeyDeets(): ?array
+    protected function gatherKeyDeets(): array|int
     {
-        /** @var string|null $publicKeyPathRaw */
-        $publicKeyPathRaw = $this->io->getValidatedOptionOrPrompt(
-            'public-key-path',
-            fn ($validate) => $this->io->promptText(
-                label: 'Path to SSH public key (leave empty for default ~/.ssh/id_ed25519.pub or ~/.ssh/id_rsa.pub):',
-                default: '',
-                required: false,
-                hint: 'Used when provisioning a server',
-                validate: $validate
-            ),
-            fn ($value) => $this->validateKeyPathInput($value)
-        );
+        try {
+            /** @var string $publicKeyPathRaw */
+            $publicKeyPathRaw = $this->io->getValidatedOptionOrPrompt(
+                'public-key-path',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Path to SSH public key (leave empty for default ~/.ssh/id_ed25519.pub or ~/.ssh/id_rsa.pub):',
+                    default: '',
+                    required: false,
+                    hint: 'Used when provisioning a server',
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateKeyPathInput($value)
+            );
 
-        if (null === $publicKeyPathRaw) {
-            return null;
-        }
+            $publicKeyPath = $this->resolvePublicKeyPath($publicKeyPathRaw);
 
-        /** @var ?string $publicKeyPath */
-        $publicKeyPath = $this->resolvePublicKeyPath($publicKeyPathRaw);
+            if (null === $publicKeyPath) {
+                throw new ValidationException('SSH public key not found.');
+            }
 
-        if ($publicKeyPath === null) {
-            $this->nay('SSH public key not found.');
-            return null;
-        }
+            $defaultName = 'deployer-key';
 
-        $defaultName = 'deployer-key';
+            /** @var string $keyName */
+            $keyName = $this->io->getValidatedOptionOrPrompt(
+                'name',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Key name:',
+                    placeholder: $defaultName,
+                    default: $defaultName,
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateKeyNameInput($value)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
 
-        /** @var string|null $keyName */
-        $keyName = $this->io->getValidatedOptionOrPrompt(
-            'name',
-            fn ($validate) => $this->io->promptText(
-                label: 'Key name:',
-                placeholder: $defaultName,
-                default: $defaultName,
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateKeyNameInput($value)
-        );
-
-        if ($keyName === null) {
-            return null;
+            return Command::FAILURE;
         }
 
         return [

@@ -43,10 +43,6 @@ class KeyListDigitalOceanCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        //
-        // Display keys
-        // ----
-
         $this->displayDeets($keys);
 
         //
