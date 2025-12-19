@@ -202,7 +202,7 @@ clone_or_update_repo() {
 		fi
 	else
 		echo "→ Fetching latest changes..."
-		run_as_deployer git --git-dir="$REPO_PATH" remote set-url origin "$DEPLOYER_SITE_REPO"
+		run_as_deployer git --git-dir="$REPO_PATH" remote set-url origin "$DEPLOYER_SITE_REPO" || fail "Failed to update repository URL"
 		if ! run_as_deployer git --git-dir="$REPO_PATH" fetch origin '+refs/heads/*:refs/heads/*' --prune; then
 			fail "Failed to fetch repository updates"
 		fi
@@ -406,7 +406,7 @@ create_runner_script() {
 # Write YAML output file with deployment results
 
 write_output() {
-	cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF
+	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 		status: success
 		domain: ${DEPLOYER_SITE_DOMAIN}
 		branch: ${DEPLOYER_SITE_BRANCH}
@@ -415,6 +415,9 @@ write_output() {
 		current_path: ${CURRENT_PATH}
 		keep_releases: ${DEPLOYER_KEEP_RELEASES}
 	EOF
+		echo "Error: Failed to write output file" >&2
+		exit 1
+	fi
 }
 
 #

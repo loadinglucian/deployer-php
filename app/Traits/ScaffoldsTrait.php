@@ -39,24 +39,28 @@ trait ScaffoldsTrait
      * Scaffold files from templates to destination.
      *
      * @param string $type Scaffold type (e.g., 'crons', 'hooks')
-     *
-     * @throws ValidationException When CLI option validation fails
      */
     protected function scaffoldFiles(string $type): int
     {
         // Get destination directory
-        /** @var string $destinationDir */
-        $destinationDir = $this->io->getValidatedOptionOrPrompt(
-            'destination',
-            fn ($validate) => $this->io->promptText(
-                label: 'Destination directory:',
-                placeholder: $this->fs->getCwd(),
-                default: $this->fs->getCwd(),
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateDestinationInput($value)
-        );
+        try {
+            /** @var string $destinationDir */
+            $destinationDir = $this->io->getValidatedOptionOrPrompt(
+                'destination',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Destination directory:',
+                    placeholder: $this->fs->getCwd(),
+                    default: $this->fs->getCwd(),
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateDestinationInput($value)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
+        }
 
         // Convert relative path to absolute if needed
         if (! str_starts_with($destinationDir, '/')) {
@@ -90,28 +94,28 @@ trait ScaffoldsTrait
      */
     private function copyScaffoldTemplates(string $type, string $destination): void
     {
-        if (! is_dir($destination) && ! mkdir($destination, 0755, true)) {
-            throw new \RuntimeException("Destination directory does not exist: {$destination}");
+        if (! $this->fs->isDirectory($destination)) {
+            $this->fs->mkdir($destination);
         }
 
-        $scaffoldsPath = dirname(__DIR__, 2).'/scaffolds/'.$type;
-        if (! is_dir($scaffoldsPath)) {
+        $scaffoldsPath = dirname(__DIR__, 2) . '/scaffolds/' . $type;
+        if (! $this->fs->isDirectory($scaffoldsPath)) {
             throw new \RuntimeException("Templates directory not found: {$scaffoldsPath}");
         }
 
-        $entries = scandir($scaffoldsPath) ?: [];
+        $entries = $this->fs->scanDirectory($scaffoldsPath);
         $status = [];
 
         foreach ($entries as $entry) {
-            $source = $scaffoldsPath.'/'.$entry;
-            $target = $destination.'/'.$entry;
+            $source = $scaffoldsPath . '/' . $entry;
+            $target = $destination . '/' . $entry;
 
-            if (in_array($entry, ['.', '..']) || is_dir($source)) {
+            if ($this->fs->isDirectory($source)) {
                 continue;
             }
 
             $skipped = true;
-            if (! file_exists($target) && ! is_link($target)) {
+            if (! $this->fs->exists($target) && ! $this->fs->isLink($target)) {
                 $contents = $this->fs->readFile($source);
                 $this->fs->dumpFile($target, $contents);
                 $skipped = false;

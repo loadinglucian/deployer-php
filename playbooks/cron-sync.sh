@@ -4,6 +4,7 @@
 # Site Cron Sync
 #
 # Synchronizes cron jobs from inventory to the deployer user's crontab.
+# Each cron script logs to its own file: /var/log/cron/{domain}-{script}.log
 #
 # Output:
 #   status: success
@@ -25,6 +26,12 @@ export DEPLOYER_PERMS
 
 SITE_ROOT="/home/deployer/sites/${DEPLOYER_SITE_DOMAIN}"
 SHARED_PATH="${SITE_ROOT}/shared"
+CRON_LOG_DIR="/var/log/cron"
+LOGROTATE_DIR="/etc/logrotate.d"
+
+# Populated by parse_crons_json()
+declare -a SCRIPT_NAMES=()
+declare -a SCRIPT_BASES=()
 
 START_MARKER="# DEPLOYER-CRON-START ${DEPLOYER_SITE_DOMAIN}"
 END_MARKER="# DEPLOYER-CRON-END ${DEPLOYER_SITE_DOMAIN}"
@@ -36,7 +43,7 @@ END_MARKER="# DEPLOYER-CRON-END ${DEPLOYER_SITE_DOMAIN}"
 #
 # Parse crons JSON and validate format
 #
-# Returns: Number of crons parsed, sets CRONS array
+# Sets: CRON_COUNT, SCRIPT_NAMES[], SCRIPT_BASES[]
 
 parse_crons_json() {
 	if ! echo "$DEPLOYER_CRONS" | jq empty 2> /dev/null; then
@@ -45,6 +52,16 @@ parse_crons_json() {
 	fi
 
 	CRON_COUNT=$(echo "$DEPLOYER_CRONS" | jq 'length')
+
+	# Build arrays of script names and their base names (without .sh)
+	local i=0
+	while ((i < CRON_COUNT)); do
+		local script
+		script=$(echo "$DEPLOYER_CRONS" | jq -r ".[$i].script")
+		SCRIPT_NAMES+=("$script")
+		SCRIPT_BASES+=("${script%.sh}")
+		((i++))
+	done
 }
 
 # ----
@@ -55,7 +72,7 @@ parse_crons_json() {
 # Generate cron block for a site
 #
 # Outputs the complete cron section including markers and cron entries
-# Environment variables are provided by the site's runner.sh script
+# Each script logs to /var/log/cron/{domain}-{script_base}.log
 
 generate_cron_block() {
 	local cron_block=""
@@ -67,12 +84,12 @@ generate_cron_block() {
 	# Generate each cron entry using runner.sh
 	local i=0
 	while ((i < CRON_COUNT)); do
-		local script schedule
-
-		script=$(echo "$DEPLOYER_CRONS" | jq -r ".[$i].script")
+		local schedule script_base script_log
 		schedule=$(echo "$DEPLOYER_CRONS" | jq -r ".[$i].schedule")
+		script_base="${SCRIPT_BASES[$i]}"
+		script_log="${CRON_LOG_DIR}/${DEPLOYER_SITE_DOMAIN}-${script_base}.log"
 
-		cron_block+="${schedule} ${runner_path} .deployer/crons/${script} >> /dev/null 2>&1"$'\n'
+		cron_block+="${schedule} ${runner_path} .deployer/crons/${SCRIPT_NAMES[$i]} >> ${script_log} 2>&1"$'\n'
 
 		((i++))
 	done
@@ -143,6 +160,109 @@ update_crontab() {
 }
 
 # ----
+# Logging Configuration
+# ----
+
+#
+# Setup cron log directory and per-script log files
+
+setup_cron_logging() {
+	echo "→ Setting up cron logging for ${CRON_COUNT} script(s)..."
+
+	# Create cron log directory if it doesn't exist
+	if ! run_cmd test -d "$CRON_LOG_DIR"; then
+		run_cmd mkdir -p "$CRON_LOG_DIR" || fail "Failed to create cron log directory"
+	fi
+
+	# Create per-script log files
+	for script_base in "${SCRIPT_BASES[@]}"; do
+		local log_file="${CRON_LOG_DIR}/${DEPLOYER_SITE_DOMAIN}-${script_base}.log"
+
+		if ! run_cmd test -f "$log_file"; then
+			run_cmd touch "$log_file" || fail "Failed to create ${log_file}"
+		fi
+
+		run_cmd chown deployer:deployer "$log_file" || fail "Failed to set ownership on ${log_file}"
+		run_cmd chmod 644 "$log_file" || fail "Failed to set permissions on ${log_file}"
+	done
+}
+
+#
+# Write logrotate configs for cron logs (one per script)
+
+write_logrotate_configs() {
+	if ((CRON_COUNT == 0)); then
+		return 0
+	fi
+
+	echo "→ Writing ${CRON_COUNT} logrotate config(s)..."
+
+	for script_base in "${SCRIPT_BASES[@]}"; do
+		local log_file="${CRON_LOG_DIR}/${DEPLOYER_SITE_DOMAIN}-${script_base}.log"
+		local logrotate_file="${LOGROTATE_DIR}/cron-${DEPLOYER_SITE_DOMAIN}-${script_base}.conf"
+
+		echo "→ Writing logrotate for ${DEPLOYER_SITE_DOMAIN}-${script_base}..."
+
+		if ! run_cmd tee "$logrotate_file" > /dev/null <<- EOF; then
+			${log_file} {
+			    daily
+			    rotate 5
+			    maxage 30
+			    missingok
+			    notifempty
+			    compress
+			    delaycompress
+			    copytruncate
+			    su deployer deployer
+			}
+		EOF
+			echo "Error: Failed to write ${logrotate_file}" >&2
+			exit 1
+		fi
+	done
+}
+
+#
+# Cleanup orphaned logrotate configs for this domain
+#
+# Removes configs for scripts that are no longer in the inventory
+
+cleanup_orphaned_logrotate_configs() {
+	echo "→ Checking for orphaned cron logrotate configs..."
+
+	local pattern="cron-${DEPLOYER_SITE_DOMAIN}-*.conf"
+	local prefix="cron-${DEPLOYER_SITE_DOMAIN}-"
+	local existing_files
+	existing_files=$(run_cmd find "$LOGROTATE_DIR" -maxdepth 1 -name "$pattern" -type f 2> /dev/null) || existing_files=""
+
+	if [[ -z $existing_files ]]; then
+		return 0
+	fi
+
+	while IFS= read -r file_path; do
+		[[ -z $file_path ]] && continue
+
+		local basename="${file_path##*/}"
+		local script_base="${basename%.conf}"
+		script_base="${script_base#"$prefix"}"
+
+		local is_orphan=true
+
+		for name in "${SCRIPT_BASES[@]}"; do
+			if [[ $script_base == "$name" ]]; then
+				is_orphan=false
+				break
+			fi
+		done
+
+		if [[ $is_orphan == true ]]; then
+			echo "→ Removing orphaned logrotate config: ${basename}..."
+			run_cmd rm -f "$file_path" || fail "Failed to remove ${file_path}"
+		fi
+	done <<< "$existing_files"
+}
+
+# ----
 # Output Generation
 # ----
 
@@ -168,8 +288,13 @@ main() {
 
 	local cron_block=""
 	if ((CRON_COUNT > 0)); then
+		setup_cron_logging
 		cron_block=$(generate_cron_block)
+		write_logrotate_configs
 	fi
+
+	# Always check for orphans (handles removed scripts and empty cron list)
+	cleanup_orphaned_logrotate_configs
 
 	update_crontab "$cron_block"
 	write_output

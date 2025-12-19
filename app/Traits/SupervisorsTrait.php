@@ -47,7 +47,7 @@ trait SupervisorsTrait
             'Stopwaitsecs' => $supervisor->stopwaitsecs,
             'Numprocs' => $supervisor->numprocs,
         ]);
-        $this->out('---');
+        $this->out('───');
     }
 
     /**
