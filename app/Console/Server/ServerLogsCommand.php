@@ -43,14 +43,15 @@ class ServerLogsCommand extends BaseCommand
      * Port-detected service log configurations (key = process name from ss/netstat).
      *
      * Labels are derived from ServicesTrait::getServiceLabel().
+     * Type 'both' shows journalctl service logs AND file-based error logs.
      *
      * @var array<string, array{type: string, unit?: string, path?: string}>
      */
     private const PORT_SOURCES = [
         'caddy' => ['type' => 'journalctl', 'unit' => 'caddy'],
         'sshd' => ['type' => 'journalctl', 'unit' => 'ssh'],
-        'mysqld' => ['type' => 'file', 'path' => '/var/log/mysql/error.log'],
-        'mariadb' => ['type' => 'file', 'path' => '/var/log/mysql/error.log'],
+        'mysqld' => ['type' => 'both', 'unit' => 'mysql', 'path' => '/var/log/mysql/error.log'],
+        'mariadb' => ['type' => 'both', 'unit' => 'mariadb', 'path' => '/var/log/mysql/error.log'],
     ];
 
     // ----
@@ -284,11 +285,20 @@ class ServerLogsCommand extends BaseCommand
                 /** @var string $sourceType */
                 $sourceType = $source['type'];
 
-                match ($sourceType) {
-                    'journalctl' => $this->retrieveJournalLogs($server, $label, $source['unit'] ?? null, $lines),
-                    'file' => $this->retrieveFileLogs($server, $label, $source['path'] ?? '', $lines),
-                    default => $this->warn("Unknown log type: {$sourceType}"),
-                };
+                if ('both' === $sourceType) {
+                    /** @var string $unit */
+                    $unit = $source['unit'];
+                    /** @var string $path */
+                    $path = $source['path'] ?? '';
+                    $this->retrieveJournalLogs($server, "{$label} Service", $unit, $lines);
+                    $this->retrieveFileLogs($server, "{$label} Error Log", $path, $lines);
+                } else {
+                    match ($sourceType) {
+                        'journalctl' => $this->retrieveJournalLogs($server, $label, $source['unit'], $lines),
+                        'file' => $this->retrieveFileLogs($server, $label, $source['path'] ?? '', $lines),
+                        default => $this->warn("Unknown log type: {$sourceType}"),
+                    };
+                }
 
                 continue;
             }
@@ -354,7 +364,14 @@ class ServerLogsCommand extends BaseCommand
 
             if (in_array($key, $sites, true)) {
                 $this->retrieveFileLogs($server, "Site: {$key}", "/var/log/caddy/{$key}-access.log", $lines);
+
+                continue;
             }
+
+            //
+            // Unknown source (fallthrough warning)
+
+            $this->warn("Unhandled log source: {$key}");
         }
     }
 
