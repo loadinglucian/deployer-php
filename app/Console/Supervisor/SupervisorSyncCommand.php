@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace Deployer\Console\Supervisor;
 
 use Deployer\Contracts\BaseCommand;
-use Deployer\DTOs\SupervisorDTO;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
-use Deployer\Traits\SupervisorsTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -25,7 +23,6 @@ class SupervisorSyncCommand extends BaseCommand
     use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
-    use SupervisorsTrait;
 
     // ----
     // Configuration
@@ -50,69 +47,23 @@ class SupervisorSyncCommand extends BaseCommand
         $this->h1('Sync Supervisor Programs');
 
         //
-        // Select site
+        // Select site and server
         // ----
 
-        $site = $this->selectSite();
+        $siteServer = $this->selectSiteDeetsWithServer();
 
-        if (is_int($site)) {
-            return $site;
+        if (is_int($siteServer)) {
+            return $siteServer;
         }
-
-        $this->displaySiteDeets($site);
-
-        //
-        // Get server for site
-        // ----
-
-        $server = $this->getServerForSite($site);
-
-        if (is_int($server)) {
-            return $server;
-        }
-
-        //
-        // Get server info (verifies SSH and validates distro & permissions)
-        // ----
-
-        $server = $this->serverInfo($server);
-
-        if (is_int($server) || null === $server->info) {
-            return Command::FAILURE;
-        }
-
-        [
-            'distro' => $distro,
-            'permissions' => $permissions,
-        ] = $server->info;
-
-        /** @var string $distro */
-        /** @var string $permissions */
 
         //
         // Sync supervisors to server
         // ----
 
         $result = $this->executePlaybookSilently(
-            $server,
+            $siteServer,
             'supervisor-sync',
-            "Syncing supervisor configuration to server...",
-            [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-                'DEPLOYER_SITE_DOMAIN' => $site->domain,
-                'DEPLOYER_SUPERVISORS' => array_map(
-                    fn (SupervisorDTO $supervisor) => [
-                        'program' => $supervisor->program,
-                        'script' => $supervisor->script,
-                        'autostart' => $supervisor->autostart,
-                        'autorestart' => $supervisor->autorestart,
-                        'stopwaitsecs' => $supervisor->stopwaitsecs,
-                        'numprocs' => $supervisor->numprocs,
-                    ],
-                    $site->supervisors
-                ),
-            ]
+            "Syncing supervisor configuration to server..."
         );
 
         if (is_int($result)) {
@@ -128,7 +79,7 @@ class SupervisorSyncCommand extends BaseCommand
         // ----
 
         $this->commandReplay('supervisor:sync', [
-            'domain' => $site->domain,
+            'domain' => $siteServer->site->domain,
         ]);
 
         return Command::SUCCESS;

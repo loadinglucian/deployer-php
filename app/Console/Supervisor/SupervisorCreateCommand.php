@@ -6,6 +6,8 @@ namespace Deployer\Console\Supervisor;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\SupervisorDTO;
+use Deployer\Exceptions\ValidationException;
+use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
 use Deployer\Traits\SupervisorsTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -20,6 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class SupervisorCreateCommand extends BaseCommand
 {
+    use ServersTrait;
     use SitesTrait;
     use SupervisorsTrait;
 
@@ -55,7 +58,7 @@ class SupervisorCreateCommand extends BaseCommand
         // Select site
         // ----
 
-        $site = $this->selectSite();
+        $site = $this->selectSiteDeets();
 
         if (is_int($site)) {
             return $site;
@@ -63,96 +66,42 @@ class SupervisorCreateCommand extends BaseCommand
 
         $this->displaySiteDeets($site);
 
-        //
-        // Ensure site has repo/branch configured
-        // ----
+        $deployedResult = $this->ensureSiteDeployed($site);
 
-        if (null === $site->repo || null === $site->branch) {
-            $this->warn('Site has not been deployed yet');
-            $this->info('Run <fg=cyan>site:deploy</> to deploy the site first');
+        if (is_int($deployedResult)) {
+            return $deployedResult;
+        }
 
-            return Command::FAILURE;
+        $availableScripts = $this->getAvailableScripts(
+            $site,
+            '.deployer/supervisors',
+            'supervisor',
+            'scaffold:supervisors'
+        );
+
+        if (is_int($availableScripts)) {
+            return $availableScripts;
         }
 
         //
-        // Scan available supervisor scripts from remote repository
-        // ----
-
-        try {
-            $availableScripts = $this->listRemoteSiteDirectory($site, '.deployer/supervisors');
-        } catch (\RuntimeException $e) {
-            $this->nay($e->getMessage());
-
-            return Command::FAILURE;
-        }
-
-        if ([] === $availableScripts) {
-            $this->warn('No supervisor scripts found in repository');
-            $this->info('Run <fg=cyan>scaffold:supervisors</> to create some');
-
-            return Command::FAILURE;
-        }
-
-        //
-        // Select supervisor script
+        // Gather supervisor details
         // ----
 
         $this->io->write("\n");
 
-        /** @var string $script */
-        $script = (string) $this->io->getOptionOrPrompt(
-            'script',
-            fn () => $this->io->promptSelect(
-                label: 'Select supervisor script:',
-                options: $availableScripts,
-                scroll: 10
-            )
-        );
+        $deets = $this->gatherSupervisorDeets($site->domain, $availableScripts);
 
-        // Validate CLI option is in available scripts
-        if (! in_array($script, $availableScripts, true)) {
-            $this->nay("Supervisor script not found: .deployer/supervisors/{$script}");
-
-            return Command::FAILURE;
+        if (is_int($deets)) {
+            return $deets;
         }
-
-        // Check for duplicate script in site's supervisors
-        $duplicateScriptError = $this->validateSupervisorScript($script, $site->domain);
-        if (null !== $duplicateScriptError) {
-            $this->nay($duplicateScriptError);
-
-            return Command::FAILURE;
-        }
-
-        //
-        // Gather program details
-        // ----
-
-        $deets = $this->gatherProgramDeets($site->domain);
-
-        if (null === $deets) {
-            return Command::FAILURE;
-        }
-
-        [
-            'program' => $program,
-            'autostart' => $autostart,
-            'autorestart' => $autorestart,
-            'stopwaitsecs' => $stopwaitsecs,
-            'numprocs' => $numprocs,
-        ] = $deets;
-
-        //
-        // Display supervisor details
-        // ----
 
         $supervisor = new SupervisorDTO(
-            program: $program,
-            script: $script,
-            autostart: $autostart,
-            autorestart: $autorestart,
-            stopwaitsecs: $stopwaitsecs,
-            numprocs: $numprocs,
+            program: $deets['program'],
+            script: $deets['script'],
+            autostart: $deets['autostart'],
+            autorestart: $deets['autorestart'],
+            stopwaitsecs: $deets['stopwaitsecs'],
+            numprocs: $deets['numprocs'],
         );
 
         $this->displaySupervisorDeets($supervisor);
@@ -169,7 +118,7 @@ class SupervisorCreateCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $this->yay("Supervisor '{$program}' added to inventory");
+        $this->yay("Supervisor '{$supervisor->program}' added to inventory");
         $this->info('Run <fg=cyan>supervisor:sync</> to apply changes to the server');
 
         //
@@ -194,87 +143,103 @@ class SupervisorCreateCommand extends BaseCommand
     // ----
 
     /**
-     * Gather program details from user input or CLI options.
+     * Gather supervisor details from user input or CLI options.
      *
-     * @return array{program: string, autostart: bool, autorestart: bool, stopwaitsecs: int, numprocs: int}|null
+     * @param array<int, string> $availableScripts
+     *
+     * @return array{script: string, program: string, autostart: bool, autorestart: bool, stopwaitsecs: int, numprocs: int}|int
      */
-    protected function gatherProgramDeets(string $domain): ?array
+    protected function gatherSupervisorDeets(string $domain, array $availableScripts): array|int
     {
-        /** @var string|null $program */
-        $program = $this->io->getValidatedOptionOrPrompt(
-            'program',
-            fn ($validate) => $this->io->promptText(
-                label: 'Program name (unique identifier):',
-                placeholder: 'queue-worker',
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateProgramInput($value)
-        );
+        try {
+            /** @var string $script */
+            $script = $this->io->getValidatedOptionOrPrompt(
+                'script',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'Select supervisor script:',
+                    options: $availableScripts,
+                    scroll: 10,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateSupervisorScriptInput($value, $availableScripts)
+            );
 
-        if (null === $program) {
-            return null;
-        }
+            // Check for duplicate script in site's supervisors
+            $duplicateScriptError = $this->validateSupervisorScript($script, $domain);
+            if (null !== $duplicateScriptError) {
+                $this->nay($duplicateScriptError);
 
-        // Check for duplicate program in site's supervisors
-        $duplicateError = $this->validateSupervisorProgram($program, $domain);
-        if (null !== $duplicateError) {
-            $this->nay($duplicateError);
+                return Command::FAILURE;
+            }
 
-            return null;
-        }
+            /** @var string $program */
+            $program = $this->io->getValidatedOptionOrPrompt(
+                'program',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Program name (unique identifier):',
+                    placeholder: 'queue-worker',
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateProgramInput($value)
+            );
+            $program = trim($program);
 
-        /** @var bool $autostart */
-        $autostart = $this->io->getOptionOrPrompt(
-            'autostart',
-            fn () => $this->io->promptConfirm(
-                label: 'Start on supervisord start?',
-                default: true
-            )
-        );
+            // Check for duplicate program in site's supervisors
+            $duplicateProgramError = $this->validateSupervisorProgram($program, $domain);
+            if (null !== $duplicateProgramError) {
+                $this->nay($duplicateProgramError);
 
-        /** @var bool $autorestart */
-        $autorestart = $this->io->getOptionOrPrompt(
-            'autorestart',
-            fn () => $this->io->promptConfirm(
-                label: 'Restart on exit?',
-                default: true
-            )
-        );
+                return Command::FAILURE;
+            }
 
-        /** @var string|int|null $stopwaitsecs */
-        $stopwaitsecs = $this->io->getValidatedOptionOrPrompt(
-            'stopwaitsecs',
-            fn ($validate) => $this->io->promptText(
-                label: 'Seconds to wait for stop:',
-                default: '3600',
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateStopWaitSecsInput($value)
-        );
+            $autostart = $this->io->getBooleanOptionOrPrompt(
+                'autostart',
+                fn () => $this->io->promptConfirm(
+                    label: 'Start on supervisord start?',
+                    default: true
+                )
+            );
 
-        if (null === $stopwaitsecs) {
-            return null;
-        }
+            $autorestart = $this->io->getBooleanOptionOrPrompt(
+                'autorestart',
+                fn () => $this->io->promptConfirm(
+                    label: 'Restart on exit?',
+                    default: true
+                )
+            );
 
-        /** @var string|int|null $numprocs */
-        $numprocs = $this->io->getValidatedOptionOrPrompt(
-            'numprocs',
-            fn ($validate) => $this->io->promptText(
-                label: 'Number of process instances:',
-                default: '1',
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateNumprocsInput($value)
-        );
+            /** @var string|int $stopwaitsecs */
+            $stopwaitsecs = $this->io->getValidatedOptionOrPrompt(
+                'stopwaitsecs',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Seconds to wait for stop:',
+                    default: '3600',
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateStopWaitSecsInput($value)
+            );
 
-        if (null === $numprocs) {
-            return null;
+            /** @var string|int $numprocs */
+            $numprocs = $this->io->getValidatedOptionOrPrompt(
+                'numprocs',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Number of process instances:',
+                    default: '1',
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateNumprocsInput($value)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
         }
 
         return [
+            'script' => $script,
             'program' => $program,
             'autostart' => $autostart,
             'autorestart' => $autorestart,

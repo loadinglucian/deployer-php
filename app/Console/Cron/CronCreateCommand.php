@@ -6,7 +6,9 @@ namespace Deployer\Console\Cron;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\CronDTO;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\CronsTrait;
+use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,6 +23,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class CronCreateCommand extends BaseCommand
 {
     use CronsTrait;
+    use ServersTrait;
     use SitesTrait;
 
     // ----
@@ -51,7 +54,7 @@ class CronCreateCommand extends BaseCommand
         // Select site
         // ----
 
-        $site = $this->selectSite();
+        $site = $this->selectSiteDeets();
 
         if (is_int($site)) {
             return $site;
@@ -59,94 +62,38 @@ class CronCreateCommand extends BaseCommand
 
         $this->displaySiteDeets($site);
 
-        //
-        // Ensure site has repo/branch configured
-        // ----
+        $deployedResult = $this->ensureSiteDeployed($site);
 
-        if (null === $site->repo || null === $site->branch) {
-            $this->warn('Site has not been deployed yet');
-            $this->info('Run <fg=cyan>site:deploy</> to deploy the site first');
+        if (is_int($deployedResult)) {
+            return $deployedResult;
+        }
 
-            return Command::FAILURE;
+        $availableScripts = $this->getAvailableScripts(
+            $site,
+            '.deployer/crons',
+            'cron',
+            'scaffold:crons'
+        );
+
+        if (is_int($availableScripts)) {
+            return $availableScripts;
         }
 
         //
-        // Scan available cron scripts from remote repository
-        // ----
-
-        try {
-            $availableScripts = $this->listRemoteSiteDirectory($site, '.deployer/crons');
-        } catch (\RuntimeException $e) {
-            $this->nay($e->getMessage());
-
-            return Command::FAILURE;
-        }
-
-        if ([] === $availableScripts) {
-            $this->warn('No cron scripts found in repository');
-            $this->info("Run <fg=cyan>scaffold:crons</> to create some");
-
-            return Command::FAILURE;
-        }
-
-        //
-        // Select cron script
+        // Gather cron details
         // ----
 
         $this->io->write("\n");
 
-        /** @var string $script */
-        $script = (string) $this->io->getOptionOrPrompt(
-            'script',
-            fn () => $this->io->promptSelect(
-                label: 'Select cron script:',
-                options: $availableScripts,
-                scroll: 10
-            )
-        );
+        $cronDeets = $this->gatherCronDeets($site->domain, $availableScripts);
 
-        // Validate CLI option is in available scripts
-        if (! in_array($script, $availableScripts, true)) {
-            $this->nay("Cron script not found: .deployer/crons/{$script}");
-
-            return Command::FAILURE;
+        if (is_int($cronDeets)) {
+            return $cronDeets;
         }
-
-        // Check for duplicate in site's crons
-        $duplicateError = $this->validateCronScript($script, $site->domain);
-        if (null !== $duplicateError) {
-            $this->nay($duplicateError);
-
-            return Command::FAILURE;
-        }
-
-        //
-        // Prompt for schedule
-        // ----
-
-        /** @var string|null $schedule */
-        $schedule = $this->io->getValidatedOptionOrPrompt(
-            'schedule',
-            fn ($validate) => $this->io->promptText(
-                label: 'Cron schedule (minute hour day month weekday):',
-                placeholder: '*/5 * * * *',
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateScheduleInput($value)
-        );
-
-        if (null === $schedule) {
-            return Command::FAILURE;
-        }
-
-        //
-        // Display cron details
-        // ----
 
         $cron = new CronDTO(
-            script: $script,
-            schedule: $schedule,
+            script: $cronDeets['script'],
+            schedule: $cronDeets['schedule'],
         );
 
         $this->displayCronDeets($cron);
@@ -163,7 +110,7 @@ class CronCreateCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $this->yay("Cron '{$script}' added to inventory");
+        $this->yay("Cron '{$cronDeets['script']}' added to inventory");
         $this->info('Run <fg=cyan>cron:sync</> to apply changes to the server');
 
         //
@@ -172,11 +119,68 @@ class CronCreateCommand extends BaseCommand
 
         $this->commandReplay('cron:create', [
             'domain' => $site->domain,
-            'script' => $script,
-            'schedule' => $schedule,
+            'script' => $cronDeets['script'],
+            'schedule' => $cronDeets['schedule'],
         ]);
 
         return Command::SUCCESS;
+    }
+
+    // ----
+    // Helpers
+    // ----
+
+    /**
+     * Gather cron details from user input or CLI options.
+     *
+     * @param array<int, string> $availableScripts
+     *
+     * @return array{script: string, schedule: string}|int
+     */
+    protected function gatherCronDeets(string $domain, array $availableScripts): array|int
+    {
+        try {
+            /** @var string $script */
+            $script = $this->io->getValidatedOptionOrPrompt(
+                'script',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'Select cron script:',
+                    options: $availableScripts,
+                    scroll: 10,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateCronScriptInput($value, $availableScripts)
+            );
+
+            // Check for duplicate in site's crons
+            $duplicateError = $this->validateCronScript($script, $domain);
+            if (null !== $duplicateError) {
+                $this->nay($duplicateError);
+
+                return Command::FAILURE;
+            }
+
+            /** @var string $schedule */
+            $schedule = $this->io->getValidatedOptionOrPrompt(
+                'schedule',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Cron schedule (minute hour day month weekday):',
+                    placeholder: '*/5 * * * *',
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateScheduleInput($value)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
+        }
+
+        return [
+            'script' => $script,
+            'schedule' => $schedule,
+        ];
     }
 
     // ----

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Supervisor;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
 use Deployer\Traits\SupervisorsTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -19,6 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class SupervisorDeleteCommand extends BaseCommand
 {
+    use ServersTrait;
     use SitesTrait;
     use SupervisorsTrait;
 
@@ -48,20 +50,16 @@ class SupervisorDeleteCommand extends BaseCommand
         $this->h1('Delete Supervisor Program');
 
         //
-        // Select site
+        // Select site and supervisor
         // ----
 
-        $site = $this->selectSite();
+        $site = $this->selectSiteDeets();
 
         if (is_int($site)) {
             return $site;
         }
 
         $this->displaySiteDeets($site);
-
-        //
-        // Select supervisor
-        // ----
 
         $this->io->write("\n");
 
@@ -71,20 +69,14 @@ class SupervisorDeleteCommand extends BaseCommand
             return $supervisor;
         }
 
-        //
-        // Display supervisor details
-        // ----
-
         $this->displaySupervisorDeets($supervisor);
 
         //
         // Confirm deletion with extra safety
         // ----
 
-        $this->io->write("\n");
-
         /** @var bool $forceSkip */
-        $forceSkip = $input->getOption('force') ?? false;
+        $forceSkip = $input->getOption('force');
 
         if (!$forceSkip) {
             $this->io->write("\n");
@@ -101,8 +93,7 @@ class SupervisorDeleteCommand extends BaseCommand
             }
         }
 
-        /** @var bool $confirmed */
-        $confirmed = $this->io->getOptionOrPrompt(
+        $confirmed = $this->io->getBooleanOptionOrPrompt(
             'yes',
             fn (): bool => $this->io->promptConfirm(
                 label: 'Are you absolutely sure?',

@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Deployer\Console\Cron;
 
 use Deployer\Contracts\BaseCommand;
-use Deployer\DTOs\CronDTO;
-use Deployer\Traits\CronsTrait;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
@@ -22,7 +20,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class CronSyncCommand extends BaseCommand
 {
-    use CronsTrait;
     use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
@@ -50,62 +47,23 @@ class CronSyncCommand extends BaseCommand
         $this->h1('Sync Cron Jobs');
 
         //
-        // Select site
+        // Select site and server
         // ----
 
-        $site = $this->selectSite();
+        $siteServer = $this->selectSiteDeetsWithServer();
 
-        if (is_int($site)) {
-            return $site;
+        if (is_int($siteServer)) {
+            return $siteServer;
         }
-
-        $this->displaySiteDeets($site);
-
-        //
-        // Get server for site
-        // ----
-
-        $server = $this->getServerForSite($site);
-
-        if (is_int($server)) {
-            return $server;
-        }
-
-        //
-        // Get server info (verifies SSH and validates distro & permissions)
-        // ----
-
-        $server = $this->serverInfo($server);
-
-        if (is_int($server) || null === $server->info) {
-            return Command::FAILURE;
-        }
-
-        [
-            'distro' => $distro,
-            'permissions' => $permissions,
-        ] = $server->info;
-
-        /** @var string $distro */
-        /** @var string $permissions */
 
         //
         // Sync crons to server
         // ----
 
         $result = $this->executePlaybookSilently(
-            $server,
-            'site-cron-sync',
-            "Syncing cron configuration to server...",
-            [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-                'DEPLOYER_SITE_DOMAIN' => $site->domain,
-                'DEPLOYER_CRONS' => array_map(
-                    fn (CronDTO $cron) => ['script' => $cron->script, 'schedule' => $cron->schedule],
-                    $site->crons
-                ),
-            ]
+            $siteServer,
+            'cron-sync',
+            "Syncing cron configuration to server..."
         );
 
         if (is_int($result)) {
@@ -121,7 +79,7 @@ class CronSyncCommand extends BaseCommand
         // ----
 
         $this->commandReplay('cron:sync', [
-            'domain' => $site->domain,
+            'domain' => $siteServer->site->domain,
         ]);
 
         return Command::SUCCESS;
