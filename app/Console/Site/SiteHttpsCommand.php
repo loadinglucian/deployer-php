@@ -46,55 +46,47 @@ class SiteHttpsCommand extends BaseCommand
         $this->h1('Enable HTTPS');
 
         //
-        // Select site
+        // Select site and server
         // ----
 
-        $site = $this->selectSite();
+        $siteServer = $this->selectSiteDeetsWithServer();
 
-        if (is_int($site)) {
-            return $site;
+        if (is_int($siteServer)) {
+            return $siteServer;
         }
 
-        $this->displaySiteDeets($site);
+        $validationResult = $this->ensureSiteExists($siteServer->server, $siteServer->site);
 
-        //
-        // Get server for site
-        // ----
-
-        $server = $this->getServerForSite($site);
-
-        if (is_int($server)) {
-            return $server;
+        if (is_int($validationResult)) {
+            return $validationResult;
         }
-
-        //
-        // Get server info (verifies SSH connection and validates distribution & permissions)
-        // ----
-
-        $server = $this->serverInfo($server);
-
-        if (is_int($server) || $server->info === null) {
-            return Command::FAILURE;
-        }
-
-        [
-            'distro' => $distro,
-            'permissions' => $permissions,
-        ] = $server->info;
-
-        /** @var string $distro */
-        /** @var string $permissions */
 
         //
         // Get site configuration
         // ----
 
-        $config = $this->getSiteConfig($server->info, $site->domain);
+        /** @var array<string, mixed> $serverInfo */
+        $serverInfo = $siteServer->server->info ?? [];
+        $config = $this->getSiteConfig($serverInfo, $siteServer->site->domain);
 
         if (!is_array($config) || 'unknown' === $config['php_version']) {
-            $this->nay("Site '{$site->domain}' not configured; run site:create to create the site first.");
+            $this->nay('Site configuration not found. Try running site:create again.');
 
             return Command::FAILURE;
+        }
+
+        //
+        // Check if HTTPS is already enabled
+        // ----
+
+        if (true === $config['https_enabled']) {
+            $this->info("HTTPS is already enabled for '{$siteServer->site->domain}'");
+
+            $this->commandReplay('site:https', [
+                'domain' => $siteServer->site->domain,
+            ]);
+
+            return Command::SUCCESS;
         }
 
         //
@@ -102,14 +94,10 @@ class SiteHttpsCommand extends BaseCommand
         // ----
 
         $result = $this->executePlaybookSilently(
-            $server,
+            $siteServer,
             'site-https',
             'Enabling HTTPS...',
             [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-                'DEPLOYER_SITE_DOMAIN' => $site->domain,
-                'DEPLOYER_PHP_VERSION' => $config['php_version'],
                 'DEPLOYER_WWW_MODE' => $config['www_mode'],
             ]
         );
@@ -125,7 +113,7 @@ class SiteHttpsCommand extends BaseCommand
         // ----
 
         $this->commandReplay('site:https', [
-            'domain' => $site->domain,
+            'domain' => $siteServer->site->domain,
         ]);
 
         return Command::SUCCESS;

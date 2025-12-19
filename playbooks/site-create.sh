@@ -1,26 +1,15 @@
 #!/usr/bin/env bash
 
 #
-# Site Create Playbook - Ubuntu/Debian Only
+# Site Create
 #
-# Create new site with atomic deployment directory structure
-# ----
+# Creates site directory structure and Caddy configuration for a new domain.
 #
-# This playbook only supports Ubuntu and Debian distributions (debian family).
-# Requires server-install to have run first (creates deployer user, Caddy, PHP).
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE  - Output file path
-#   DEPLOYER_DISTRO       - Exact distribution: ubuntu|debian
-#   DEPLOYER_PERMS        - Permissions: root|sudo
-#   DEPLOYER_SITE_DOMAIN  - Site domain name
-#   DEPLOYER_PHP_VERSION  - PHP version to use for this site
-#
-# Returns YAML with:
-#   - status: success
-#   - site_path: /home/deployer/sites/{domain}
-#   - site_configured: true
-#   - php_version: {version}
+# Output:
+#   status: success
+#   site_path: /home/deployer/sites/example.com
+#   site_configured: true
+#   php_version: "8.4"
 #
 
 set -o pipefail

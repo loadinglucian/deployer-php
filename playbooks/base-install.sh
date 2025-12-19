@@ -1,21 +1,12 @@
 #!/usr/bin/env bash
 
 #
-# Server Installation Playbook - Ubuntu/Debian Only
+# Base Installation
 #
-# Install Caddy, Git, and configure base server
-# ----
+# Installs Caddy, Git, and core server packages for deployment infrastructure.
 #
-# This playbook only supports Ubuntu and Debian distributions (debian family).
-# Both distributions use apt package manager and follow debian conventions.
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE - Output file path
-#   DEPLOYER_DISTRO      - Exact distribution: ubuntu|debian
-#   DEPLOYER_PERMS       - Permissions: root|sudo
-#
-# Returns YAML with:
-#   - status: success
+# Output:
+#   status: success
 #
 
 set -o pipefail

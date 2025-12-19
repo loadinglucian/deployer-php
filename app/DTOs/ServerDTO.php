@@ -20,6 +20,22 @@ readonly class ServerDTO
     }
 
     /**
+     * Check if this server was provisioned via DigitalOcean.
+     */
+    public function isDigitalOcean(): bool
+    {
+        return 'digitalocean' === $this->provider && null !== $this->dropletId;
+    }
+
+    /**
+     * Check if this server was provisioned via a cloud provider.
+     */
+    public function isProvisioned(): bool
+    {
+        return $this->isDigitalOcean();
+    }
+
+    /**
      * Return a new instance with the provided info.
      *
      * @param array<string, mixed> $info

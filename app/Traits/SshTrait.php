@@ -8,6 +8,13 @@ use Symfony\Component\Process\ExecutableFinder;
 
 trait SshTrait
 {
+    // ----
+    // Helpers
+    // ----
+
+    /**
+     * Find the SSH binary path.
+     */
     protected function findSshBinary(): ?string
     {
         $finder = new ExecutableFinder();

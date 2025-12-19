@@ -6,6 +6,7 @@ namespace Deployer\Console\Site;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SiteSharedPathsTrait;
 use Deployer\Traits\SitesTrait;
@@ -50,42 +51,19 @@ class SiteSharedPushCommand extends BaseCommand
         $this->h1('Upload Shared File');
 
         //
-        // Select site
+        // Select site and server
         // ----
 
-        $site = $this->selectSite();
+        $result = $this->selectSiteDeetsWithServer();
 
-        if (is_int($site)) {
-            return $site;
+        if (is_int($result)) {
+            return $result;
         }
 
-        $this->displaySiteDeets($site);
+        $site = $result->site;
+        $server = $result->server;
 
-        //
-        // Get server for site
-        // ----
-
-        $server = $this->getServerForSite($site);
-
-        if (is_int($server)) {
-            return $server;
-        }
-
-        //
-        // Get server info (verifies SSH connection and validates distribution & permissions)
-        // ----
-
-        $server = $this->serverInfo($server);
-
-        if (is_int($server) || $server->info === null) {
-            return Command::FAILURE;
-        }
-
-        //
-        // Validate site is added on server
-        // ----
-
-        $validationResult = $this->validateSiteAdded($server, $site);
+        $validationResult = $this->ensureSiteExists($server, $site);
 
         if (is_int($validationResult)) {
             return $validationResult;
@@ -95,14 +73,12 @@ class SiteSharedPushCommand extends BaseCommand
         // Resolve paths
         // ----
 
-        $localPath = $this->resolveLocalPath();
+        try {
+            $localPath = $this->resolveLocalPath();
+            $remoteRelative = $this->resolveRemotePath($localPath);
+        } catch (ValidationException|\RuntimeException $e) {
+            $this->nay($e->getMessage());
 
-        if ($localPath === null) {
-            return Command::FAILURE;
-        }
-
-        $remoteRelative = $this->resolveRemotePath($localPath);
-        if ($remoteRelative === null) {
             return Command::FAILURE;
         }
 
@@ -148,65 +124,62 @@ class SiteSharedPushCommand extends BaseCommand
     // Helpers
     // ----
 
-    private function resolveLocalPath(): ?string
+    /**
+     * @throws ValidationException When CLI option validation fails or file not found
+     * @throws \RuntimeException When path expansion fails
+     */
+    private function resolveLocalPath(): string
     {
         /** @var string $localInput */
-        $localInput = $this->io->getOptionOrPrompt(
+        $localInput = $this->io->getValidatedOptionOrPrompt(
             'local',
-            fn (): string => $this->io->promptText(
+            fn ($validate): string => $this->io->promptText(
                 label: 'Local file path:',
                 placeholder: '.env.production',
-                required: true
-            )
+                required: true,
+                validate: $validate
+            ),
+            fn ($value) => $this->validatePathInput($value)
         );
 
-        try {
-            $expanded = $this->fs->expandPath($localInput);
-        } catch (\RuntimeException $e) {
-            $this->nay($e->getMessage());
-
-            return null;
-        }
+        $expanded = $this->fs->expandPath($localInput);
 
         if (! $this->fs->exists($expanded) || ! is_file($expanded)) {
-            $this->nay("Local file not found: {$expanded}");
-
-            return null;
+            throw new ValidationException("Local file not found: {$expanded}");
         }
 
         return $expanded;
     }
 
-    private function resolveRemotePath(string $localPath): ?string
+    /**
+     * @throws ValidationException When CLI option validation fails
+     */
+    private function resolveRemotePath(string $localPath): string
     {
         $defaultName = basename($localPath);
 
-        /** @var string|null $remoteInput */
-        $remoteInput = $this->io->getOptionOrPrompt(
+        /** @var string $remoteInput */
+        $remoteInput = $this->io->getValidatedOptionOrPrompt(
             'remote',
-            fn (): string => $this->io->promptText(
+            fn ($validate): string => $this->io->promptText(
                 label: 'Remote filename (relative to shared/):',
-                placeholder: $defaultName === '' ? '.env' : $defaultName,
-                default: $defaultName === '' ? '.env' : $defaultName,
-                required: true
-            )
+                placeholder: '' === $defaultName ? '.env' : $defaultName,
+                default: '' === $defaultName ? '.env' : $defaultName,
+                required: true,
+                validate: $validate
+            ),
+            fn ($value) => $this->validatePathInput($value)
         );
 
-        $normalized = $this->normalizeRelativePath($remoteInput ?? '');
-
-        if ($normalized === null) {
-            return null;
-        }
-
-        return $normalized;
+        return $this->normalizeRelativePath($remoteInput);
     }
 
     private function runRemoteCommand(ServerDTO $server, string $command): void
     {
         $result = $this->ssh->executeCommand($server, $command);
-        if ($result['exit_code'] !== 0) {
+        if (0 !== $result['exit_code']) {
             $output = trim((string) $result['output']);
-            $message = $output === '' ? "Remote command failed: {$command}" : $output;
+            $message = '' === $output ? "Remote command failed: {$command}" : $output;
 
             throw new \RuntimeException($message);
         }

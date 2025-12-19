@@ -44,30 +44,26 @@ class ServerSshCommand extends BaseCommand
         $this->h1('SSH into Server');
 
         //
-        // Select server & validate connection
+        // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server)) {
             return $server;
         }
 
         //
-        // Resolve SSH binary
+        // Build SSH command
         // ----
 
         $sshBinary = $this->findSshBinary();
 
         if (null === $sshBinary) {
-            $this->nay('SSH binary not found in PATH');
+            $this->nay('Could not find ssh in PATH');
 
             return Command::FAILURE;
         }
-
-        //
-        // Build SSH command arguments
-        // ----
 
         $sshArgs = [
             '-o', 'StrictHostKeyChecking=accept-new',
@@ -76,6 +72,12 @@ class ServerSshCommand extends BaseCommand
         ];
 
         if (null !== $server->privateKeyPath) {
+            if (!file_exists($server->privateKeyPath) || !is_readable($server->privateKeyPath)) {
+                $this->nay("SSH key not found or not readable: {$server->privateKeyPath}");
+
+                return Command::FAILURE;
+            }
+
             $sshArgs[] = '-i';
             $sshArgs[] = $server->privateKeyPath;
         }
@@ -86,11 +88,18 @@ class ServerSshCommand extends BaseCommand
         // Replace PHP process with SSH
         // ----
 
-        $this->io->write("\n");
+        if (! function_exists('pcntl_exec')) {
+            $this->nay('The pcntl extension is required for SSH. Enable it in your php.ini');
+
+            return Command::FAILURE;
+        }
+
+        $this->out('');
         pcntl_exec($sshBinary, $sshArgs);
 
         // Only reached if pcntl_exec fails
-        $this->nay('Failed to execute SSH');
+        $error = pcntl_get_last_error();
+        $this->nay('Failed to execute SSH: ' . pcntl_strerror($error));
 
         return Command::FAILURE;
     }

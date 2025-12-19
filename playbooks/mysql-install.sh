@@ -1,35 +1,20 @@
 #!/usr/bin/env bash
 
 #
-# MySQL Installation Playbook - Ubuntu/Debian Only
+# MySQL Installation
 #
-# Install MySQL server and configure deployer user/database
-# ----
+# Installs MySQL server, configures root password, and creates deployer database/user.
 #
-# This playbook handles MySQL installation and configuration including:
-# - Package installation (mysql-server, mysql-client)
-# - Root password configuration for remote tools
-# - Creating deployer user with generated password
-# - Creating deployer database with proper permissions
-# - Logrotate configuration for MySQL logs
+# Output (fresh install):
+#   status: success
+#   root_pass: Ek3jF8mNpQ2rS5tV
+#   deployer_user: deployer
+#   deployer_pass: Wx7yZ9aBcD4eF6gH
+#   deployer_database: deployer
 #
-# Note: Local root access via unix socket authentication is preserved.
-# The root password is set for mysql_native_password auth (remote tools).
-#
-# This playbook only supports Ubuntu and Debian distributions (debian family).
-# Both distributions use apt package manager and follow debian conventions.
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE  - Output file path
-#   DEPLOYER_DISTRO       - Exact distribution: ubuntu|debian
-#   DEPLOYER_PERMS        - Permissions: root|sudo
-#
-# Returns YAML with:
-#   - status: success
-#   - root_pass: MySQL root password (generated)
-#   - deployer_user: Database username (deployer)
-#   - deployer_pass: Database password (generated)
-#   - deployer_database: Database name (deployer)
+# Output (already installed):
+#   status: success
+#   already_installed: true
 #
 
 set -o pipefail

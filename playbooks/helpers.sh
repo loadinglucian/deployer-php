@@ -19,8 +19,10 @@
 run_cmd() {
 	if [[ $DEPLOYER_PERMS == 'root' ]]; then
 		"$@"
-	else
+	elif [[ $DEPLOYER_PERMS == 'sudo' ]]; then
 		sudo -n "$@"
+	else
+		"$@"
 	fi
 }
 

@@ -1,25 +1,19 @@
 #!/usr/bin/env bash
 
 #
-# Server Firewall Playbook - Ubuntu/Debian Only
+# Server Firewall
 #
 # Configures UFW firewall with specified allowed ports.
-# ----
 #
-# Detection is handled by server-info playbook; this playbook only applies rules.
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE    - Output file path
-#   DEPLOYER_PERMS          - Permissions: root|sudo
-#   DEPLOYER_SSH_PORT       - SSH port from server config
-#   DEPLOYER_ALLOWED_PORTS  - Comma-separated list of ports to allow
-#
-# Returns YAML with:
-#   - status: success
-#   - ufw_installed: true
-#   - ufw_enabled: true
-#   - rules_applied: count
-#   - ports_allowed: list of ports
+# Output:
+#   status: success
+#   ufw_installed: true
+#   ufw_enabled: true
+#   rules_applied: 3
+#   ports_allowed:
+#     - 22
+#     - 80
+#     - 443
 #
 
 set -o pipefail
@@ -37,39 +31,6 @@ export DEPLOYER_PERMS
 # ----
 # UFW Apply Functions
 # ----
-
-#
-# Validate SSH port is in allowed list (defense in depth)
-
-validate_ssh_port() {
-	# Check SSH port is in allowed list
-	local port
-	local found=false
-	IFS=',' read -ra ports <<< "$DEPLOYER_ALLOWED_PORTS"
-	for port in "${ports[@]}"; do
-		if [[ $port == "$DEPLOYER_SSH_PORT" ]]; then
-			found=true
-			break
-		fi
-	done
-
-	if [[ $found == false ]]; then
-		fail "SSH port $DEPLOYER_SSH_PORT must always be allowed"
-	fi
-}
-
-#
-# Install UFW if not present
-
-install_ufw_if_missing() {
-	if command -v ufw > /dev/null 2>&1; then
-		return 0
-	fi
-
-	echo "→ Installing UFW..."
-	wait_for_dpkg_lock || fail "Timeout waiting for dpkg lock"
-	apt_get_with_retry install -y ufw || fail "Failed to install UFW"
-}
 
 #
 # Allow SSH port (idempotent, silent on existing rule)
@@ -122,12 +83,6 @@ enable_ufw() {
 # ----
 
 main() {
-	# Defense in depth: validate SSH port is in allowed list
-	validate_ssh_port
-
-	# Install UFW if not present
-	install_ufw_if_missing
-
 	# Critical sequence for SSH safety:
 	# 1. Allow SSH before reset (prevents lockout if UFW is active)
 	echo "→ Securing SSH access..."
@@ -142,7 +97,7 @@ main() {
 	# 4. Set default policies
 	set_default_policies
 
-	# 5. Allow user-selected ports (includes SSH)
+	# 5. Allow user-selected ports
 	allow_selected_ports
 
 	# 6. Enable UFW

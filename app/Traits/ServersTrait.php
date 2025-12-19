@@ -7,6 +7,7 @@ namespace Deployer\Traits;
 use Deployer\DTOs\ServerDTO;
 use Deployer\DTOs\SiteDTO;
 use Deployer\Enums\Distribution;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Repositories\ServerRepository;
 use Deployer\Repositories\SiteRepository;
 use Deployer\Services\IOService;
@@ -33,8 +34,136 @@ trait ServersTrait
     // ----
 
     //
+    // Data
+    // ----
+
+    /**
+     * Extract port numbers from UFW rule strings.
+     *
+     * @param array<int, string> $rules UFW rules in format "port/proto" (e.g., "22/tcp")
+     * @return array<int, int> List of port numbers
+     */
+    protected function extractPortsFromRules(array $rules): array
+    {
+        $ports = [];
+
+        foreach ($rules as $rule) {
+            if (preg_match('/^(\d+)/', $rule, $matches)) {
+                $ports[] = (int) $matches[1];
+            }
+        }
+
+        return $ports;
+    }
+
+    /**
+     * Get configuration for a specific site from server info.
+     *
+     * @param array<string, mixed> $info Server information array
+     * @param string $domain Site domain
+     * @return array{php_version: string, www_mode: string, https_enabled: bool}|null Returns config or null if not found
+     */
+    protected function getSiteConfig(array $info, string $domain): ?array
+    {
+        if (! isset($info['sites_config']) || ! is_array($info['sites_config'])) {
+            return null;
+        }
+
+        $config = $info['sites_config'][$domain] ?? null;
+
+        if (! is_array($config)) {
+            return null;
+        }
+
+        /** @var mixed $phpVer */
+        $phpVer = $config['php_version'] ?? 'unknown';
+        /** @var mixed $mode */
+        $mode = $config['www_mode'] ?? 'unknown';
+
+        return [
+            'php_version' => is_scalar($phpVer) ? (string) $phpVer : 'unknown',
+            'www_mode' => is_scalar($mode) ? (string) $mode : 'unknown',
+            'https_enabled' => filter_var($config['https_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
+        ];
+    }
+
+    //
     // UI
     // ----
+
+    /**
+     * Display firewall status and open ports.
+     *
+     * @param array<string, mixed> $info Server/detection information array
+     */
+    protected function displayFirewallDeets(array $info): void
+    {
+        /** @var bool $ufwInstalled */
+        $ufwInstalled = filter_var($info['ufw_installed'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if (!$ufwInstalled) {
+            $this->displayDeets([
+                'Firewall' => 'Not installed',
+            ]);
+
+            return;
+        }
+
+        /** @var bool $ufwActive */
+        $ufwActive = filter_var($info['ufw_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if (!$ufwActive) {
+            $this->displayDeets([
+                'Firewall' => 'Inactive',
+            ]);
+
+            return;
+        }
+
+        $this->displayDeets(['Firewall' => 'Active']);
+
+        /** @var array<int, string> $ufwRules */
+        $ufwRules = $info['ufw_rules'] ?? [];
+        /** @var array<int, string> $ports */
+        $ports = $info['ports'] ?? [];
+
+        if ([] === $ufwRules) {
+            $this->displayDeets(['Open Ports' => 'None']);
+        } else {
+            $openPorts = [];
+            foreach ($this->extractPortsFromRules($ufwRules) as $port) {
+                $process = $ports[$port] ?? 'unknown';
+                $openPorts["Port {$port}"] = $process;
+            }
+
+            $this->displayDeets(['Open Ports' => $openPorts]);
+        }
+    }
+
+    /**
+     * Display server details including associated sites.
+     */
+    protected function displayServerDeets(ServerDTO $server): void
+    {
+        $deets = [
+            'Name' => $server->name,
+            'Host' => $server->host,
+            'Port' => $server->port,
+            'User' => $server->username,
+            'Key' => $server->privateKeyPath ?? 'default (~/.ssh/id_ed25519 or ~/.ssh/id_rsa)',
+        ];
+
+        $sites = $this->sites->findByServer($server->name);
+
+        if (count($sites) > 1) {
+            $deets['Sites'] = array_map(fn (SiteDTO $site) => $site->domain, $sites);
+        } elseif (count($sites) === 1) {
+            $deets['Site'] = $sites[0]->domain;
+        }
+
+        $this->displayDeets($deets);
+        $this->out('───');
+    }
 
     /**
      * Display a warning to add a server if no servers are available. Otherwise, return all servers.
@@ -66,12 +195,28 @@ trait ServersTrait
     }
 
     /**
+     * Resolve the server associated with a site, handling error output.
+     */
+    protected function getServerForSite(SiteDTO $site): ServerDTO|int
+    {
+        $server = $this->servers->findByName($site->server);
+
+        if (null === $server) {
+            $this->nay("Server '{$site->server}' not found in inventory");
+
+            return Command::FAILURE;
+        }
+
+        return $server;
+    }
+
+    /**
      * Display server details, retrieve system inform and validate SSH connection and permissions.
      *
      * @param  ServerDTO  $server  The server to inspect
      * @return ServerDTO|int Returns updated ServerDTO with info or Command::FAILURE on error
      */
-    protected function serverInfo(ServerDTO $server): ServerDTO|int
+    protected function getServerInfo(ServerDTO $server): ServerDTO|int
     {
         $this->displayServerDeets($server);
 
@@ -126,7 +271,7 @@ trait ServersTrait
      *
      * @return ServerDTO|int Returns ServerDTO on success, or Command::FAILURE on error
      */
-    protected function selectServer(): ServerDTO|int
+    protected function selectServerDeets(): ServerDTO|int
     {
         //
         // Get all servers
@@ -142,203 +287,32 @@ trait ServersTrait
 
         $serverNames = array_map(fn (ServerDTO $server) => $server->name, $servers);
 
-        $name = (string) $this->io->getOptionOrPrompt(
-            'server',
-            fn (): int|string => $this->io->promptSelect(
-                label: 'Select server:',
-                options: $serverNames,
-            )
-        );
+        try {
+            /** @var string $name */
+            $name = $this->io->getValidatedOptionOrPrompt(
+                'server',
+                fn ($validate): int|string => $this->io->promptSelect(
+                    label: 'Select server:',
+                    options: $serverNames,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateServerSelection($value)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
 
-        //
-        // Find server by name (in case user passed the --server option)
+            return Command::FAILURE;
+        }
 
+        /** @var ServerDTO */
         $server = $this->servers->findByName($name);
 
-        if (null === $server) {
-            $this->nay("Server '{$name}' not found in inventory");
-
-            return Command::FAILURE;
-        }
-
-        return $this->serverInfo($server);
+        return $this->getServerInfo($server);
     }
-
-    /**
-     * Display server details including associated sites.
-     */
-    protected function displayServerDeets(ServerDTO $server): void
-    {
-        $deets = [
-            'Name' => $server->name,
-            'Host' => $server->host,
-            'Port' => $server->port,
-            'User' => $server->username,
-            'Key' => $server->privateKeyPath ?? 'default (~/.ssh/id_ed25519 or ~/.ssh/id_rsa)',
-        ];
-
-        $sites = $this->sites->findByServer($server->name);
-
-        if (count($sites) > 1) {
-            $deets['Sites'] = array_map(fn (SiteDTO $site) => $site->domain, $sites);
-        } elseif (count($sites) === 1) {
-            $deets['Site'] = $sites[0]->domain;
-        }
-
-        $this->displayDeets($deets);
-        $this->out('───');
-    }
-
-    /**
-     * Resolve the server associated with a site, handling error output.
-     */
-    protected function getServerForSite(SiteDTO $site): ServerDTO|int
-    {
-        $server = $this->servers->findByName($site->server);
-
-        if ($server === null) {
-            $this->nay("Server '{$site->server}' not found in inventory");
-
-            return Command::FAILURE;
-        }
-
-        return $server;
-    }
-
-    /**
-     * Display firewall status and open ports.
-     *
-     * @param array<string, mixed> $info Server/detection information array
-     */
-    protected function displayFirewallDeets(array $info): void
-    {
-        /** @var bool $ufwInstalled */
-        $ufwInstalled = filter_var($info['ufw_installed'] ?? false, FILTER_VALIDATE_BOOLEAN);
-
-        if (!$ufwInstalled) {
-            $this->displayDeets([
-                'Firewall' => 'Not installed',
-            ]);
-
-            return;
-        }
-
-        /** @var bool $ufwActive */
-        $ufwActive = filter_var($info['ufw_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
-
-        if (!$ufwActive) {
-            $this->displayDeets([
-                'Firewall' => 'Inactive',
-            ]);
-
-            return;
-        }
-
-        $this->displayDeets(['Firewall' => 'Active']);
-
-        /** @var array<int, string> $ufwRules */
-        $ufwRules = $info['ufw_rules'] ?? [];
-        /** @var array<int|string, string> $ports */
-        $ports = $info['ports'] ?? [];
-
-        if ([] === $ufwRules) {
-            $this->displayDeets(['Open Ports' => 'None']);
-        } else {
-            $openPorts = [];
-            foreach ($this->extractPortsFromRules($ufwRules) as $port) {
-                $process = $ports[$port] ?? 'unknown';
-                $openPorts["Port {$port}"] = $process;
-            }
-
-            $this->displayDeets(['Open Ports' => $openPorts]);
-        }
-    }
-
-    /**
-     * Extract port numbers from UFW rule strings.
-     *
-     * @param array<int, string> $rules UFW rules in format "port/proto" (e.g., "22/tcp")
-     * @return array<int, int> List of port numbers
-     */
-    protected function extractPortsFromRules(array $rules): array
-    {
-        $ports = [];
-
-        foreach ($rules as $rule) {
-            if (preg_match('/^(\d+)/', $rule, $matches)) {
-                $ports[] = (int) $matches[1];
-            }
-        }
-
-        return $ports;
-    }
-
-    /**
-     * Get configuration for a specific site from server info.
-     *
-     * @param array<string, mixed> $info Server information array
-     * @param string $domain Site domain
-     * @return array{php_version: string, www_mode: string, https_enabled: bool}|null Returns config or null if not found
-     */
-    protected function getSiteConfig(array $info, string $domain): ?array
-    {
-        if (! isset($info['sites_config']) || ! is_array($info['sites_config'])) {
-            return null;
-        }
-
-        $config = $info['sites_config'][$domain] ?? null;
-
-        if (! is_array($config)) {
-            return null;
-        }
-
-        /** @var mixed $phpVer */
-        $phpVer = $config['php_version'] ?? 'unknown';
-        /** @var mixed $mode */
-        $mode = $config['www_mode'] ?? 'unknown';
-
-        return [
-            'php_version' => is_scalar($phpVer) ? (string) $phpVer : 'unknown',
-            'www_mode' => is_scalar($mode) ? (string) $mode : 'unknown',
-            'https_enabled' => filter_var($config['https_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
-        ];
-    }
-
-
 
     // ----
     // Validation
     // ----
-
-    /**
-     * Validate server name format and uniqueness.
-     *
-     * @return string|null Error message if invalid, null if valid
-     */
-    protected function validateServerName(mixed $name): ?string
-    {
-        if (! is_string($name)) {
-            return 'Server name must be a string';
-        }
-
-        // Check if empty
-        if (trim($name) === '') {
-            return 'Server name cannot be empty';
-        }
-
-        // Validate format: alphanumeric, hyphens, underscores only
-        if (! preg_match('/^[a-zA-Z0-9_-]+$/', $name)) {
-            return 'Server name can only contain letters, numbers, hyphens, and underscores';
-        }
-
-        // Check uniqueness
-        $existing = $this->servers->findByName($name);
-        if ($existing !== null) {
-            return "Server '{$name}' already exists in inventory";
-        }
-
-        return null;
-    }
 
     /**
      * Validate host is a valid IP or domain and unique.
@@ -369,6 +343,41 @@ trait ServersTrait
     }
 
     /**
+     * Validate server name format and uniqueness.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateServerName(mixed $name): ?string
+    {
+        if (! is_string($name)) {
+            return 'Server name must be a string';
+        }
+
+        // Check if empty
+        if (trim($name) === '') {
+            return 'Server name cannot be empty';
+        }
+
+        // Validate format: alphanumeric, hyphens, underscores only
+        if (! preg_match('/^[a-zA-Z0-9_-]+$/', $name)) {
+            return 'Server name can only contain letters, numbers, hyphens, and underscores';
+        }
+
+        // Validate length
+        if (strlen($name) > 64) {
+            return 'Server name cannot exceed 64 characters';
+        }
+
+        // Check uniqueness
+        $existing = $this->servers->findByName($name);
+        if ($existing !== null) {
+            return "Server '{$name}' already exists in inventory";
+        }
+
+        return null;
+    }
+
+    /**
      * Validate port is in valid range.
      *
      * @return string|null Error message if invalid, null if valid
@@ -386,6 +395,46 @@ trait ServersTrait
         $port = (int) $portString;
         if ($port < 1 || $port > 65535) {
             return 'Port must be between 1 and 65535 (common SSH ports: 22, 2222, 22000)';
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate server selection exists in inventory.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateServerSelection(mixed $name): ?string
+    {
+        if (! is_string($name)) {
+            return 'Server name must be a string';
+        }
+
+        if (null === $this->servers->findByName($name)) {
+            return "Server '{$name}' not found in inventory";
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate username format.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateUsernameInput(mixed $username): ?string
+    {
+        if (! is_string($username)) {
+            return 'Username must be a string';
+        }
+
+        if ('' === trim($username)) {
+            return 'Username cannot be empty';
+        }
+
+        if (! preg_match('/^[a-zA-Z_][a-zA-Z0-9_-]*$/', $username)) {
+            return 'Username must start with letter or underscore';
         }
 
         return null;

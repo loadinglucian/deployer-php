@@ -1,22 +1,12 @@
 #!/usr/bin/env bash
 
 #
-# MySQL Service Playbook - Ubuntu/Debian Only
+# MySQL Service
 #
-# Manage MySQL service lifecycle (start/stop/restart)
-# ----
+# Controls MySQL service lifecycle (start/stop/restart) via systemctl.
 #
-# This playbook controls the MySQL service state using systemctl.
-# It supports three actions: start, stop, and restart.
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE  - Output file path (YAML)
-#   DEPLOYER_DISTRO       - Server distribution (ubuntu|debian)
-#   DEPLOYER_PERMS        - Permissions (root|sudo)
-#   DEPLOYER_ACTION       - Service action (start|stop|restart)
-#
-# Returns YAML with:
-#   - status: success
+# Output:
+#   status: success
 #
 
 set -o pipefail

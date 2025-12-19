@@ -6,6 +6,7 @@ namespace Deployer\Console\Site;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SiteSharedPathsTrait;
 use Deployer\Traits\SitesTrait;
@@ -36,7 +37,8 @@ class SiteSharedPullCommand extends BaseCommand
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain')
             ->addOption('remote', null, InputOption::VALUE_REQUIRED, 'Remote filename (relative to shared/)')
-            ->addOption('local', null, InputOption::VALUE_REQUIRED, 'Local destination file path');
+            ->addOption('local', null, InputOption::VALUE_REQUIRED, 'Local destination file path')
+            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip overwrite confirmation');
     }
 
     // ----
@@ -50,42 +52,20 @@ class SiteSharedPullCommand extends BaseCommand
         $this->h1('Download Shared File');
 
         //
-        // Select site
+        // Select site and server
         // ----
 
-        $site = $this->selectSite();
+        $result = $this->selectSiteDeetsWithServer();
 
-        if (is_int($site)) {
-            return $site;
+        if (is_int($result)) {
+            return $result;
         }
 
-        $this->displaySiteDeets($site);
+        $site = $result->site;
+        $server = $result->server;
 
-        //
-        // Get server for site
-        // ----
 
-        $server = $this->getServerForSite($site);
-
-        if (is_int($server)) {
-            return $server;
-        }
-
-        //
-        // Get server info (verifies SSH connection and validates distribution & permissions)
-        // ----
-
-        $server = $this->serverInfo($server);
-
-        if (is_int($server) || $server->info === null) {
-            return Command::FAILURE;
-        }
-
-        //
-        // Validate site is added on server
-        // ----
-
-        $validationResult = $this->validateSiteAdded($server, $site);
+        $validationResult = $this->ensureSiteExists($server, $site);
 
         if (is_int($validationResult)) {
             return $validationResult;
@@ -95,33 +75,24 @@ class SiteSharedPullCommand extends BaseCommand
         // Resolve paths
         // ----
 
-        $remoteRelative = $this->resolveRemotePath();
-
-        if ($remoteRelative === null) {
-            return Command::FAILURE;
-        }
-
-        $remotePath = $this->buildSharedPath($site, $remoteRelative);
-
-        //
-        // Verify remote file exists
-        // ----
-
         try {
+            $remoteRelative = $this->resolveRemotePath();
+            $remotePath = $this->buildSharedPath($site, $remoteRelative);
+
+            //
+            // Verify remote file exists
+            // ----
+
             if (! $this->remoteFileExists($server, $remotePath)) {
                 $this->nay("Remote file not found: {$remoteRelative}");
 
                 return Command::FAILURE;
             }
-        } catch (\RuntimeException $e) {
+
+            $localPath = $this->resolveLocalPath($remoteRelative);
+        } catch (ValidationException|\RuntimeException $e) {
             $this->nay($e->getMessage());
 
-            return Command::FAILURE;
-        }
-
-        $localPath = $this->resolveLocalPath($remoteRelative);
-
-        if ($localPath === null) {
             return Command::FAILURE;
         }
 
@@ -130,10 +101,12 @@ class SiteSharedPullCommand extends BaseCommand
         // ----
 
         if ($this->fs->exists($localPath)) {
-            /** @var bool $overwrite */
-            $overwrite = $this->io->promptConfirm(
-                label: "Local file {$localPath} exists. Overwrite?",
-                default: false
+            $overwrite = $this->io->getBooleanOptionOrPrompt(
+                'yes',
+                fn (): bool => $this->io->promptConfirm(
+                    label: "Local file {$localPath} exists. Overwrite?",
+                    default: false
+                )
             );
 
             if (! $overwrite) {
@@ -170,6 +143,7 @@ class SiteSharedPullCommand extends BaseCommand
             'domain' => $site->domain,
             'remote' => $remoteRelative,
             'local' => $localPath,
+            'yes' => true,
         ]);
 
         return Command::SUCCESS;
@@ -179,48 +153,47 @@ class SiteSharedPullCommand extends BaseCommand
     // Helpers
     // ----
 
-    private function resolveRemotePath(): ?string
+    /**
+     * @throws ValidationException When CLI option validation fails
+     */
+    private function resolveRemotePath(): string
     {
-        /** @var string|null $remoteInput */
-        $remoteInput = $this->io->getOptionOrPrompt(
+        /** @var string $remoteInput */
+        $remoteInput = $this->io->getValidatedOptionOrPrompt(
             'remote',
-            fn (): string => $this->io->promptText(
+            fn ($validate): string => $this->io->promptText(
                 label: 'Remote filename (relative to shared/):',
                 placeholder: '.env',
-                required: true
-            )
+                required: true,
+                validate: $validate
+            ),
+            fn ($value) => $this->validatePathInput($value)
         );
 
-        $normalized = $this->normalizeRelativePath($remoteInput ?? '');
-
-        if ($normalized === null) {
-            return null;
-        }
-
-        return $normalized;
+        return $this->normalizeRelativePath($remoteInput);
     }
 
-    private function resolveLocalPath(string $remoteRelative): ?string
+    /**
+     * @throws ValidationException When CLI option validation fails
+     * @throws \RuntimeException When path expansion fails
+     */
+    private function resolveLocalPath(string $remoteRelative): string
     {
         $default = basename($remoteRelative) ?: $remoteRelative;
 
         /** @var string $localInput */
-        $localInput = $this->io->getOptionOrPrompt(
+        $localInput = $this->io->getValidatedOptionOrPrompt(
             'local',
-            fn (): string => $this->io->promptText(
+            fn ($validate): string => $this->io->promptText(
                 label: 'Local destination path:',
                 default: $default,
-                required: true
-            )
+                required: true,
+                validate: $validate
+            ),
+            fn ($value) => $this->validatePathInput($value)
         );
 
-        try {
-            return $this->fs->expandPath($localInput);
-        } catch (\RuntimeException $e) {
-            $this->nay($e->getMessage());
-
-            return null;
-        }
+        return $this->fs->expandPath($localInput);
     }
 
     private function remoteFileExists(ServerDTO $server, string $remotePath): bool

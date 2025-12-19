@@ -6,9 +6,10 @@ namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
-use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
+use Deployer\Traits\ServicesTrait;
 use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -18,25 +19,40 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'server:logs',
-    description: 'View server logs (system, PHP-FPM, sites, and detected services)'
+    description: 'View server logs (system, services, sites, and supervisors)'
 )]
 class ServerLogsCommand extends BaseCommand
 {
     use LogsTrait;
-    use PlaybooksTrait;
     use ServersTrait;
+    use ServicesTrait;
     use SitesTrait;
 
     /**
-     * @var array{
-     *     options: array<string|int, string>,
-     *     services: list<string>,
-     *     phpVersions: list<string>,
-     *     sites: list<string>,
-     *     supervisors: list<array{domain: string, program: string}>
-     * }|null
+     * Static log sources always available on provisioned servers.
+     *
+     * @var array<string, array{label: string, type: string, unit?: string|null, path?: string}>
      */
-    private ?array $processedServices = null;
+    private const STATIC_SOURCES = [
+        'system' => ['label' => 'System logs', 'type' => 'journalctl', 'unit' => null],
+        'supervisor' => ['label' => 'Supervisor', 'type' => 'journalctl', 'unit' => 'supervisor'],
+        'cron' => ['label' => 'Cron', 'type' => 'journalctl', 'unit' => 'cron'],
+    ];
+
+    /**
+     * Port-detected service log configurations (key = process name from ss/netstat).
+     *
+     * Labels are derived from ServicesTrait::getServiceLabel().
+     * Type 'both' shows journalctl service logs AND file-based error logs.
+     *
+     * @var array<string, array{type: string, unit?: string, path?: string}>
+     */
+    private const PORT_SOURCES = [
+        'caddy' => ['type' => 'journalctl', 'unit' => 'caddy'],
+        'sshd' => ['type' => 'journalctl', 'unit' => 'ssh'],
+        'mysqld' => ['type' => 'both', 'unit' => 'mysql', 'path' => '/var/log/mysql/error.log'],
+        'mariadb' => ['type' => 'both', 'unit' => 'mariadb', 'path' => '/var/log/mysql/error.log'],
+    ];
 
     // ----
     // Configuration
@@ -48,7 +64,7 @@ class ServerLogsCommand extends BaseCommand
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
         $this->addOption('lines', 'n', InputOption::VALUE_REQUIRED, 'Number of lines to retrieve');
-        $this->addOption('service', 's', InputOption::VALUE_REQUIRED, 'Service name (all|system|php-fpm|site|detected service name)');
+        $this->addOption('service', 's', InputOption::VALUE_REQUIRED, 'Service(s) to view (comma-separated)');
     }
 
     // ----
@@ -62,97 +78,78 @@ class ServerLogsCommand extends BaseCommand
         $this->h1('Server Logs');
 
         //
-        // Select server & display details
+        // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
 
         //
+        // Build log options
+        // ----
+
+        $options = $this->buildLogOptions($server);
+
+        //
         // Get user input
         // ----
 
-        $processed = $this->getProcessedServices($server);
-
-        /** @var array<string, string> $options */
-        $options = $processed['options'];
-
-        $services = $this->io->getOptionOrPrompt(
-            'service',
-            fn () => $this->io->promptMultiselect(
-                label: 'Which logs to view?',
-                options: $options,
-                default: ['system'],
-                required: true,
-                scroll: 15
-            )
-        );
-
-        $lines = $this->io->getOptionOrPrompt(
-            'lines',
-            fn () => $this->io->promptText(
-                label: 'Number of lines:',
-                default: '50',
-                validate: fn ($value) => $this->validateLineCount($value)
-            )
-        );
-
-        // Validate CLI-provided value
-        $lineError = $this->validateLineCount($lines);
-        if (null !== $lineError) {
-            $this->nay($lineError);
-
-            return Command::FAILURE;
-        }
-
-        // Handle CLI option (comma-separated string)
-        if (is_string($services)) {
-            $services = array_filter(
-                array_map(trim(...), explode(',', $services)),
-                static fn (string $s): bool => $s !== ''
+        try {
+            $services = $this->io->getValidatedOptionOrPrompt(
+                'service',
+                fn ($validate) => $this->io->promptMultiselect(
+                    label: 'Which logs to view?',
+                    options: $options,
+                    default: ['system'],
+                    required: true,
+                    scroll: 15,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateServicesInput($value, $options)
             );
-        }
 
-        // Validate services against allowed options (prevents command injection)
-        if (is_array($services)) {
-            $allowedServices = array_keys($options);
-            $invalidServices = array_diff($services, $allowedServices);
-            if ([] !== $invalidServices) {
-                $this->nay(sprintf(
-                    "Invalid service(s): %s",
-                    implode(', ', array_map(static fn (string|int $s): string => "'{$s}'", $invalidServices))
-                ));
-                $this->info('Allowed: ' . implode(', ', $allowedServices));
-
-                return Command::FAILURE;
-            }
-        }
-
-        if (!is_array($services) || [] === $services) {
-            $this->nay('No services selected');
+            /** @var string $lines */
+            $lines = $this->io->getValidatedOptionOrPrompt(
+                'lines',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Number of lines:',
+                    default: '50',
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateLineCount($value)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }
-
-        /** @var list<string> $services */
 
         //
-        // Retrieve logs
+        // Normalize services input
         // ----
 
-        $this->displayServiceLogs($server, $services, (int) $lines);
+        /** @var list<string> $serviceKeys */
+        $serviceKeys = is_string($services)
+            ? array_filter(array_map(trim(...), explode(',', $services)))
+            : $services;
 
         //
-        // Show command replay
+        // Display logs
+        // ----
+
+        $this->displayLogs($server, $serviceKeys, (int) $lines);
+
+        //
+        // Command replay
         // ----
 
         $this->commandReplay('server:logs', [
             'server' => $server->name,
             'lines' => $lines,
-            'service' => implode(',', $services),
+            'service' => implode(',', $serviceKeys),
         ]);
 
         return Command::SUCCESS;
@@ -163,337 +160,246 @@ class ServerLogsCommand extends BaseCommand
     // ----
 
     /**
-     * Process detected services, PHP versions, sites, and supervisors to build options.
+     * Build selectable log options from server info.
      *
-     * @return array{
-     *     options: array<string|int, string>,
-     *     services: list<string>,
-     *     phpVersions: list<string>,
-     *     sites: list<string>,
-     *     supervisors: list<array{domain: string, program: string}>
-     * }
+     * @return array<string, string>
      */
-    protected function getProcessedServices(ServerDTO $server): array
+    protected function buildLogOptions(ServerDTO $server): array
     {
-        if (null !== $this->processedServices) {
-            return $this->processedServices;
+        /** @var array<string, mixed> $info */
+        $info = $server->info;
+        $options = [];
+
+        //
+        // Static sources (always available)
+
+        foreach (self::STATIC_SOURCES as $key => $source) {
+            $options[$key] = $source['label'];
         }
 
+        //
+        // Port-detected services
+
+        /** @var array<int, string> $ports */
+        $ports = $info['ports'] ?? [];
+
+        foreach (array_unique(array_values($ports)) as $process) {
+            $key = strtolower((string) $process);
+
+            if (isset(self::PORT_SOURCES[$key])) {
+                $options[$key] = $this->getServiceLabel($key);
+            }
+        }
+
+        //
+        // PHP-FPM versions
+
+        /** @var array<mixed, mixed> $phpData */
+        $phpData = is_array($info['php'] ?? null) ? $info['php'] : [];
+
+        if (isset($phpData['versions']) && is_array($phpData['versions'])) {
+            foreach ($phpData['versions'] as $versionData) {
+                $version = null;
+
+                if (is_array($versionData) && isset($versionData['version'])) {
+                    /** @var mixed $versionValue */
+                    $versionValue = $versionData['version'];
+                    if (is_string($versionValue)) {
+                        $version = $versionValue;
+                    } elseif (is_int($versionValue) || is_float($versionValue)) {
+                        $version = (string) $versionValue;
+                    }
+                } elseif (is_string($versionData)) {
+                    $version = $versionData;
+                }
+
+                if (null !== $version && '' !== $version) {
+                    $key = "php{$version}-fpm";
+                    $options[$key] = "PHP {$version} FPM";
+                }
+            }
+        }
+
+        //
+        // Sites (Caddy access logs)
+
+        if (isset($info['sites_config']) && is_array($info['sites_config'])) {
+            foreach (array_keys($info['sites_config']) as $domain) {
+                $options[(string) $domain] = "Site: {$domain}";
+            }
+        }
+
+        //
+        // Per-site resources (from inventory)
+
+        foreach ($this->sites->findByServer($server->name) as $site) {
+            // Cron scripts (one option per script)
+            foreach ($site->crons as $cron) {
+                $key = "cron:{$site->domain}/{$cron->script}";
+                $options[$key] = "Cron: {$site->domain}/{$cron->script}";
+            }
+
+            // Supervisor programs
+            foreach ($site->supervisors as $supervisor) {
+                $key = "supervisor:{$site->domain}/{$supervisor->program}";
+                $options[$key] = "Supervisor: {$site->domain}/{$supervisor->program}";
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Display logs for selected services.
+     *
+     * @param list<string> $services
+     */
+    protected function displayLogs(ServerDTO $server, array $services, int $lines): void
+    {
         /** @var array<string, mixed> $info */
         $info = $server->info;
 
-        // 1. Detected listening services
-        /** @var array<int, string> $ports */
-        $ports = $info['ports'] ?? [];
-        $detected = array_unique(array_values($ports));
+        /** @var list<string> $sites */
+        $sites = isset($info['sites_config']) && is_array($info['sites_config'])
+            ? array_map(strval(...), array_keys($info['sites_config']))
+            : [];
 
-        $services = [];
+        foreach ($services as $key) {
+            //
+            // Static sources
 
-        foreach ($detected as $service) {
-            $lower = strtolower((string) $service);
+            if (isset(self::STATIC_SOURCES[$key])) {
+                $source = self::STATIC_SOURCES[$key];
+                $this->retrieveJournalLogs($server, $source['label'], $source['unit'] ?? null, $lines);
 
-            if ($lower === 'unknown' || str_contains($lower, 'docker') || $lower === 'private-network') {
                 continue;
             }
 
-            $services[] = (string) $service;
-        }
+            //
+            // Port-detected sources
 
-        // 2. PHP Versions (PHP-FPM)
-        $phpVersions = [];
-        if (isset($info['php']) && is_array($info['php']) && isset($info['php']['versions']) && is_array($info['php']['versions'])) {
-            foreach ($info['php']['versions'] as $versionData) {
-                $version = null;
-                if (is_array($versionData) && isset($versionData['version'])) {
-                    /** @var string|int|float $rawVersion */
-                    $rawVersion = $versionData['version'];
-                    $version = (string) $rawVersion;
-                } elseif (is_string($versionData) || is_numeric($versionData)) {
-                    $version = (string) $versionData;
-                }
+            if (isset(self::PORT_SOURCES[$key])) {
+                $source = self::PORT_SOURCES[$key];
+                $label = $this->getServiceLabel($key);
 
-                if (null !== $version) {
-                    $phpVersions[] = $version;
-                }
-            }
-        }
+                /** @var string $sourceType */
+                $sourceType = $source['type'];
 
-        // 3. Sites
-        /** @var list<string> $sites */
-        $sites = [];
-        if (isset($info['sites_config']) && is_array($info['sites_config'])) {
-            $sites = array_map(strval(...), array_keys($info['sites_config']));
-        }
-
-        // 4. Supervisor programs (from inventory)
-        /** @var list<array{domain: string, program: string}> $supervisors */
-        $supervisors = [];
-        $serverSites = $this->sites->findByServer($server->name);
-
-        foreach ($serverSites as $siteDTO) {
-            foreach ($siteDTO->supervisors as $supervisor) {
-                $supervisors[] = [
-                    'domain' => $siteDTO->domain,
-                    'program' => $supervisor->program,
-                ];
-            }
-        }
-
-        // Build options
-        $options = [
-            'system' => 'System logs',
-        ];
-
-        // Detected services (Caddy, SSH, etc.)
-        foreach ($services as $service) {
-            $options[strtolower($service)] = $service;
-        }
-
-        // PHP-FPM services
-        foreach ($phpVersions as $version) {
-            $serviceName = "php{$version}-fpm";
-            $options[$serviceName] = "PHP {$version} FPM";
-        }
-
-        // Sites
-        foreach ($sites as $site) {
-            $options[$site] = "Site: {$site}";
-        }
-
-        // Supervisor programs
-        foreach ($supervisors as $sup) {
-            $key = "supervisor:{$sup['domain']}/{$sup['program']}";
-            $options[$key] = "Supervisor: {$sup['domain']}/{$sup['program']}";
-        }
-
-        return $this->processedServices = [
-            'options' => $options,
-            'services' => $services,
-            'phpVersions' => $phpVersions,
-            'sites' => $sites,
-            'supervisors' => $supervisors,
-        ];
-    }
-
-    /**
-     * Display logs for selected service(s).
-     *
-     * @param list<string> $services Selected services
-     */
-    protected function displayServiceLogs(ServerDTO $server, array $services, int $lines): void
-    {
-        $processed = $this->getProcessedServices($server);
-        /** @var list<string> $sites */
-        $sites = $processed['sites'];
-
-        foreach ($services as $service) {
-            if ($service === 'system') {
-                $this->retrieveServiceLogs($server, 'System', '', $lines);
-            } elseif (str_starts_with($service, 'supervisor:')) {
-                // Parse supervisor:{domain}/{program}
-                $parts = explode('/', substr($service, 11), 2);
-                if (2 === count($parts)) {
-                    [$domain, $program] = $parts;
-                    $fullName = "{$domain}-{$program}";
-                    $this->retrieveFileLogs(
-                        $server,
-                        "Supervisor: {$domain}/{$program}",
-                        "/var/log/supervisor/{$fullName}.log",
-                        $lines
-                    );
+                if ('both' === $sourceType) {
+                    /** @var string $unit */
+                    $unit = $source['unit'];
+                    /** @var string $path */
+                    $path = $source['path'] ?? '';
+                    $this->retrieveJournalLogs($server, "{$label} Service", $unit, $lines);
+                    $this->retrieveFileLogs($server, "{$label} Error Log", $path, $lines);
                 } else {
-                    $this->warn("Invalid supervisor format: '{$service}'. Expected 'supervisor:{domain}/{program}'");
+                    match ($sourceType) {
+                        'journalctl' => $this->retrieveJournalLogs($server, $label, $source['unit'], $lines),
+                        'file' => $this->retrieveFileLogs($server, $label, $source['path'] ?? '', $lines),
+                        default => $this->warn("Unknown log type: {$sourceType}"),
+                    };
                 }
-            } elseif (in_array($service, $sites, true)) {
-                $this->retrieveFileLogs(
-                    $server,
-                    "Site: {$service}",
-                    "/var/log/caddy/{$service}-access.log",
-                    $lines
-                );
-            } elseif (str_starts_with($service, 'php') && str_ends_with($service, '-fpm')) {
-                $this->retrieveFileLogs(
-                    $server,
-                    $service,
-                    "/var/log/{$service}.log",
-                    $lines
-                );
-            } elseif ('mysqld' === $service) {
-                $this->retrieveFileLogs(
-                    $server,
-                    'MySQL',
-                    '/var/log/mysql/error.log',
-                    $lines
-                );
-            } else {
-                // Generic service (journalctl)
-                $this->retrieveServiceLogs($server, $service, $service, $lines);
-            }
-        }
-    }
 
-    /**
-     * Retrieve service logs via journalctl.
-     */
-    protected function retrieveServiceLogs(ServerDTO $server, string $service, string $unit, int $lines): void
-    {
-        $this->h2($service);
-
-        try {
-            if ('' === $unit) {
-                $command = sprintf('journalctl -n %d --no-pager 2>&1', $lines);
-            } else {
-                $unitArgs = array_map(
-                    static fn (string $name): string => '-u ' . escapeshellarg($name),
-                    $this->getServiceNamePatterns($unit)
-                );
-                $command = sprintf('journalctl %s -n %d --no-pager 2>&1', implode(' ', $unitArgs), $lines);
+                continue;
             }
 
-            $result = $this->ssh->executeCommand($server, $command);
-            $output = trim($result['output']);
+            //
+            // PHP-FPM
 
-            $serviceNotFound = str_contains($output, 'No data available') ||
-                              str_contains($output, 'Failed to add filter');
-            $noData = $output === '' || $output === '-- No entries --';
+            if (str_starts_with($key, 'php') && str_ends_with($key, '-fpm')) {
+                $this->retrieveFileLogs($server, strtoupper($key), "/var/log/{$key}.log", $lines);
 
-            if (0 !== $result['exit_code'] && !$serviceNotFound) {
-                $this->nay("Failed to retrieve {$service} logs");
-                $this->io->write($this->highlightErrors($output), true);
-                $this->out('───');
-
-                return;
+                continue;
             }
 
-            if ($serviceNotFound || $noData) {
-                $this->tryTraditionalLogs($server, $service, $lines);
+            //
+            // Cron script logs
 
-                return;
-            }
+            if (str_starts_with($key, 'cron:')) {
+                $parts = explode('/', substr($key, 5), 2);
 
-            $this->io->write($this->highlightErrors($output), true);
-            $this->out('───');
-        } catch (\RuntimeException $e) {
-            $this->nay($e->getMessage());
-        }
-    }
+                if (2 !== count($parts)) {
+                    $this->warn("Invalid cron key format: {$key}");
 
-    /**
-     * Retrieve logs from a specific file.
-     */
-    protected function retrieveFileLogs(ServerDTO $server, string $title, string $filepath, int $lines): void
-    {
-        $this->h2($title);
-        $this->out("<|gray>File: {$filepath}</>");
-
-        $content = $this->readLogFile($server, $filepath, $lines);
-
-        if (null !== $content) {
-            $this->io->write($this->highlightErrors($content), true);
-            $this->out('───');
-        } else {
-            $this->warn('No logs found or file does not exist.');
-        }
-    }
-
-    /**
-     * Try to find and display traditional log files in /var/log/.
-     */
-    protected function tryTraditionalLogs(ServerDTO $server, string $service, int $lines): void
-    {
-        try {
-            $searchPatterns = $this->getLogSearchPatterns($service);
-            if ([] === $searchPatterns) {
-                $this->warn("No {$service} logs found");
-
-                return;
-            }
-
-            $namePatterns = implode(' -o ', array_map(
-                static fn (string $p): string => "-iname '*{$p}*'",
-                $searchPatterns
-            ));
-
-            $findCommand = "find /var/log -type f \\( {$namePatterns} \\) 2>/dev/null | head -5";
-            $result = $this->ssh->executeCommand($server, $findCommand);
-
-            if (0 === $result['exit_code'] && '' !== trim($result['output'])) {
-                $logFiles = array_filter(array_map(trim(...), explode("\n", trim($result['output']))));
-
-                foreach ($logFiles as $logFile) {
-                    $logContent = $this->readLogFile($server, $logFile, $lines);
-
-                    if (null !== $logContent) {
-                        $this->out("<fg=bright-black>From {$logFile}:</>");
-                        $this->io->write($this->highlightErrors($logContent), true);
-                        $this->out('───');
-
-                        return;
-                    }
+                    continue;
                 }
-            }
-        } catch (\RuntimeException) {
-            // Fall through to warning
-        }
 
-        $this->warn("No {$service} logs found");
-    }
+                [$domain, $script] = $parts;
+                $scriptBase = pathinfo($script, PATHINFO_FILENAME);
+                $this->retrieveFileLogs(
+                    $server,
+                    "Cron: {$domain}/{$script}",
+                    "/var/log/cron/{$domain}-{$scriptBase}.log",
+                    $lines
+                );
 
-    /**
-     * Get log file search patterns for a service name.
-     *
-     * @return list<string>
-     */
-    protected function getLogSearchPatterns(string $service): array
-    {
-        $serviceLower = strtolower($service);
-
-        return match ($serviceLower) {
-            'mysqld' => ['mysql'],
-            default => [$serviceLower],
-        };
-    }
-
-    /**
-     * Attempt to read a log file from the server.
-     */
-    protected function readLogFile(ServerDTO $server, string $logFile, int $lines): ?string
-    {
-        try {
-            $safeLogFile = escapeshellarg($logFile);
-            $result = $this->ssh->executeCommand($server, "tail -n {$lines} {$safeLogFile} 2>/dev/null");
-
-            if (0 === $result['exit_code'] && '' !== trim($result['output'])) {
-                return trim($result['output']);
+                continue;
             }
 
-            return null;
-        } catch (\RuntimeException) {
-            return null;
+            //
+            // Supervisor program
+
+            if (str_starts_with($key, 'supervisor:')) {
+                $parts = explode('/', substr($key, 11), 2);
+
+                if (2 !== count($parts)) {
+                    $this->warn("Invalid supervisor key format: {$key}");
+
+                    continue;
+                }
+
+                [$domain, $program] = $parts;
+                $this->retrieveFileLogs(
+                    $server,
+                    "Supervisor: {$domain}/{$program}",
+                    "/var/log/supervisor/{$domain}-{$program}.log",
+                    $lines
+                );
+
+                continue;
+            }
+
+            //
+            // Site access log
+
+            if (in_array($key, $sites, true)) {
+                $this->retrieveFileLogs($server, "Site: {$key}", "/var/log/caddy/{$key}-access.log", $lines);
+
+                continue;
+            }
+
+            //
+            // Unknown source (fallthrough warning)
+
+            $this->warn("Unhandled log source: {$key}");
         }
     }
 
+    // ----
+    // Validation
+    // ----
+
     /**
-     * Get common systemd service name patterns for a process.
+     * Validate services input.
      *
-     * @return array<int, string>
+     * @param array<string, string> $allowedOptions
      */
-    protected function getServiceNamePatterns(string $process): array
+    protected function validateServicesInput(mixed $value, array $allowedOptions): ?string
     {
-        $patterns = [
-            $process,                    // As-is
-            "{$process}.service",        // With .service
-        ];
+        $services = is_string($value)
+            ? array_filter(array_map(trim(...), explode(',', $value)))
+            : $value;
 
-        // Handle common naming variations
-        $variations = match ($process) {
-            'mysqld' => ['mysql', 'mysql.service'],
-            'sshd' => ['ssh', 'ssh.service'],
-            'supervisor' => ['supervisor', 'supervisord', 'supervisord.service'],
-            'systemd-resolve' => ['systemd-resolved', 'systemd-resolved.service'],
-            default => [],
-        };
+        if (!is_array($services) || [] === $services) {
+            return 'At least one service must be selected';
+        }
 
-        return array_unique(array_merge($patterns, $variations));
+        $invalid = array_diff($services, array_keys($allowedOptions));
+
+        if ([] !== $invalid) {
+            return sprintf("Invalid service(s): %s", implode(', ', $invalid));
+        }
+
+        return null;
     }
 }

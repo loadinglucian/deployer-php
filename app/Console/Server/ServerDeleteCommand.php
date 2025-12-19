@@ -33,7 +33,8 @@ class ServerDeleteCommand extends BaseCommand
         $this
             ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the server name to confirm')
-            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
+            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt')
+            ->addOption('inventory-only', null, InputOption::VALUE_NONE, 'Only remove from inventory, skip cloud provider destruction');
     }
 
     // ----
@@ -47,66 +48,45 @@ class ServerDeleteCommand extends BaseCommand
         $this->h1('Delete Server');
 
         //
-        // Select server & display details
+        // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server)) {
             return $server;
         }
 
-        $isDigitalOceanServer = $server->provider === 'digitalocean' && $server->dropletId !== null;
-
         $serverSites = $this->sites->findByServer($server->name);
 
+        $siteCount = count($serverSites);
+
         //
-        // Prepare site deletion info
+        // Display deletion info
         // ----
 
-        $siteCount = count($serverSites);
-        $hasSites = $siteCount > 0;
-        $sitesList = '';
+        /** @var bool $inventoryOnly */
+        $inventoryOnly = $input->getOption('inventory-only');
 
-        if ($hasSites) {
+        $deletionInfo = [
+            'Remove the server from inventory',
+        ];
+
+        if ($siteCount > 0) {
             $siteDomains = array_map(fn ($site) => $site->domain, $serverSites);
             $sitesList = implode(', ', $siteDomains);
+            $deletionInfo[] = "Delete {$siteCount} associated site(s): {$sitesList}";
         }
 
-        //
-        // Display warning for cloud provider servers
-        // ----
-
-        if ($isDigitalOceanServer) {
-            $this->info('This is a DigitalOcean droplet (ID: ' . $server->dropletId . ')');
-
-            $messages = [
-                'Destroy the droplet on DigitalOcean',
-                'Remove the server from inventory',
-            ];
-
-            if ($hasSites) {
-                $messages[] = "Delete {$siteCount} associated site(s): {$sitesList}";
-            }
-
-            $this->info('This will:');
-            $this->ul($messages);
-        } elseif ($hasSites) {
-            $this->info('This will:');
-            $this->ul([
-                'Remove the server from inventory',
-                "Delete {$siteCount} associated site(s): {$sitesList}",
-            ]);
+        if ($server->isDigitalOcean() && !$inventoryOnly) {
+            $deletionInfo[] = "Destroy the droplet on DigitalOcean (ID: {$server->dropletId})";
         }
 
-        //
-        // Initialize provider API
-        // ----
-
-        if ($isDigitalOceanServer && Command::FAILURE === $this->initializeDigitalOceanAPI()) {
-            $this->nay('Cannot delete server: DigitalOcean API authentication failed.');
-
-            return Command::FAILURE;
+        if (1 === count($deletionInfo)) {
+            $this->info('This will ' . lcfirst($deletionInfo[0]));
+        } else {
+            $this->info('This will:');
+            $this->ul($deletionInfo);
         }
 
         //
@@ -114,7 +94,7 @@ class ServerDeleteCommand extends BaseCommand
         // ----
 
         /** @var bool $forceSkip */
-        $forceSkip = $input->getOption('force') ?? false;
+        $forceSkip = $input->getOption('force');
 
         if (!$forceSkip) {
             $typedName = $this->io->promptText(
@@ -129,8 +109,7 @@ class ServerDeleteCommand extends BaseCommand
             }
         }
 
-        /** @var bool $confirmed */
-        $confirmed = $this->io->getOptionOrPrompt(
+        $confirmed = $this->io->getBooleanOptionOrPrompt(
             'yes',
             fn (): bool => $this->io->promptConfirm(
                 label: 'Are you absolutely sure?',
@@ -150,22 +129,32 @@ class ServerDeleteCommand extends BaseCommand
 
         $destroyed = false;
 
-        if ($isDigitalOceanServer && $server->dropletId !== null) {
+        if ($server->isDigitalOcean() && !$inventoryOnly) {
             try {
+                if (Command::FAILURE === $this->initializeDigitalOceanAPI()) {
+                    throw new \RuntimeException('Destroying droplet failed');
+                }
+
+                /** @var int $dropletId */
+                $dropletId = $server->dropletId;
+
                 $this->io->promptSpin(
-                    fn () => $this->digitalOcean->droplet->destroyDroplet($server->dropletId),
-                    "Destroying droplet (ID: {$server->dropletId})"
+                    fn () => $this->digitalOcean->droplet->destroyDroplet($dropletId),
+                    "Destroying droplet (ID: {$dropletId})"
                 );
 
-                $this->yay('Droplet destroyed (ID: ' . $server->dropletId . ')');
+                $this->yay('Droplet destroyed (ID: ' . $dropletId . ')');
+
                 $destroyed = true;
             } catch (\RuntimeException $e) {
                 $this->nay($e->getMessage());
-                $this->out('');
 
-                $continueAnyway = $this->io->promptConfirm(
-                    label: 'Remove from inventory anyway?',
-                    default: true
+                $continueAnyway = $this->io->getBooleanOptionOrPrompt(
+                    'inventory-only',
+                    fn (): bool => $this->io->promptConfirm(
+                        label: 'Remove from inventory anyway?',
+                        default: true
+                    )
                 );
 
                 if (!$continueAnyway) {
@@ -186,7 +175,7 @@ class ServerDeleteCommand extends BaseCommand
         // Delete associated sites
         // ----
 
-        if ($hasSites) {
+        if (count($serverSites) > 0) {
             foreach ($serverSites as $site) {
                 $this->sites->delete($site->domain);
             }
@@ -195,22 +184,29 @@ class ServerDeleteCommand extends BaseCommand
             $this->yay("Deleted {$siteCount} associated {$sitesText}");
         }
 
+        // Either we failed to destroy the server or the user provisioned their server manually somewhere else
         if (!$destroyed) {
-            $this->info('Your server may still be running and incurring costs:');
-            $this->out([
-                'Check with your cloud provider to ensure it is fully terminated.',
-            ]);
+            $this->warn('Your server may still be running and incurring costs');
+            $this->out('Check with your cloud provider to ensure it is fully terminated');
         }
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('server:delete', [
+        $replayOptions = [
             'server' => $server->name,
             'force' => true,
-            'yes' => $confirmed,
-        ]);
+            'yes' => true,
+        ];
+
+        // If we made it this far with a provisioned server that wasn't destroyed,
+        // we should add the --inventory-only option to the command replay
+        if ($server->isProvisioned() && !$destroyed) {
+            $replayOptions['inventory-only'] = true;
+        }
+
+        $this->commandReplay('server:delete', $replayOptions);
 
         return Command::SUCCESS;
     }

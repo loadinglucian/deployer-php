@@ -6,7 +6,6 @@ namespace Deployer\Console\Key;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\DigitalOceanTrait;
-use Deployer\Traits\KeysTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -20,7 +19,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 class KeyDeleteDigitalOceanCommand extends BaseCommand
 {
     use DigitalOceanTrait;
-    use KeysTrait;
 
     // ----
     // Configuration
@@ -69,17 +67,13 @@ class KeyDeleteDigitalOceanCommand extends BaseCommand
             'description' => $keyDescription,
         ] = $selectedKey;
 
-        //
-        // Display key
-        // ----
-
         $this->displayDeets([
             'ID' => (string) $keyId,
             'Name' => $keyDescription,
         ]);
 
         $this->out('───');
-        $this->io->write('', true);
+        $this->io->write("\n");
 
         //
         // Confirm deletion with extra safety
@@ -101,8 +95,7 @@ class KeyDeleteDigitalOceanCommand extends BaseCommand
             }
         }
 
-        /** @var bool $confirmed */
-        $confirmed = $this->io->getOptionOrPrompt(
+        $confirmed = $this->io->getBooleanOptionOrPrompt(
             'yes',
             fn (): bool => $this->io->promptConfirm(
                 label: 'Are you absolutely sure?',
@@ -128,7 +121,7 @@ class KeyDeleteDigitalOceanCommand extends BaseCommand
 
             $this->yay('Public SSH key deleted successfully');
         } catch (\RuntimeException $e) {
-            $this->nay('Failed to delete public SSH key: ' . $e->getMessage());
+            $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }

@@ -135,6 +135,41 @@ final readonly class FilesystemService
     }
 
     /**
+     * Check if path is a symbolic link.
+     */
+    public function isLink(string $path): bool
+    {
+        return is_link($path);
+    }
+
+    /**
+     * Create a directory recursively.
+     *
+     * @throws \RuntimeException If directory cannot be created
+     */
+    public function mkdir(string $path, int $mode = 0755): void
+    {
+        $this->fs->mkdir($path, $mode);
+    }
+
+    /**
+     * List directory contents (excludes . and ..).
+     *
+     * @return array<int, string> Array of filenames
+     *
+     * @throws \RuntimeException If directory cannot be read
+     */
+    public function scanDirectory(string $path): array
+    {
+        $entries = @scandir($path);
+        if (false === $entries) {
+            throw new \RuntimeException("Cannot read directory: {$path}");
+        }
+
+        return array_values(array_filter($entries, fn ($e) => ! in_array($e, ['.', '..'], true)));
+    }
+
+    /**
      * Expand leading tilde (~) to user's home directory.
      *
      * @throws \RuntimeException If HOME environment variable not found when needed

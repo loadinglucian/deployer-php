@@ -1,36 +1,20 @@
 #!/usr/bin/env bash
 
 #
-# MariaDB Installation Playbook - Ubuntu/Debian Only
+# MariaDB Installation
 #
-# Install MariaDB server and configure deployer user/database
-# ----
+# Installs MariaDB server, configures root password, and creates deployer database/user.
 #
-# This playbook handles MariaDB installation and configuration including:
-# - Conflict detection (fails if MySQL is installed)
-# - Package installation (mariadb-server, mariadb-client)
-# - Root password configuration for remote tools
-# - Creating deployer user with generated password
-# - Creating deployer database with proper permissions
-# - Logrotate configuration for MariaDB logs
+# Output (fresh install):
+#   status: success
+#   root_pass: Ek3jF8mNpQ2rS5tV
+#   deployer_user: deployer
+#   deployer_pass: Wx7yZ9aBcD4eF6gH
+#   deployer_database: deployer
 #
-# Note: Local root access via unix socket authentication is preserved.
-# The root password is set for mysql_native_password auth (remote tools).
-#
-# This playbook only supports Ubuntu and Debian distributions (debian family).
-# Both distributions use apt package manager and follow debian conventions.
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE  - Output file path
-#   DEPLOYER_DISTRO       - Exact distribution: ubuntu|debian
-#   DEPLOYER_PERMS        - Permissions: root|sudo
-#
-# Returns YAML with:
-#   - status: success
-#   - root_pass: MariaDB root password (generated)
-#   - deployer_user: Database username (deployer)
-#   - deployer_pass: Database password (generated)
-#   - deployer_database: Database name (deployer)
+# Output (already installed):
+#   status: success
+#   already_installed: true
 #
 
 set -o pipefail

@@ -1,25 +1,13 @@
 #!/usr/bin/env bash
 
 #
-# Site HTTPS Playbook - Ubuntu/Debian Only
+# Site HTTPS
 #
-# Enable HTTPS for an existing site using Caddy's automatic certificates.
-# ----
+# Enables HTTPS for a site using Caddy's automatic certificate provisioning.
 #
-# This playbook only supports Ubuntu and Debian distributions (debian family).
-# Requires site to be already added.
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE  - Output file path
-#   DEPLOYER_DISTRO       - Exact distribution: ubuntu|debian
-#   DEPLOYER_PERMS        - Permissions: root|sudo
-#   DEPLOYER_SITE_DOMAIN  - Site domain name
-#   DEPLOYER_PHP_VERSION  - PHP version to use (preserved)
-#   DEPLOYER_WWW_MODE     - WWW handling mode (preserved)
-#
-# Returns YAML with:
-#   - status: success
-#   - https_enabled: true
+# Output:
+#   status: success
+#   https_enabled: true
 #
 
 set -o pipefail

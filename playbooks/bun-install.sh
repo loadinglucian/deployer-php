@@ -1,20 +1,12 @@
 #!/usr/bin/env bash
 
 #
-# Bun Installation Playbook
+# Bun Installation
 #
-# Install Bun JavaScript runtime and toolkit
-# ----
+# Installs Bun JavaScript runtime system-wide to /usr/local.
 #
-# This playbook installs Bun system-wide to /usr/local.
-# Bun installation is distribution-agnostic (uses official installer).
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE - Output file path
-#   DEPLOYER_PERMS       - Permissions: root|sudo
-#
-# Returns YAML with:
-#   - status: success
+# Output:
+#   status: success
 #
 
 set -o pipefail

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Deployer\Traits;
 
+use Deployer\Exceptions\ValidationException;
 use Deployer\Services\FilesystemService;
 use Deployer\Services\IOService;
-use Symfony\Component\Console\Command\Command;
 
 /**
  * Reusable SSH key things.
@@ -25,6 +25,30 @@ trait KeysTrait
     //
     // Key resolution
     // ----
+
+    /**
+     * Resolve a key path with fallback to default locations.
+     *
+     * Priority order:
+     * 1. Provided path (with ~ expansion)
+     * 2. Fallback paths
+     *
+     * @param string|null $path The path to resolve
+     * @param array<int, string> $fallback The fallback paths
+     * @return string|null The resolved path, or null if not found
+     */
+    protected function resolveKeyWithFallback(?string $path, array $fallback): ?string
+    {
+        $candidates = [];
+
+        if (is_string($path) && $path !== '') {
+            $candidates[] = $path;
+        }
+
+        $candidates = array_merge($candidates, $fallback);
+
+        return $this->fs->getFirstExisting($candidates);
+    }
 
     /**
      * Resolve a usable private key path.
@@ -58,38 +82,47 @@ trait KeysTrait
         ]);
     }
 
+    //
+    // UI
+    // ----
+
     /**
-     * Resolve a key path with fallback to default locations.
+     * Prompt for deploy key pair path with validation.
      *
-     * Priority order:
-     * 1. Provided path (with ~ expansion)
-     * 2. Fallback paths
+     * Validates both the private key and corresponding public key (.pub).
      *
-     * @param string|null $path The path to resolve
-     * @param array<int, string> $fallback The fallback paths
-     * @return string|null The resolved path, or null if not found
+     * @return string Expanded path to private key
+     *
+     * @throws ValidationException When validation fails
      */
-    protected function resolveKeyWithFallback(?string $path, array $fallback): ?string
+    protected function promptDeployKeyPairPath(): string
     {
-        $candidates = [];
+        /** @var string $path */
+        $path = $this->io->getValidatedOptionOrPrompt(
+            'custom-deploy-key',
+            fn ($validate) => $this->io->promptText(
+                label: 'Path to private key:',
+                placeholder: '~/.ssh/deploy_key',
+                required: true,
+                hint: 'Public key expected at same path + .pub',
+                validate: $validate
+            ),
+            fn ($value) => $this->validateDeployKeyPairInput($value)
+        );
 
-        if (is_string($path) && $path !== '') {
-            $candidates[] = $path;
-        }
-
-        $candidates = array_merge($candidates, $fallback);
-
-        return $this->fs->getFirstExisting($candidates);
+        return $this->fs->expandPath($path);
     }
 
     /**
      * Prompt for private key path with validation and fallback resolution.
      *
-     * @return string|int Resolved path or Command::FAILURE
+     * @return string Resolved path
+     *
+     * @throws ValidationException When validation or resolution fails
      */
-    protected function promptPrivateKeyPath(): string|int
+    protected function promptPrivateKeyPath(): string
     {
-        /** @var string|null $pathRaw */
+        /** @var string $pathRaw */
         $pathRaw = $this->io->getValidatedOptionOrPrompt(
             'private-key-path',
             fn ($validate) => $this->io->promptText(
@@ -102,17 +135,12 @@ trait KeysTrait
             fn ($value) => $this->validatePrivateKeyPathInputAllowEmpty($value)
         );
 
-        if (null === $pathRaw) {
-            return Command::FAILURE;
-        }
-
         $resolved = ('' === trim($pathRaw))
             ? $this->resolvePrivateKeyPath('')
             : $this->fs->expandPath($pathRaw);
 
         if (null === $resolved) {
-            $this->nay('No default SSH key found. Create ~/.ssh/id_ed25519 or ~/.ssh/id_rsa, or specify a path.');
-            return Command::FAILURE;
+            throw new ValidationException('No default SSH key found. Create ~/.ssh/id_ed25519 or ~/.ssh/id_rsa, or specify a path.');
         }
 
         return $resolved;
@@ -121,6 +149,60 @@ trait KeysTrait
     // ----
     // Validation
     // ----
+
+    /**
+     * Validate deploy key pair (private key + corresponding public key).
+     *
+     * Validates both the private key and its corresponding public key file
+     * (expected at same path + '.pub').
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateDeployKeyPairInput(mixed $path): ?string
+    {
+        // First validate the private key
+        $privateKeyError = $this->validatePrivateKeyPathInput($path);
+        if ($privateKeyError !== null) {
+            return $privateKeyError;
+        }
+
+        // Then validate the corresponding public key
+        /** @var string $path */
+        $publicKeyPath = $path . '.pub';
+        $publicKeyError = $this->validateKeyPathInput($publicKeyPath);
+
+        if ($publicKeyError !== null) {
+            return "Public key not found or invalid: {$publicKeyPath}";
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate SSH key name format.
+     *
+     * Ensures name contains only alphanumeric characters, hyphens, and underscores.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateKeyNameInput(mixed $name): ?string
+    {
+        if (!is_string($name)) {
+            return 'Key name must be a string';
+        }
+
+        // Check if empty
+        if (trim($name) === '') {
+            return 'Key name cannot be empty';
+        }
+
+        // Validate format (alphanumeric, hyphens, underscores)
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $name)) {
+            return 'Key name can only contain letters, numbers, hyphens, and underscores';
+        }
+
+        return null;
+    }
 
     /**
      * Validate SSH public key file:
@@ -190,32 +272,6 @@ trait KeysTrait
             }
         } catch (\Throwable) {
             return 'Could not read SSH key file';
-        }
-
-        return null;
-    }
-
-    /**
-     * Validate SSH key name format.
-     *
-     * Ensures name contains only alphanumeric characters, hyphens, and underscores.
-     *
-     * @return string|null Error message if invalid, null if valid
-     */
-    protected function validateKeyNameInput(mixed $name): ?string
-    {
-        if (!is_string($name)) {
-            return 'Key name must be a string';
-        }
-
-        // Check if empty
-        if (trim($name) === '') {
-            return 'Key name cannot be empty';
-        }
-
-        // Validate format (alphanumeric, hyphens, underscores)
-        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $name)) {
-            return 'Key name can only contain letters, numbers, hyphens, and underscores';
         }
 
         return null;
@@ -301,33 +357,5 @@ trait KeysTrait
         }
 
         return $this->validatePrivateKeyPathInput($path);
-    }
-
-    /**
-     * Validate deploy key pair (private key + corresponding public key).
-     *
-     * Validates both the private key and its corresponding public key file
-     * (expected at same path + '.pub').
-     *
-     * @return string|null Error message if invalid, null if valid
-     */
-    protected function validateDeployKeyPairInput(mixed $path): ?string
-    {
-        // First validate the private key
-        $privateKeyError = $this->validatePrivateKeyPathInput($path);
-        if ($privateKeyError !== null) {
-            return $privateKeyError;
-        }
-
-        // Then validate the corresponding public key
-        /** @var string $path */
-        $publicKeyPath = $path . '.pub';
-        $publicKeyError = $this->validateKeyPathInput($publicKeyPath);
-
-        if ($publicKeyError !== null) {
-            return "Public key not found or invalid: {$publicKeyPath}";
-        }
-
-        return null;
     }
 }

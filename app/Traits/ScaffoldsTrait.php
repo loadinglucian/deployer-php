@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Deployer\Traits;
 
+use Deployer\Exceptions\ValidationException;
 use Deployer\Services\FilesystemService;
 use Deployer\Services\IOService;
 use Symfony\Component\Console\Command\Command;
@@ -23,17 +24,16 @@ use Symfony\Component\Console\Input\InputOption;
 trait ScaffoldsTrait
 {
     // ----
-    // Configuration
+    // Helpers
     // ----
 
+    /**
+     * Configure scaffold command options.
+     */
     protected function configureScaffoldOptions(): void
     {
         $this->addOption('destination', null, InputOption::VALUE_REQUIRED, 'Project root directory');
     }
-
-    // ----
-    // Helpers
-    // ----
 
     /**
      * Scaffold files from templates to destination.
@@ -43,23 +43,31 @@ trait ScaffoldsTrait
     protected function scaffoldFiles(string $type): int
     {
         // Get destination directory
-        /** @var string $destinationDir */
-        $destinationDir = $this->io->getOptionOrPrompt(
-            'destination',
-            fn () => $this->io->promptText(
-                label: 'Destination directory:',
-                placeholder: $this->fs->getCwd(),
-                default: $this->fs->getCwd(),
-                required: true
-            )
-        );
+        try {
+            /** @var string $destinationDir */
+            $destinationDir = $this->io->getValidatedOptionOrPrompt(
+                'destination',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Destination directory:',
+                    placeholder: $this->fs->getCwd(),
+                    default: $this->fs->getCwd(),
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateDestinationInput($value)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
+        }
 
         // Convert relative path to absolute if needed
         if (! str_starts_with($destinationDir, '/')) {
-            $destinationDir = $this->fs->getCwd().'/'.$destinationDir;
+            $destinationDir = $this->fs->getCwd() . '/' . $destinationDir;
         }
 
-        $targetDir = $destinationDir.'/.deployer/'.$type;
+        $targetDir = $destinationDir . '/.deployer/' . $type;
 
         // Copy templates
         try {
@@ -86,28 +94,28 @@ trait ScaffoldsTrait
      */
     private function copyScaffoldTemplates(string $type, string $destination): void
     {
-        if (! is_dir($destination) && ! mkdir($destination, 0755, true)) {
-            throw new \RuntimeException("Destination directory does not exist: {$destination}");
+        if (! $this->fs->isDirectory($destination)) {
+            $this->fs->mkdir($destination);
         }
 
-        $scaffoldsPath = dirname(__DIR__, 2).'/scaffolds/'.$type;
-        if (! is_dir($scaffoldsPath)) {
+        $scaffoldsPath = dirname(__DIR__, 2) . '/scaffolds/' . $type;
+        if (! $this->fs->isDirectory($scaffoldsPath)) {
             throw new \RuntimeException("Templates directory not found: {$scaffoldsPath}");
         }
 
-        $entries = scandir($scaffoldsPath) ?: [];
+        $entries = $this->fs->scanDirectory($scaffoldsPath);
         $status = [];
 
         foreach ($entries as $entry) {
-            $source = $scaffoldsPath.'/'.$entry;
-            $target = $destination.'/'.$entry;
+            $source = $scaffoldsPath . '/' . $entry;
+            $target = $destination . '/' . $entry;
 
-            if (in_array($entry, ['.', '..']) || is_dir($source)) {
+            if ($this->fs->isDirectory($source)) {
                 continue;
             }
 
             $skipped = true;
-            if (! file_exists($target) && ! is_link($target)) {
+            if (! $this->fs->exists($target) && ! $this->fs->isLink($target)) {
                 $contents = $this->fs->readFile($source);
                 $this->fs->dumpFile($target, $contents);
                 $skipped = false;
@@ -117,5 +125,27 @@ trait ScaffoldsTrait
         }
 
         $this->displayDeets($status);
+    }
+
+    // ----
+    // Validation
+    // ----
+
+    /**
+     * Validate destination path is not empty.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateDestinationInput(mixed $path): ?string
+    {
+        if (! is_string($path)) {
+            return 'Path must be a string';
+        }
+
+        if ('' === trim($path)) {
+            return 'Path cannot be empty';
+        }
+
+        return null;
     }
 }

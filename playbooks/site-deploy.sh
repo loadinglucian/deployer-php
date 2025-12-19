@@ -1,47 +1,18 @@
 #!/usr/bin/env bash
 
 #
-# Site Deploy Playbook - Ubuntu/Debian Only
+# Site Deploy
 #
-# Deploy site using atomic releases with deployment hooks
-# ----
+# Deploys site using atomic releases with git clone, hooks, and symlink swap.
 #
-# This playbook orchestrates the complete deployment process for a site:
-# - Clones or updates the git repository
-# - Creates a timestamped release directory
-# - Exports code from the repository to the release
-# - Runs deployment hooks at key stages (1-building, 2-releasing, 3-finishing)
-# - Activates the new release by updating the current symlink
-# - Cleans up old releases beyond the retention limit
-#
-# The deployment follows an atomic release structure:
-#   /home/deployer/sites/{domain}/
-#     ├── releases/     - Timestamped release directories
-#     ├── current/      - Symlink to active release
-#     ├── shared/       - Shared files across releases
-#     └── repo/         - Bare git repository
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE   - Output file path (YAML)
-#   DEPLOYER_DISTRO        - Server distribution (ubuntu|debian)
-#   DEPLOYER_PERMS         - Permissions (root|sudo)
-#   DEPLOYER_SITE_DOMAIN   - Site domain
-#   DEPLOYER_SITE_REPO     - Git repository URL
-#   DEPLOYER_SITE_BRANCH   - Git branch to deploy
-#   DEPLOYER_PHP_VERSION   - PHP version to expose to hooks
-#
-# Optional Environment Variables:
-#   DEPLOYER_KEEP_RELEASES - Number of releases to keep (default: 5)
-#   DEPLOYER_SUPERVISORS   - JSON array of supervisor objects (for restart)
-#
-# Returns YAML with:
-#   - status: success
-#   - domain: {domain}
-#   - branch: {branch}
-#   - release_name: {timestamp}
-#   - release_path: {path}
-#   - current_path: {path}
-#   - keep_releases: {number}
+# Output:
+#   status: success
+#   domain: example.com
+#   branch: main
+#   release_name: 20231215_143022
+#   release_path: /home/deployer/sites/example.com/releases/20231215_143022
+#   current_path: /home/deployer/sites/example.com/current
+#   keep_releases: 5
 #
 
 set -o pipefail
@@ -231,7 +202,7 @@ clone_or_update_repo() {
 		fi
 	else
 		echo "→ Fetching latest changes..."
-		run_as_deployer git --git-dir="$REPO_PATH" remote set-url origin "$DEPLOYER_SITE_REPO"
+		run_as_deployer git --git-dir="$REPO_PATH" remote set-url origin "$DEPLOYER_SITE_REPO" || fail "Failed to update repository URL"
 		if ! run_as_deployer git --git-dir="$REPO_PATH" fetch origin '+refs/heads/*:refs/heads/*' --prune; then
 			fail "Failed to fetch repository updates"
 		fi
@@ -435,7 +406,7 @@ create_runner_script() {
 # Write YAML output file with deployment results
 
 write_output() {
-	cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF
+	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 		status: success
 		domain: ${DEPLOYER_SITE_DOMAIN}
 		branch: ${DEPLOYER_SITE_BRANCH}
@@ -444,6 +415,9 @@ write_output() {
 		current_path: ${CURRENT_PATH}
 		keep_releases: ${DEPLOYER_KEEP_RELEASES}
 	EOF
+		echo "Error: Failed to write output file" >&2
+		exit 1
+	fi
 }
 
 #

@@ -1,22 +1,12 @@
 #!/usr/bin/env bash
 
 #
-# Supervisord Service Playbook - Ubuntu/Debian Only
+# Supervisor Service
 #
-# Manage supervisord service lifecycle (start/stop/restart)
-# ----
+# Controls supervisord service lifecycle (start/stop/restart) via systemctl.
 #
-# This playbook controls the supervisord service state using systemctl.
-# It supports three actions: start, stop, and restart.
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE  - Output file path (YAML)
-#   DEPLOYER_DISTRO       - Server distribution (ubuntu|debian)
-#   DEPLOYER_PERMS        - Permissions (root|sudo)
-#   DEPLOYER_ACTION       - Service action (start|stop|restart)
-#
-# Returns YAML with:
-#   - status: success
+# Output:
+#   status: success
 #
 
 set -o pipefail

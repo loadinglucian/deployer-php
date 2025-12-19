@@ -6,6 +6,8 @@ namespace Deployer\Console\Site;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\SiteDTO;
+use Deployer\DTOs\SiteServerDTO;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
@@ -54,28 +56,16 @@ class SiteCreateCommand extends BaseCommand
         // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
 
-        [
-            'distro' => $distro,
-            'permissions' => $permissions,
-        ] = $server->info;
+        $serverInstalled = $this->ensureServerInstalled($server->info);
 
-        /** @var string $distro */
-        /** @var string $permissions */
-
-        //
-        // Validate server is ready to create site
-        // ----
-
-        $validationResult = $this->validateServerReady($server->info);
-
-        if (is_int($validationResult)) {
-            return $validationResult;
+        if (is_int($serverInstalled)) {
+            return $serverInstalled;
         }
 
         //
@@ -84,7 +74,7 @@ class SiteCreateCommand extends BaseCommand
 
         $siteInfo = $this->gatherSiteDeets($server->info);
 
-        if (null === $siteInfo) {
+        if (is_int($siteInfo)) {
             return Command::FAILURE;
         }
 
@@ -94,32 +84,44 @@ class SiteCreateCommand extends BaseCommand
             'wwwMode' => $wwwMode,
         ] = $siteInfo;
 
-        //
-        // Display site details
-        // ----
-
         $site = new SiteDTO(
             domain: $domain,
             repo: null,
             branch: null,
-            server: $server->name
+            server: $server->name,
+            phpVersion: $phpVersion,
         );
 
+        $siteServer = new SiteServerDTO($site, $server);
+
         $this->displaySiteDeets($site);
+
+        //
+        // Check if site already exists on remote server
+        // ----
+
+        $checkResult = $this->ssh->executeCommand(
+            $server,
+            sprintf('test -d /home/deployer/sites/%s', escapeshellarg($domain))
+        );
+
+        if (0 === $checkResult['exit_code']) {
+            $this->warn("Site '{$domain}' already exists on the server but not in inventory");
+            $this->info('To re-add to inventory, manually edit the inventory file');
+            $this->info('To recreate the site, delete it first with <|cyan>site:delete</>');
+
+            return Command::FAILURE;
+        }
 
         //
         // Create site on server
         // ----
 
         $result = $this->executePlaybookSilently(
-            $server,
+            $siteServer,
             'site-create',
             'Creating site on server...',
             [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-                'DEPLOYER_SITE_DOMAIN' => $domain,
-                'DEPLOYER_PHP_VERSION' => $phpVersion,
                 'DEPLOYER_WWW_MODE' => $wwwMode,
             ]
         );
@@ -170,39 +172,8 @@ class SiteCreateCommand extends BaseCommand
     }
 
     // ----
-    // Validation
+    // Helpers
     // ----
-
-    /**
-     * Validate that server is ready to create a site.
-     *
-     * Checks for:
-     * - Caddy web server installed
-     * - PHP installed
-     *
-     * @param array<string, mixed> $info Server information from serverInfo()
-     * @return int|null Returns Command::FAILURE if validation fails, null if successful
-     */
-    private function validateServerReady(array $info): ?int
-    {
-        // Check if Caddy is installed
-        $caddyInstalled = isset($info['caddy']) && is_array($info['caddy']) && true === ($info['caddy']['available'] ?? false);
-
-        // Check if PHP is installed
-        $phpInstalled = isset($info['php']) && is_array($info['php']) && isset($info['php']['versions']) && is_array($info['php']['versions']) && count($info['php']['versions']) > 0;
-
-        if (! $caddyInstalled || ! $phpInstalled) {
-            $this->nay('Looks like the server was not installed as expected');
-            $this->out([
-                'Run <fg=cyan>server:install</> to install required software.',
-                '',
-            ]);
-
-            return Command::FAILURE;
-        }
-
-        return null;
-    }
 
     /**
      * Select PHP version to use for the site.
@@ -238,19 +209,20 @@ class SiteCreateCommand extends BaseCommand
 
         $defaultVersionStr = $phpInfo['default'] ?? $installedPhpVersions[0];
 
-        $phpVersion = (string) $this->io->getOptionOrPrompt(
-            'php-version',
-            fn () => $this->io->promptSelect(
-                label: 'PHP version for this site:',
-                options: $installedPhpVersions,
-                default: $defaultVersionStr
-            )
-        );
-
-        if (! in_array($phpVersion, $installedPhpVersions, true)) {
-            $this->nay(
-                "PHP version {$phpVersion} is not installed. Available: " . implode(', ', $installedPhpVersions)
+        try {
+            /** @var string $phpVersion */
+            $phpVersion = $this->io->getValidatedOptionOrPrompt(
+                'php-version',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'PHP version for this site:',
+                    options: $installedPhpVersions,
+                    default: $defaultVersionStr,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validatePhpVersionSelection($value, $installedPhpVersions)
             );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }
@@ -258,62 +230,56 @@ class SiteCreateCommand extends BaseCommand
         return $phpVersion;
     }
 
-    // ----
-    // Helpers
-    // ----
-
     /**
      * Gather site details from user input or CLI options.
      *
      * @param array<string, mixed> $info Server information from serverInfo()
-     * @return array{domain: string, phpVersion: string, wwwMode: string}|null
+     * @return array{domain: string, phpVersion: string, wwwMode: string}|int
      */
-    protected function gatherSiteDeets(array $info): ?array
+    protected function gatherSiteDeets(array $info): array|int
     {
-        /** @var string|null $domain */
-        $domain = $this->io->getValidatedOptionOrPrompt(
-            'domain',
-            fn ($validate) => $this->io->promptText(
-                label: 'Domain name:',
-                placeholder: 'example.com',
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateSiteDomain($value)
-        );
+        try {
+            /** @var string $domain */
+            $domain = $this->io->getValidatedOptionOrPrompt(
+                'domain',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Domain name:',
+                    placeholder: 'example.com',
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateSiteDomain($value)
+            );
 
-        if (null === $domain) {
-            return null;
-        }
+            // Normalize immediately after input
+            $domain = $this->normalizeDomain($domain);
 
-        // Normalize immediately after input
-        $domain = $this->normalizeDomain($domain);
+            //
+            // Determine WWW handling
+            // ----
 
-        //
-        // Determine WWW handling
-        // ----
+            $wwwModes = [
+                'redirect-to-root' => 'Redirect www to non-www',
+                'redirect-to-www' => 'Redirect non-www to www',
+            ];
 
-        $wwwModes = [
-            'redirect-to-root' => 'Redirect www to non-www',
-            'redirect-to-www' => 'Redirect non-www to www',
-        ];
+            /** @var string $wwwMode */
+            $wwwMode = $this->io->getValidatedOptionOrPrompt(
+                'www-mode',
+                fn ($validate) => $this->io->promptSelect(
+                    label: "How should 'www.{$domain}' be handled?",
+                    options: $wwwModes,
+                    default: 'redirect-to-root',
+                    validate: $validate
+                ),
+                fn ($value) => in_array($value, array_keys($wwwModes), true)
+                    ? null
+                    : sprintf("Invalid WWW mode '%s'. Allowed: %s", is_scalar($value) ? $value : gettype($value), implode(', ', array_keys($wwwModes)))
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
 
-        /** @var string|null $wwwMode */
-        $wwwMode = $this->io->getValidatedOptionOrPrompt(
-            'www-mode',
-            fn ($validate) => $this->io->promptSelect(
-                label: "How should 'www.{$domain}' be handled?",
-                options: $wwwModes,
-                default: 'redirect-to-root',
-                validate: $validate
-            ),
-            fn ($value) => in_array($value, array_keys($wwwModes), true)
-                ? null
-                : sprintf("Invalid WWW mode '%s'. Allowed: %s", is_scalar($value) ? $value : gettype($value), implode(', ', array_keys($wwwModes)))
-        );
-
-        if (null === $wwwMode) {
-            return null;
+            return Command::FAILURE;
         }
 
         //
@@ -323,7 +289,7 @@ class SiteCreateCommand extends BaseCommand
         $phpVersion = $this->selectPhpVersion($info);
 
         if (is_int($phpVersion)) {
-            return null;
+            return Command::FAILURE;
         }
 
         return [
@@ -331,5 +297,57 @@ class SiteCreateCommand extends BaseCommand
             'phpVersion' => $phpVersion,
             'wwwMode' => $wwwMode,
         ];
+    }
+
+    // ----
+    // Validation
+    // ----
+
+    /**
+     * Validate that server is ready to create a site.
+     *
+     * Checks for:
+     * - Caddy web server installed
+     * - PHP installed
+     *
+     * @param array<string, mixed> $info Server information from serverInfo()
+     * @return int|null Returns Command::FAILURE if validation fails, null if successful
+     */
+    private function ensureServerInstalled(array $info): ?int
+    {
+        // Check if Caddy is installed
+        $caddyInstalled = isset($info['caddy']) && is_array($info['caddy']) && true === ($info['caddy']['available'] ?? false);
+
+        // Check if PHP is installed
+        $phpInstalled = isset($info['php']) && is_array($info['php']) && isset($info['php']['versions']) && is_array($info['php']['versions']) && count($info['php']['versions']) > 0;
+
+        if (! $caddyInstalled || ! $phpInstalled) {
+            $this->warn('Server has not been installed yet');
+            $this->info('Run <|cyan>server:install</> to install the server first');
+
+            return Command::FAILURE;
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate PHP version selection.
+     *
+     * @param array<int, string> $installed Installed PHP versions
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    private function validatePhpVersionSelection(mixed $value, array $installed): ?string
+    {
+        if (! is_string($value)) {
+            return 'PHP version must be a string';
+        }
+
+        if (! in_array($value, $installed, true)) {
+            return "PHP version {$value} is not installed. Available: " . implode(', ', $installed);
+        }
+
+        return null;
     }
 }

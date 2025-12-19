@@ -6,6 +6,7 @@ namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\KeysTrait;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
@@ -57,7 +58,7 @@ class ServerAddCommand extends BaseCommand
 
         $deets = $this->gatherServerDeets();
 
-        if ($deets === null) {
+        if (is_int($deets)) {
             return Command::FAILURE;
         }
 
@@ -69,8 +70,8 @@ class ServerAddCommand extends BaseCommand
             'privateKeyPath' => $privateKeyPath,
         ] = $deets;
 
-        // Create server DTO
-        $server = $this->serverInfo(new ServerDTO(
+        // Create server DTO with info
+        $server = $this->getServerInfo(new ServerDTO(
             name: $name,
             host: $host,
             port: $port,
@@ -123,73 +124,66 @@ class ServerAddCommand extends BaseCommand
     /**
      * Gather server details from user input or CLI options.
      *
-     * @return array{name: string, host: string, port: int, username: string, privateKeyPath: string}|null
+     * @return array{name: string, host: string, port: int, username: string, privateKeyPath: string}|int
      */
-    protected function gatherServerDeets(): ?array
+    protected function gatherServerDeets(): array|int
     {
-        /** @var string|null $name */
-        $name = $this->io->getValidatedOptionOrPrompt(
-            'name',
-            fn ($validate) => $this->io->promptText(
-                label: 'Server name:',
-                placeholder: 'web1',
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateServerName($value)
-        );
+        try {
+            /** @var string $name */
+            $name = $this->io->getValidatedOptionOrPrompt(
+                'name',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Server name:',
+                    placeholder: 'web1',
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateServerName($value)
+            );
 
-        if ($name === null) {
-            return null;
-        }
+            /** @var string $host */
+            $host = $this->io->getValidatedOptionOrPrompt(
+                'host',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Host/IP address:',
+                    placeholder: '192.168.1.100',
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateServerHost($value)
+            );
 
-        /** @var string|null $host */
-        $host = $this->io->getValidatedOptionOrPrompt(
-            'host',
-            fn ($validate) => $this->io->promptText(
-                label: 'Host/IP address:',
-                placeholder: '192.168.1.100',
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateServerHost($value)
-        );
+            /** @var string $portString */
+            $portString = $this->io->getValidatedOptionOrPrompt(
+                'port',
+                fn ($validate) => $this->io->promptText(
+                    label: 'SSH port:',
+                    default: '22',
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateServerPort($value)
+            );
 
-        if ($host === null) {
-            return null;
-        }
+            $port = (int) $portString;
 
-        /** @var string|null $portString */
-        $portString = $this->io->getValidatedOptionOrPrompt(
-            'port',
-            fn ($validate) => $this->io->promptText(
-                label: 'SSH port:',
-                default: '22',
-                required: true,
-                validate: $validate
-            ),
-            fn ($value) => $this->validateServerPort($value)
-        );
+            /** @var string $username */
+            $username = $this->io->getValidatedOptionOrPrompt(
+                'username',
+                fn ($validate): string => $this->io->promptText(
+                    label: 'SSH username:',
+                    default: 'root',
+                    required: true,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateUsernameInput($value)
+            );
 
-        if ($portString === null) {
-            return null;
-        }
+            $privateKeyPath = $this->promptPrivateKeyPath();
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
 
-        $port = (int) $portString;
-
-        /** @var string $username */
-        $username = $this->io->getOptionOrPrompt(
-            'username',
-            fn (): string => $this->io->promptText(
-                label: 'SSH username:',
-                default: 'root',
-                required: true
-            )
-        );
-
-        $privateKeyPath = $this->promptPrivateKeyPath();
-        if (is_int($privateKeyPath)) {
-            return null;
+            return Command::FAILURE;
         }
 
         return [

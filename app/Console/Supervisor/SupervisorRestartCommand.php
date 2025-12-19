@@ -47,19 +47,11 @@ class SupervisorRestartCommand extends BaseCommand
         // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
-
-        [
-            'distro' => $distro,
-            'permissions' => $permissions,
-        ] = $server->info;
-
-        /** @var string $distro */
-        /** @var string $permissions */
 
         //
         // Restart supervisord service
@@ -70,8 +62,6 @@ class SupervisorRestartCommand extends BaseCommand
             'supervisor-service',
             'Restarting supervisord service...',
             [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_ACTION' => 'restart',
             ],
         );

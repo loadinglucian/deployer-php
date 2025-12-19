@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
+use Deployer\Traits\ServicesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -21,11 +23,7 @@ class ServerFirewallCommand extends BaseCommand
 {
     use PlaybooksTrait;
     use ServersTrait;
-
-    /**
-     * Default ports to pre-check if detected as listening.
-     */
-    private const DEFAULT_PORTS = [80, 443];
+    use ServicesTrait;
 
     // ----
     // Configuration
@@ -54,89 +52,46 @@ class ServerFirewallCommand extends BaseCommand
         // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
 
-        $sshPort = $server->port;
-
-        /** @var string $permissions */
-        $permissions = $server->info['permissions'];
+        $this->displayFirewallDeets($server->info);
 
         //
-        // Extract firewall state from server info
+        // Get firewall state and open ports
         // ----
-
-        $info = $server->info;
 
         /** @var array<int, string> $ufwRules */
-        $ufwRules = $info['ufw_rules'] ?? [];
-        /** @var array<int|string, string> $ports */
-        $ports = $info['ports'] ?? [];
+        $ufwRules = $server->info['ufw_rules'] ?? [];
+        $ufwPorts = $this->extractPortsFromRules($ufwRules);
 
-        // Extract current UFW ports once for reuse
-        $currentUfwPorts = $this->extractPortsFromRules($ufwRules);
+        /** @var array<int, string> $openPorts */
+        $openPorts = $server->info['ports'] ?? [];
+        $selectablePorts = $openPorts;
+        unset($selectablePorts[$server->port]); // Can't select the SSH port (it's always allowed)
 
-        //
-        // Display current status
-        // ----
-
-        $this->displayFirewallDeets($info);
-
-        //
-        // Build port options for selection
-        // ----
-
-        // Convert ports to array<int, string> format (port => process)
-        /** @var array<int, string> $listeningPorts */
-        $listeningPorts = [];
-        foreach ($ports as $port => $process) {
-            $listeningPorts[(int) $port] = (string) $process;
-        }
-
-        // Filter SSH port from selectable options (F4)
-        $selectablePorts = $this->filterSshPort($listeningPorts, $sshPort);
-
-        //
-        // Handle --allow option (F10, F11)
-        // ----
-
-        /** @var string|null $allowOption */
-        $allowOption = $input->getOption('allow');
-
-        if (null !== $allowOption) {
-            $selectedPorts = $this->parseAndFilterAllowOption($allowOption, $selectablePorts);
-        } else {
-            //
-            // Interactive port selection (F3, F5)
-            // ----
-
-            if ([] === $selectablePorts) {
-                $this->info('No additional ports detected besides SSH.');
-                $selectedPorts = [];
-            } else {
-                // Get default pre-selected ports (F5)
-                $defaultPorts = $this->getDefaultPorts(array_keys($selectablePorts), $currentUfwPorts);
-
-                // Prompt user for port selection (F3)
-                $selectedPorts = $this->promptPortSelection($selectablePorts, $defaultPorts);
-            }
+        if ([] === $selectablePorts) {
+            $this->warn('No additional services detected besides SSH.');
+            return Command::SUCCESS;
         }
 
         //
-        // Confirmation summary (F6)
+        // Gather firewall configuration
         // ----
 
-        /** @var bool $confirmed */
-        $confirmed = $this->io->getOptionOrPrompt(
-            'yes',
-            fn (): bool => $this->io->promptConfirm(
-                label: 'Are you absolutely sure?',
-                default: false
-            )
-        );
+        $ufwDeets = $this->gatherFirewallDeets($selectablePorts, $ufwPorts);
+
+        if (is_int($ufwDeets)) {
+            return Command::FAILURE;
+        }
+
+        [
+            'selectedPorts' => $selectedPorts,
+            'confirmed' => $confirmed
+        ] = $ufwDeets;
 
         if (!$confirmed) {
             $this->warn('Cancelled firewall configuration');
@@ -145,21 +100,15 @@ class ServerFirewallCommand extends BaseCommand
         }
 
         //
-        // Apply firewall rules (F7, F8, F9)
+        // Apply firewall rules
         // ----
-
-        // Always prepend SSH port to allowed ports (defense in depth)
-        $allowedPorts = array_unique(array_merge([$sshPort], $selectedPorts));
-        sort($allowedPorts);
 
         $result = $this->executePlaybook(
             $server,
             'server-firewall',
             'Configuring firewall...',
             [
-                'DEPLOYER_PERMS' => $permissions,
-                'DEPLOYER_SSH_PORT' => (string) $sshPort,
-                'DEPLOYER_ALLOWED_PORTS' => implode(',', $allowedPorts),
+                'DEPLOYER_ALLOWED_PORTS' => implode(',', $selectedPorts),
             ],
         );
 
@@ -173,145 +122,127 @@ class ServerFirewallCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $replayOptions = [
+        $this->commandReplay('server:firewall', [
             'server' => $server->name,
             'allow' => implode(',', $selectedPorts),
             'yes' => true,
-        ];
-
-        $this->commandReplay('server:firewall', $replayOptions);
+        ]);
 
         return Command::SUCCESS;
     }
 
     // ----
-    // Port Filtering Methods
+    // Helpers
     // ----
 
     /**
-     * Filter SSH port from selectable ports (F4).
+     * Gather firewall configuration from CLI options or interactive prompts.
      *
-     * SSH port should never appear in the multi-select list as it's always allowed.
-     *
-     * @param array<int, string> $ports Port => process mapping
-     * @param int $sshPort SSH port to filter out
-     * @return array<int, string> Filtered ports
+     * @param array<int, string> $selectablePorts Port => process mapping
+     * @param array<int, int> $ufwPorts Currently allowed UFW ports
+     * @return array{selectedPorts: array<int, int>, confirmed: bool}|int
      */
-    private function filterSshPort(array $ports, int $sshPort): array
+    private function gatherFirewallDeets(array $selectablePorts, array $ufwPorts): array|int
     {
-        unset($ports[$sshPort]);
+        try {
+            // Pre-select: common HTTP/HTTPS ports if listening + current UFW allowed ports
+            $defaultPorts = array_values(array_unique(array_filter(
+                [80, 443, ...$ufwPorts],
+                fn (int $port): bool => isset($selectablePorts[$port])
+            )));
 
-        return $ports;
+            // Build options array with display format "port (Service Label)"
+            $options = [];
+            foreach ($selectablePorts as $port => $process) {
+                $options[$port] = $this->formatPortService($port, $process);
+            }
+
+            /** @var array<int, int>|string $selectedPorts */
+            $selectedPorts = $this->io->getValidatedOptionOrPrompt(
+                'allow',
+                fn ($validate) => $this->io->promptMultiselect(
+                    label: 'Select ports to allow (SSH always included):',
+                    options: $options,
+                    default: $defaultPorts,
+                    scroll: 10,
+                    hint: 'Use space to toggle, enter to confirm',
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateAllowInput($value, $selectablePorts)
+            );
+
+            // Normalize: CLI gives comma-string, prompt gives array
+            if (is_string($selectedPorts)) {
+                $selectedPorts = array_values(array_filter(array_map(
+                    fn (string $p): int => (int) trim($p),
+                    explode(',', $selectedPorts)
+                )));
+            }
+
+            /** @var array<int, int> $selectedPorts */
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+            return Command::FAILURE;
+        }
+
+        $confirmed = $this->io->getBooleanOptionOrPrompt(
+            'yes',
+            fn (): bool => $this->io->promptConfirm(
+                label: 'Are you absolutely sure?',
+                default: false
+            )
+        );
+
+        return [
+            'selectedPorts' => $selectedPorts,
+            'confirmed' => $confirmed,
+        ];
     }
 
-    /**
-     * Get default ports to pre-select (F5).
-     *
-     * Pre-selects DEFAULT_PORTS (80, 443) if they're listening, plus any ports
-     * currently allowed in UFW rules.
-     *
-     * @param array<int, int> $detectedPorts List of detected listening ports
-     * @param array<int, int> $currentUfwPorts List of ports currently allowed by UFW
-     * @return array<int, int> Ports to pre-select
-     */
-    private function getDefaultPorts(array $detectedPorts, array $currentUfwPorts): array
-    {
-        $defaults = [];
+    // ----
+    // Validation
+    // ----
 
-        // Add default ports (80, 443) if they're listening
-        foreach (self::DEFAULT_PORTS as $port) {
-            if (in_array($port, $detectedPorts, true)) {
-                $defaults[] = $port;
+    /**
+     * Validate --allow option input.
+     *
+     * @param array<int, string> $selectablePorts Valid port => process mapping
+     */
+    private function validateAllowInput(mixed $value, array $selectablePorts): ?string
+    {
+        if (!is_string($value) && !is_array($value)) {
+            return 'Ports must be a comma-separated string or array';
+        }
+
+        // Parse if string (CLI), keep as-is if array (prompt)
+        $ports = is_string($value)
+            ? array_filter(array_map(fn ($p) => (int) trim($p), explode(',', $value)))
+            : $value;
+
+        if ([] === $ports) {
+            return 'At least one port must be selected';
+        }
+
+        // Validate port range
+        /** @var int $port */
+        foreach ($ports as $port) {
+            if ($port < 1 || $port > 65535) {
+                return sprintf('Invalid port number: %d', $port);
             }
         }
 
-        // Add currently allowed UFW ports if they're listening
-        foreach ($currentUfwPorts as $port) {
-            if (in_array($port, $detectedPorts, true) && !in_array($port, $defaults, true)) {
-                $defaults[] = $port;
-            }
+        // Validate ports are in selectable list
+        $validPorts = array_keys($selectablePorts);
+        $invalidPorts = array_diff($ports, $validPorts);
+
+        if ([] !== $invalidPorts) {
+            return sprintf(
+                'Ports not listening: %s. Available: %s',
+                implode(', ', $invalidPorts),
+                implode(', ', $validPorts)
+            );
         }
 
-        return $defaults;
-    }
-
-    // ----
-    // Interactive Methods
-    // ----
-
-    /**
-     * Prompt user to select ports to allow (F3).
-     *
-     * @param array<int, string> $ports Port => process mapping
-     * @param array<int, int> $defaultPorts Ports to pre-select
-     * @return array<int, int> Selected port numbers
-     */
-    private function promptPortSelection(array $ports, array $defaultPorts): array
-    {
-        // Build options array with display format "port (process)"
-        $options = [];
-        foreach ($ports as $port => $process) {
-            $options[$port] = "{$port} ({$process})";
-        }
-
-        // Get selected ports from user
-        /** @var array<int, int> $selected */
-        $selected = $this->io->promptMultiselect(
-            label: 'Select only the ports you want to be open (the SSH port will always remain open):',
-            options: $options,
-            default: $defaultPorts,
-            scroll: 10,
-            hint: 'Use space to toggle, enter to confirm'
-        );
-
-        return $selected;
-    }
-
-    // ----
-    // CLI Option Parsing
-    // ----
-
-    /**
-     * Parse --allow option and filter to detected ports only (F10, F11).
-     *
-     * @param string $allowOption Comma-separated ports from --allow
-     * @param array<int, string> $selectablePorts Detected listening ports
-     * @return array<int, int> Valid port numbers
-     */
-    private function parseAndFilterAllowOption(string $allowOption, array $selectablePorts): array
-    {
-        // Parse comma-separated ports
-        $requestedPorts = array_filter(
-            array_map(
-                fn (string $p): int => (int) trim($p),
-                explode(',', $allowOption)
-            ),
-            fn (int $port): bool => $port > 0 && $port <= 65535
-        );
-
-        // Get list of valid listening ports
-        $listeningPortNumbers = array_keys($selectablePorts);
-
-        // Filter to only listening ports
-        $validPorts = array_filter(
-            $requestedPorts,
-            fn (int $port): bool => in_array($port, $listeningPortNumbers, true)
-        );
-
-        // Report filtered ports (F11)
-        $filteredPorts = array_diff($requestedPorts, $validPorts);
-
-        if ([] !== $filteredPorts) {
-            $this->warn(sprintf(
-                'Ports %s are not listening services and will be ignored.',
-                implode(', ', $filteredPorts)
-            ));
-        }
-
-        if ([] === $validPorts && [] !== $requestedPorts) {
-            $this->warn('No valid listening ports specified. Only SSH port will be allowed.');
-        }
-
-        return array_values($validPorts);
+        return null;
     }
 }

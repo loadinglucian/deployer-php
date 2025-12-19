@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
 
 #
-# Package List Playbook
+# Package List
 #
-# Update package lists and configure repositories
-# ----
+# Configures package repositories and optionally gathers available PHP versions.
 #
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE - Output file path
-#   DEPLOYER_DISTRO      - Exact distribution: ubuntu|debian
-#   DEPLOYER_PERMS       - Permissions: root|sudo
+# Output:
+#   status: success
+#   repos_configured: true
 #
-# Optional Environment Variables:
-#   DEPLOYER_GATHER_PHP  - Gather PHP versions and extensions: true|false (default: false)
-#
-# Returns YAML with:
-#   - status: success
-#   - repos_configured: true
-#   - php: (only if DEPLOYER_GATHER_PHP=true) nested structure with versions and extensions
+# Output (with DEPLOYER_GATHER_PHP=true):
+#   status: success
+#   repos_configured: true
+#   php:
+#     "8.4":
+#       extensions: [cli, fpm, mysql, curl, mbstring]
+#     "8.3":
+#       extensions: [cli, fpm, mysql, curl, mbstring]
 #
 
 set -o pipefail

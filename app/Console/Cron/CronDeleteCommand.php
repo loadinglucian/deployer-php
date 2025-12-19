@@ -6,6 +6,7 @@ namespace Deployer\Console\Cron;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\CronsTrait;
+use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -20,6 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class CronDeleteCommand extends BaseCommand
 {
     use CronsTrait;
+    use ServersTrait;
     use SitesTrait;
 
     // ----
@@ -48,20 +50,14 @@ class CronDeleteCommand extends BaseCommand
         $this->h1('Delete Cron Job');
 
         //
-        // Select site
+        // Select site and cron
         // ----
 
-        $site = $this->selectSite();
+        $site = $this->selectSiteDeets();
 
         if (is_int($site)) {
             return $site;
         }
-
-        $this->displaySiteDeets($site);
-
-        //
-        // Select cron
-        // ----
 
         $this->io->write("\n");
 
@@ -71,20 +67,14 @@ class CronDeleteCommand extends BaseCommand
             return $cron;
         }
 
-        //
-        // Display cron details
-        // ----
-
         $this->displayCronDeets($cron);
 
         //
         // Confirm deletion with extra safety
         // ----
 
-        $this->io->write("\n");
-
         /** @var bool $forceSkip */
-        $forceSkip = $input->getOption('force') ?? false;
+        $forceSkip = $input->getOption('force');
 
         if (!$forceSkip) {
             $this->io->write("\n");
@@ -101,8 +91,7 @@ class CronDeleteCommand extends BaseCommand
             }
         }
 
-        /** @var bool $confirmed */
-        $confirmed = $this->io->getOptionOrPrompt(
+        $confirmed = $this->io->getBooleanOptionOrPrompt(
             'yes',
             fn (): bool => $this->io->promptConfirm(
                 label: 'Are you absolutely sure?',

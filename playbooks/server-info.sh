@@ -1,25 +1,39 @@
 #!/usr/bin/env bash
+
 #
-# Gather Server Information
-# ----
-# This playbook detects distribution, family, permissions, hardware info, listening services, Caddy metrics, and PHP-FPM metrics.
+# Server Information
 #
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE - Output file path (provided automatically)
+# Gathers distribution, hardware, installed services, and site configurations.
 #
-# Returns YAML with:
-#   - distro: ubuntu|debian|fedora|centos|rocky|alma|rhel|amazon|unknown
-#   - family: debian|fedora|redhat|amazon|unknown
-#   - permissions: root|sudo|none
-#   - hardware: cpu_cores, ram_mb, disk_type
-#   - php: versions array (version, extensions), default version
-#   - caddy: Caddy metrics (available, version, sites_count, domains, uptime_seconds, active_requests, total_requests, memory_mb)
-#   - php_fpm: map of PHP versions to metrics (pool, process_manager, uptime_seconds, accepted_conn, listen_queue, idle_processes, active_processes, total_processes, max_children_reached, slow_requests)
-#   - ports: map of port numbers to process names
-#   - ufw_installed: true|false
-#   - ufw_active: true|false
-#   - ufw_rules: list of port/proto (e.g., "22/tcp", "80/tcp")
-#   - sites_config: map of domain to config (php_version, www_mode, https_enabled)
+# Output:
+#   distro: ubuntu
+#   family: debian
+#   permissions: root
+#   hardware:
+#     cpu_cores: 4
+#     ram_mb: 8192
+#     disk_type: ssd
+#   php:
+#     default: "8.4"
+#     versions:
+#       - version: "8.4"
+#         extensions: [cli, fpm, mysql, curl]
+#   caddy:
+#     available: true
+#     version: v2.9.1
+#     sites_count: 2
+#   ports:
+#     22: sshd
+#     80: caddy
+#   ufw_installed: true
+#   ufw_active: true
+#   ufw_rules: [22/tcp, 80/tcp, 443/tcp]
+#   sites_config:
+#     example.com:
+#       php_version: "8.4"
+#       www_mode: redirect-to-root
+#       https_enabled: true
+#
 
 set -o pipefail
 export DEBIAN_FRONTEND=noninteractive

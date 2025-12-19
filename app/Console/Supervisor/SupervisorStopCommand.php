@@ -47,19 +47,11 @@ class SupervisorStopCommand extends BaseCommand
         // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
-
-        [
-            'distro' => $distro,
-            'permissions' => $permissions,
-        ] = $server->info;
-
-        /** @var string $distro */
-        /** @var string $permissions */
 
         //
         // Stop supervisord service
@@ -70,8 +62,6 @@ class SupervisorStopCommand extends BaseCommand
             'supervisor-service',
             'Stopping supervisord service...',
             [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_ACTION' => 'stop',
             ],
         );

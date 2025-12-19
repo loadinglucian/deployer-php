@@ -6,6 +6,7 @@ namespace Deployer\Traits;
 
 use Deployer\DTOs\SiteDTO;
 use Deployer\DTOs\SupervisorDTO;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Services\IOService;
 use Symfony\Component\Console\Command\Command;
 
@@ -26,8 +27,131 @@ use Symfony\Component\Console\Command\Command;
 trait SupervisorsTrait
 {
     // ----
+    // Helpers
+    // ----
+
+    //
+    // UI
+    // ----
+
+    /**
+     * Display supervisor details.
+     */
+    protected function displaySupervisorDeets(SupervisorDTO $supervisor): void
+    {
+        $this->displayDeets([
+            'Program' => $supervisor->program,
+            'Script' => $supervisor->script,
+            'Autostart' => $supervisor->autostart ? 'yes' : 'no',
+            'Autorestart' => $supervisor->autorestart ? 'yes' : 'no',
+            'Stopwaitsecs' => $supervisor->stopwaitsecs,
+            'Numprocs' => $supervisor->numprocs,
+        ]);
+        $this->out('───');
+    }
+
+    /**
+     * Display a warning to add a supervisor if no supervisors are available. Otherwise, return all supervisors.
+     *
+     * @param SiteDTO $site The site containing supervisors
+     * @return array<int, SupervisorDTO>|int Returns array of supervisors or Command::SUCCESS if no supervisors available
+     */
+    protected function ensureSupervisorsAvailable(SiteDTO $site): array|int
+    {
+        if ([] === $site->supervisors) {
+            $this->warn("No supervisor configurations found for '" . $site->domain . "'");
+            $this->info('Run <fg=cyan>supervisor:create</> to create one');
+
+            return Command::SUCCESS;
+        }
+
+        return $site->supervisors;
+    }
+
+    /**
+     * Select a supervisor from a site's supervisors by program option or interactive prompt.
+     *
+     * @param SiteDTO $site The site containing supervisors
+     * @return SupervisorDTO|int Returns SupervisorDTO on success, or Command::SUCCESS if no supervisors
+     */
+    protected function selectSupervisor(SiteDTO $site): SupervisorDTO|int
+    {
+        $allSupervisors = $this->ensureSupervisorsAvailable($site);
+
+        if (is_int($allSupervisors)) {
+            return $allSupervisors;
+        }
+
+        //
+        // Extract programs and prompt for selection
+
+        $programs = array_map(fn (SupervisorDTO $supervisor) => $supervisor->program, $allSupervisors);
+
+        try {
+            /** @var string $program */
+            $program = $this->io->getValidatedOptionOrPrompt(
+                'program',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'Select supervisor program:',
+                    options: $programs,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateSupervisorSelection($value, $allSupervisors)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
+        }
+
+        //
+        // Find supervisor by program
+
+        foreach ($allSupervisors as $supervisor) {
+            if ($supervisor->program === $program) {
+                return $supervisor;
+            }
+        }
+
+        // Should never reach here due to validation
+        return Command::FAILURE;
+    }
+
+    // ----
     // Validation
     // ----
+
+    /**
+     * Validate numprocs is a positive integer.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateNumprocsInput(mixed $numprocs): ?string
+    {
+        if (is_string($numprocs)) {
+            $numprocs = trim($numprocs);
+
+            if ('' === $numprocs) {
+                return 'Number of processes cannot be empty';
+            }
+
+            if (! ctype_digit($numprocs)) {
+                return 'Number of processes must be a positive integer';
+            }
+
+            $numprocs = (int) $numprocs;
+        }
+
+        if (! is_int($numprocs)) {
+            return 'Number of processes must be a positive integer';
+        }
+
+        if ($numprocs < 1) {
+            return 'Number of processes must be a positive integer';
+        }
+
+        return null;
+    }
 
     /**
      * Validate program name is not empty and contains valid characters.
@@ -90,113 +214,44 @@ trait SupervisorsTrait
     }
 
     /**
-     * Validate numprocs is a positive integer.
+     * Validate supervisor script exists in available scripts.
+     *
+     * @param array<int, string> $availableScripts Available scripts from repository
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateNumprocsInput(mixed $numprocs): ?string
+    protected function validateSupervisorScriptInput(mixed $script, array $availableScripts): ?string
     {
-        if (is_string($numprocs)) {
-            $numprocs = trim($numprocs);
-
-            if ('' === $numprocs) {
-                return 'Number of processes cannot be empty';
-            }
-
-            if (! ctype_digit($numprocs)) {
-                return 'Number of processes must be a positive integer';
-            }
-
-            $numprocs = (int) $numprocs;
+        if (! is_string($script)) {
+            return 'Script must be a string';
         }
 
-        if (! is_int($numprocs)) {
-            return 'Number of processes must be a positive integer';
-        }
-
-        if ($numprocs < 1) {
-            return 'Number of processes must be a positive integer';
+        if (! in_array($script, $availableScripts, true)) {
+            return "Supervisor script not found: .deployer/supervisors/{$script}";
         }
 
         return null;
     }
 
-    // ----
-    // Helpers
-    // ----
-
     /**
-     * Display supervisor details.
-     */
-    protected function displaySupervisorDeets(SupervisorDTO $supervisor): void
-    {
-        $this->displayDeets([
-            'Program' => $supervisor->program,
-            'Script' => $supervisor->script,
-            'Autostart' => $supervisor->autostart ? 'yes' : 'no',
-            'Autorestart' => $supervisor->autorestart ? 'yes' : 'no',
-            'Stopwaitsecs' => $supervisor->stopwaitsecs,
-            'Numprocs' => $supervisor->numprocs,
-        ]);
-        $this->out('---');
-    }
-
-    /**
-     * Display a warning to add a supervisor if no supervisors are available. Otherwise, return all supervisors.
+     * Validate supervisor selection exists for site.
      *
-     * @param SiteDTO $site The site containing supervisors
-     * @return array<int, SupervisorDTO>|int Returns array of supervisors or Command::SUCCESS if no supervisors available
+     * @param array<int, \Deployer\DTOs\SupervisorDTO> $supervisors Available supervisors for the site
+     *
+     * @return string|null Error message if invalid, null if valid
      */
-    protected function ensureSupervisorsAvailable(SiteDTO $site): array|int
+    protected function validateSupervisorSelection(mixed $program, array $supervisors): ?string
     {
-        if ([] === $site->supervisors) {
-            $this->warn("No supervisor configurations found for '" . $site->domain . "'");
-            $this->info('Run <fg=cyan>supervisor:create</> to create one');
-
-            return Command::SUCCESS;
+        if (! is_string($program)) {
+            return 'Program name must be a string';
         }
 
-        return $site->supervisors;
-    }
-
-    /**
-     * Select a supervisor from a site's supervisors by program option or interactive prompt.
-     *
-     * @param SiteDTO $site The site containing supervisors
-     * @return SupervisorDTO|int Returns SupervisorDTO on success, or Command::SUCCESS if no supervisors, or Command::FAILURE if not found
-     */
-    protected function selectSupervisor(SiteDTO $site): SupervisorDTO|int
-    {
-        $allSupervisors = $this->ensureSupervisorsAvailable($site);
-
-        if (is_int($allSupervisors)) {
-            return $allSupervisors;
-        }
-
-        //
-        // Extract programs and prompt for selection
-
-        $programs = array_map(fn (SupervisorDTO $supervisor) => $supervisor->program, $allSupervisors);
-
-        $program = (string) $this->io->getOptionOrPrompt(
-            'program',
-            fn () => $this->io->promptSelect(
-                label: 'Select supervisor program:',
-                options: $programs,
-            )
-        );
-
-        //
-        // Find supervisor by program
-
-        foreach ($allSupervisors as $supervisor) {
+        foreach ($supervisors as $supervisor) {
             if ($supervisor->program === $program) {
-                return $supervisor;
+                return null;
             }
         }
 
-        $this->nay("Supervisor program '" . $program . "' not found for '" . $site->domain . "' in inventory");
-
-        return Command::FAILURE;
+        return "Supervisor program '{$program}' not found";
     }
 }

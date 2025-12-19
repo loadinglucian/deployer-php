@@ -49,13 +49,11 @@ class SiteSshCommand extends BaseCommand
         // Select site
         // ----
 
-        $site = $this->selectSite();
+        $site = $this->selectSiteDeets();
 
         if (is_int($site)) {
             return $site;
         }
-
-        $this->displaySiteDeets($site);
 
         //
         // Get server for site
@@ -65,6 +63,16 @@ class SiteSshCommand extends BaseCommand
 
         if (is_int($server)) {
             return $server;
+        }
+
+        //
+        // Validate site is added on server
+        // ----
+
+        $validationResult = $this->ensureSiteExists($server, $site);
+
+        if (is_int($validationResult)) {
+            return $validationResult;
         }
 
         //
@@ -92,6 +100,12 @@ class SiteSshCommand extends BaseCommand
         ];
 
         if (null !== $server->privateKeyPath) {
+            if (!file_exists($server->privateKeyPath) || !is_readable($server->privateKeyPath)) {
+                $this->nay("SSH key not found or not readable: {$server->privateKeyPath}");
+
+                return Command::FAILURE;
+            }
+
             $sshArgs[] = '-i';
             $sshArgs[] = $server->privateKeyPath;
         }
@@ -103,11 +117,18 @@ class SiteSshCommand extends BaseCommand
         // Replace PHP process with SSH
         // ----
 
-        $this->io->write("\n");
+        if (! function_exists('pcntl_exec')) {
+            $this->nay('The pcntl extension is required for SSH. Enable it in your php.ini');
+
+            return Command::FAILURE;
+        }
+
+        $this->out('');
         pcntl_exec($sshBinary, $sshArgs);
 
         // Only reached if pcntl_exec fails
-        $this->nay('Failed to execute SSH');
+        $error = pcntl_get_last_error();
+        $this->nay('Failed to execute SSH: ' . pcntl_strerror($error));
 
         return Command::FAILURE;
     }

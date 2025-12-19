@@ -1,33 +1,12 @@
 #!/usr/bin/env bash
 
 #
-# PHP Installation Playbook - Ubuntu/Debian Only
+# PHP Installation
 #
-# Install specified PHP version with user-selected extensions
-# ----
+# Installs specified PHP version with selected extensions and configures PHP-FPM.
 #
-# This playbook handles PHP installation and configuration including:
-# - Package installation (PHP core + selected extensions)
-# - PHP-FPM service configuration and socket permissions
-# - Optional system default version setup
-# - Caddy configuration updates for PHP-FPM endpoints
-#
-# Note: User and group management (www-data to deployer group) is handled
-# by the user-install.sh playbook which runs after all services.
-#
-# This playbook only supports Ubuntu and Debian distributions (debian family).
-# Both distributions use apt package manager and follow debian conventions.
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE     - Output file path
-#   DEPLOYER_DISTRO          - Exact distribution: ubuntu|debian
-#   DEPLOYER_PERMS           - Permissions: root|sudo
-#   DEPLOYER_PHP_VERSION     - PHP version to install (e.g., 8.4, 8.3, 7.4)
-#   DEPLOYER_PHP_SET_DEFAULT - Set as system default: true|false
-#   DEPLOYER_PHP_EXTENSIONS  - Comma-separated list of extensions to install (e.g., cli,fpm,mysql)
-#
-# Returns YAML with:
-#   - status: success
+# Output:
+#   status: success
 #
 
 set -o pipefail

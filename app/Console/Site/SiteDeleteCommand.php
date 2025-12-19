@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Site;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\DTOs\SiteServerDTO;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
@@ -35,7 +36,8 @@ class SiteDeleteCommand extends BaseCommand
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Domain name')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the site domain to confirm')
-            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
+            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt')
+            ->addOption('inventory-only', null, InputOption::VALUE_NONE, 'Only remove from inventory, skip remote site deletion');
     }
 
     // ----
@@ -49,23 +51,43 @@ class SiteDeleteCommand extends BaseCommand
         $this->h1('Delete Site');
 
         //
-        // Select site & display details
+        // Select site
         // ----
 
-        $site = $this->selectSite();
+        $site = $this->selectSiteDeets();
 
         if (is_int($site)) {
             return $site;
         }
 
-        $this->displaySiteDeets($site);
+        //
+        // Display deletion info
+        // ----
+
+        /** @var bool $inventoryOnly */
+        $inventoryOnly = $input->getOption('inventory-only');
+
+        $deletionInfo = [
+            'Remove the site from inventory',
+        ];
+
+        if (!$inventoryOnly) {
+            $deletionInfo[] = "Delete site files from server '{$site->server}'";
+        }
+
+        if (1 === count($deletionInfo)) {
+            $this->info('This will ' . lcfirst($deletionInfo[0]));
+        } else {
+            $this->info('This will:');
+            $this->ul($deletionInfo);
+        }
 
         //
         // Confirm deletion with extra safety
         // ----
 
         /** @var bool $forceSkip */
-        $forceSkip = $input->getOption('force') ?? false;
+        $forceSkip = $input->getOption('force');
 
         if (!$forceSkip) {
             $this->out('');
@@ -82,8 +104,7 @@ class SiteDeleteCommand extends BaseCommand
             }
         }
 
-        /** @var bool $confirmed */
-        $confirmed = $this->io->getOptionOrPrompt(
+        $confirmed = $this->io->getBooleanOptionOrPrompt(
             'yes',
             fn (): bool => $this->io->promptConfirm(
                 label: 'Are you absolutely sure?',
@@ -102,66 +123,51 @@ class SiteDeleteCommand extends BaseCommand
         // ----
 
         $deletedFromServer = false;
-        $server = $this->servers->findByName($site->server);
 
-        if ($server === null) {
-            $this->warn("Server '{$site->server}' not found in inventory");
-            $this->out([
-                '',
-                '<fg=yellow>The server may have been deleted.</>',
-                '',
-            ]);
-        } else {
-            // Get server info (verifies SSH connection)
-            $server = $this->serverInfo($server);
+        if (!$inventoryOnly) {
+            $server = $this->servers->findByName($site->server);
 
-            if (is_int($server) || $server->info === null) {
-                $this->warn('Could not connect to server');
+            if ($server === null) {
+                $this->warn("Server '{$site->server}' not found in inventory");
             } else {
-                [
-                    'distro' => $distro,
-                    'permissions' => $permissions,
-                ] = $server->info;
+                $server = $this->getServerInfo($server);
 
-                /** @var string $distro */
-                /** @var string $permissions */
-
-                // Execute site deletion playbook
-                $result = $this->executePlaybookSilently(
-                    $server,
-                    'site-delete',
-                    'Deleting site from server...',
-                    [
-                        'DEPLOYER_DISTRO' => $distro,
-                        'DEPLOYER_PERMS' => $permissions,
-                        'DEPLOYER_SITE_DOMAIN' => $site->domain,
-                    ]
-                );
-
-                if (is_int($result)) {
-                    $this->warn('Failed to delete site from server');
+                if (is_int($server) || $server->info === null) {
+                    $this->warn('Could not connect to server');
                 } else {
-                    $deletedFromServer = true;
+                    // Execute site deletion playbook
+                    $siteServer = new SiteServerDTO($site, $server);
+
+                    $result = $this->executePlaybookSilently(
+                        $siteServer,
+                        'site-delete',
+                        'Deleting site from server...'
+                    );
+
+                    if (is_int($result)) {
+                        $this->warn('Failed to delete site from server');
+                    } else {
+                        $deletedFromServer = true;
+                    }
                 }
             }
-        }
 
-        //
-        // Confirm inventory removal if server deletion failed
-        // ----
+            //
+            // Confirm inventory removal if server deletion failed
+            // ----
 
-        if (!$deletedFromServer) {
-            /** @var bool $proceedAnyway */
-            $proceedAnyway = $this->io->getOptionOrPrompt(
-                'yes',
-                fn (): bool => $this->io->promptConfirm(
-                    label: 'Remove site from inventory anyway?',
-                    default: false
-                )
-            );
+            if (!$deletedFromServer) {
+                $proceedAnyway = $this->io->getBooleanOptionOrPrompt(
+                    'inventory-only',
+                    fn (): bool => $this->io->promptConfirm(
+                        label: 'Remove site from inventory anyway?',
+                        default: false
+                    )
+                );
 
-            if (!$proceedAnyway) {
-                return Command::FAILURE;
+                if (!$proceedAnyway) {
+                    return Command::FAILURE;
+                }
             }
         }
 
@@ -177,11 +183,19 @@ class SiteDeleteCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('site:delete', [
+        $replayOptions = [
             'domain' => $site->domain,
             'force' => true,
-            'yes' => $confirmed,
-        ]);
+            'yes' => true,
+        ];
+
+        // If we made it this far without deleting from server,
+        // add --inventory-only to the command replay
+        if (!$deletedFromServer) {
+            $replayOptions['inventory-only'] = true;
+        }
+
+        $this->commandReplay('site:delete', $replayOptions);
 
         return Command::SUCCESS;
     }

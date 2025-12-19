@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Services;
 
 use Closure;
+use Deployer\Exceptions\ValidationException;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\multiselect;
@@ -74,14 +75,6 @@ class IOService
     }
 
     /**
-     * Display an error message with red X.
-     */
-    public function error(string $message): void
-    {
-        $this->out("<|red>✗ {$message}</>");
-    }
-
-    /**
      * This wrapper for Symfony's ConsoleOutput::write() method.
      *
      * @param string|iterable<string> $messages
@@ -97,93 +90,6 @@ class IOService
     // ----
 
     /**
-     * Get option value or prompt user interactively.
-     *
-     * Checks if an option was provided via CLI. If yes, returns it.
-     * If not, prompts the user interactively using a custom closure.
-     *
-     * @template T
-     *
-     * @param string $optionName The option name to check
-     * @param Closure(): T $promptCallback Closure that performs the actual prompting (e.g., text(), select(), confirm())
-     *
-     * @return string|bool|T The option value or prompted input
-     *
-     * @example
-     * // Text input
-     * $name = $this->io->getOptionOrPrompt(
-     *     'name',
-     *     fn() => $this->io->promptText('Server name:', placeholder: 'web1')
-     * );
-     *
-     * // Boolean flag (VALUE_NONE option)
-     * $skip = $this->io->getOptionOrPrompt(
-     *     'skip',
-     *     fn() => $this->io->promptConfirm('Skip verification?', default: false)
-     * );
-     *
-     * // Select input
-     * $env = $this->io->getOptionOrPrompt(
-     *     'environment',
-     *     fn() => $this->io->promptSelect('Environment:', ['dev', 'staging', 'prod'])
-     * );
-     */
-    public function getOptionOrPrompt(
-        string $optionName,
-        Closure $promptCallback
-    ): mixed {
-        $value = $this->input->getOption($optionName);
-
-        // For boolean flags (VALUE_NONE or VALUE_NEGATABLE), check if actually provided
-        if (is_bool($value)) {
-            // Build list of option flags to check
-            $optionFlags = ['--' . $optionName];
-
-            // Try to find short flag from option definition
-            $optionDefinition = null;
-            try {
-                $inputDef = $this->command->getDefinition();
-                if ($inputDef->hasOption($optionName)) {
-                    $optionDefinition = $inputDef->getOption($optionName);
-                    if ($optionDefinition->getShortcut() !== null) {
-                        $optionFlags[] = '-' . $optionDefinition->getShortcut();
-                    }
-                }
-            } catch (\Throwable) {
-                // Ignore errors getting shortcut
-            }
-
-            if ($optionDefinition !== null && $optionDefinition->isNegatable()) {
-                $optionFlags[] = '--no-' . $optionName;
-            }
-
-            // Check if flag was actually provided (works for both CLI and tests with ArrayInput)
-            $wasProvided = $this->input->hasParameterOption($optionFlags, true);
-
-            if ($wasProvided) {
-                // Flag was provided - return its value (true for CLI flags, could be false in tests)
-                return $value;
-            }
-
-            // Flag was not provided - prompt in interactive mode, return false otherwise
-            if ($this->input->isInteractive()) {
-                return $promptCallback();
-            }
-
-            return false;
-        }
-
-        // Handle string options (including empty strings)
-        // null means option was not provided, empty string means it was provided but empty
-        if ($value !== null) {
-            return $value;
-        }
-
-        // Prompt user interactively
-        return $promptCallback();
-    }
-
-    /**
      * Get option value or prompt user, with automatic validation.
      *
      * Combines getOptionOrPrompt with validation. The validator is automatically
@@ -193,18 +99,22 @@ class IOService
      * @param Closure(Closure): mixed $promptCallback Closure that receives validator and returns prompt result
      * @param Closure(mixed): ?string $validator Validation closure that returns error message or null
      *
-     * @return mixed The validated value, or null if validation failed
+     * @return mixed The validated value
+     *
+     * @throws ValidationException When CLI option validation fails
      *
      * @example
-     * $name = $this->io->getValidatedOptionOrPrompt(
-     *     'name',
-     *     fn($validate) => $this->io->promptText(
-     *         label: 'Server name:',
-     *         validate: $validate
-     *     ),
-     *     fn($value) => $this->validateNameInput($value)
-     * );
-     * if ($name === null) {
+     * try {
+     *     $name = $this->io->getValidatedOptionOrPrompt(
+     *         'name',
+     *         fn($validate) => $this->io->promptText(
+     *             label: 'Server name:',
+     *             validate: $validate
+     *         ),
+     *         fn($value) => $this->validateNameInput($value)
+     *     );
+     * } catch (ValidationException $e) {
+     *     $this->nay($e->getMessage());
      *     return Command::FAILURE;
      * }
      */
@@ -222,14 +132,58 @@ class IOService
         // Validate if value came from CLI option (prompts already validated)
         if ($this->input->getOption($optionName) !== null) {
             $error = $validator($value);
-            if ($error !== null) {
-                $this->error($error);
-
-                return null;
+            if (null !== $error) {
+                throw new ValidationException($error);
             }
         }
 
         return $value;
+    }
+
+    /**
+     * Get boolean option value or prompt user interactively.
+     *
+     * For VALUE_NONE flags: returns true if provided, prompts if not
+     * For VALUE_NEGATABLE flags: returns true/false if provided, prompts if not
+     *
+     * @param string $optionName The option name to check
+     * @param Closure(): bool $promptCallback Closure that performs the confirm prompt
+     */
+    public function getBooleanOptionOrPrompt(string $optionName, Closure $promptCallback): bool
+    {
+        $value = $this->input->getOption($optionName);
+
+        // Build list of option flags to check
+        $optionFlags = ['--' . $optionName];
+
+        $optionDefinition = null;
+        try {
+            $inputDef = $this->command->getDefinition();
+            if ($inputDef->hasOption($optionName)) {
+                $optionDefinition = $inputDef->getOption($optionName);
+                if (null !== $optionDefinition->getShortcut()) {
+                    $optionFlags[] = '-' . $optionDefinition->getShortcut();
+                }
+            }
+        } catch (\Throwable) {
+            // Ignore errors getting shortcut
+        }
+
+        if (null !== $optionDefinition && $optionDefinition->isNegatable()) {
+            $optionFlags[] = '--no-' . $optionName;
+        }
+
+        $wasProvided = $this->input->hasParameterOption($optionFlags, true);
+
+        if ($wasProvided) {
+            return (bool) $value;
+        }
+
+        if ($this->input->isInteractive()) {
+            return $promptCallback();
+        }
+
+        return false;
     }
 
     //
@@ -484,5 +438,76 @@ class IOService
             callback: $callback,
             message: $message
         );
+    }
+
+    // ----
+    // Private methods
+    // ----
+
+    /**
+     * Get option value or prompt user interactively.
+     *
+     * Internal method used by getValidatedOptionOrPrompt and getBooleanOptionOrPrompt.
+     *
+     * @template T
+     *
+     * @param string $optionName The option name to check
+     * @param Closure(): T $promptCallback Closure that performs the actual prompting
+     *
+     * @return string|bool|T The option value or prompted input
+     */
+    private function getOptionOrPrompt(
+        string $optionName,
+        Closure $promptCallback
+    ): mixed {
+        $value = $this->input->getOption($optionName);
+
+        // For boolean flags (VALUE_NONE or VALUE_NEGATABLE), check if actually provided
+        if (is_bool($value)) {
+            // Build list of option flags to check
+            $optionFlags = ['--' . $optionName];
+
+            // Try to find short flag from option definition
+            $optionDefinition = null;
+            try {
+                $inputDef = $this->command->getDefinition();
+                if ($inputDef->hasOption($optionName)) {
+                    $optionDefinition = $inputDef->getOption($optionName);
+                    if ($optionDefinition->getShortcut() !== null) {
+                        $optionFlags[] = '-' . $optionDefinition->getShortcut();
+                    }
+                }
+            } catch (\Throwable) {
+                // Ignore errors getting shortcut
+            }
+
+            if ($optionDefinition !== null && $optionDefinition->isNegatable()) {
+                $optionFlags[] = '--no-' . $optionName;
+            }
+
+            // Check if flag was actually provided (works for both CLI and tests with ArrayInput)
+            $wasProvided = $this->input->hasParameterOption($optionFlags, true);
+
+            if ($wasProvided) {
+                // Flag was provided - return its value (true for CLI flags, could be false in tests)
+                return $value;
+            }
+
+            // Flag was not provided - prompt in interactive mode, return false otherwise
+            if ($this->input->isInteractive()) {
+                return $promptCallback();
+            }
+
+            return false;
+        }
+
+        // Handle string options (including empty strings)
+        // null means option was not provided, empty string means it was provided but empty
+        if ($value !== null) {
+            return $value;
+        }
+
+        // Prompt user interactively
+        return $promptCallback();
     }
 }

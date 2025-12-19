@@ -6,6 +6,7 @@ namespace Deployer\Traits;
 
 use Deployer\DTOs\CronDTO;
 use Deployer\DTOs\SiteDTO;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Services\IOService;
 use Symfony\Component\Console\Command\Command;
 
@@ -23,8 +24,171 @@ use Symfony\Component\Console\Command\Command;
 trait CronsTrait
 {
     // ----
+    // Helpers
+    // ----
+
+    //
+    // Data
+    // ----
+
+    /**
+     * Scan .deployer/crons/ directory recursively and return sorted list of scripts.
+     *
+     * @param string $cronsDir Absolute path to crons directory
+     * @return array<int, string> Array of script paths relative to crons directory
+     */
+    protected function scanCronScripts(string $cronsDir): array
+    {
+        $scripts = [];
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($cronsDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        /** @var \SplFileInfo $file */
+        foreach ($iterator as $file) {
+            if ($file->isFile()) {
+                // Get path relative to crons directory
+                $relativePath = substr($file->getPathname(), strlen($cronsDir) + 1);
+                $scripts[] = $relativePath;
+            }
+        }
+
+        sort($scripts);
+
+        return $scripts;
+    }
+
+    //
+    // UI
+    // ----
+
+    /**
+     * Display cron details.
+     */
+    protected function displayCronDeets(CronDTO $cron): void
+    {
+        $this->displayDeets([
+            'Script' => $cron->script,
+            'Schedule' => $cron->schedule,
+        ]);
+
+        $this->out('───');
+    }
+
+    /**
+     * Display a warning to add a cron if no crons are available. Otherwise, return all crons.
+     *
+     * @param SiteDTO $site The site containing crons
+     * @return array<int, CronDTO>|int Returns array of crons or Command::SUCCESS if no crons available
+     */
+    protected function ensureCronsAvailable(SiteDTO $site): array|int
+    {
+        if ([] === $site->crons) {
+            $this->warn("No cron jobs found for '" . $site->domain . "' in inventory:");
+            $this->info('Run <fg=cyan>cron:create</> to create one');
+
+            return Command::SUCCESS;
+        }
+
+        return $site->crons;
+    }
+
+    /**
+     * Select a cron from a site's crons by script option or interactive prompt.
+     *
+     * @param SiteDTO $site The site containing crons
+     * @return CronDTO|int Returns CronDTO on success, or Command::SUCCESS if no crons
+     */
+    protected function selectCron(SiteDTO $site): CronDTO|int
+    {
+        $allCrons = $this->ensureCronsAvailable($site);
+
+        if (is_int($allCrons)) {
+            return $allCrons;
+        }
+
+        //
+        // Extract scripts and prompt for selection
+
+        $scripts = array_map(fn (CronDTO $cron) => $cron->script, $allCrons);
+
+        try {
+            /** @var string $script */
+            $script = $this->io->getValidatedOptionOrPrompt(
+                'script',
+                fn ($validate) => $this->io->promptSelect(
+                    label: 'Select cron job:',
+                    options: $scripts,
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateCronSelection($value, $allCrons)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
+        }
+
+        //
+        // Find cron by script
+
+        foreach ($allCrons as $cron) {
+            if ($cron->script === $script) {
+                return $cron;
+            }
+        }
+
+        // Should never reach here due to validation
+        return Command::FAILURE;
+    }
+
+    // ----
     // Validation
     // ----
+
+    /**
+     * Validate cron script exists in available scripts.
+     *
+     * @param array<int, string> $availableScripts Available scripts from repository
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateCronScriptInput(mixed $script, array $availableScripts): ?string
+    {
+        if (! is_string($script)) {
+            return 'Script must be a string';
+        }
+
+        if (! in_array($script, $availableScripts, true)) {
+            return "Cron script not found: .deployer/crons/{$script}";
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate cron selection exists for site.
+     *
+     * @param array<int, \Deployer\DTOs\CronDTO> $crons Available crons for the site
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateCronSelection(mixed $script, array $crons): ?string
+    {
+        if (! is_string($script)) {
+            return 'Script must be a string';
+        }
+
+        foreach ($crons as $cron) {
+            if ($cron->script === $script) {
+                return null;
+            }
+        }
+
+        return "Cron '{$script}' not found";
+    }
 
     /**
      * Validate cron schedule format.
@@ -68,6 +232,24 @@ trait CronsTrait
             if (null !== $error) {
                 return "Invalid " . $fieldNames[$i] . ": " . $error;
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate script name is not empty.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateScriptInput(mixed $script): ?string
+    {
+        if (! is_string($script)) {
+            return 'Script name must be a string';
+        }
+
+        if ('' === trim($script)) {
+            return 'Script name cannot be empty';
         }
 
         return null;
@@ -179,127 +361,5 @@ trait CronsTrait
         }
 
         return null;
-    }
-
-    /**
-     * Validate script name is not empty.
-     *
-     * @return string|null Error message if invalid, null if valid
-     */
-    protected function validateScriptInput(mixed $script): ?string
-    {
-        if (! is_string($script)) {
-            return 'Script name must be a string';
-        }
-
-        if ('' === trim($script)) {
-            return 'Script name cannot be empty';
-        }
-
-        return null;
-    }
-
-    // ----
-    // Helpers
-    // ----
-
-    /**
-     * Display cron details.
-     */
-    protected function displayCronDeets(CronDTO $cron): void
-    {
-        $this->displayDeets([
-            'Script' => $cron->script,
-            'Schedule' => $cron->schedule,
-        ]);
-        $this->out('───');
-    }
-
-    /**
-     * Display a warning to add a cron if no crons are available. Otherwise, return all crons.
-     *
-     * @param SiteDTO $site The site containing crons
-     * @return array<int, CronDTO>|int Returns array of crons or Command::SUCCESS if no crons available
-     */
-    protected function ensureCronsAvailable(SiteDTO $site): array|int
-    {
-        if ([] === $site->crons) {
-            $this->warn("No cron jobs found for '" . $site->domain . "' in inventory:");
-            $this->info('Run <fg=cyan>cron:create</> to create one');
-
-            return Command::SUCCESS;
-        }
-
-        return $site->crons;
-    }
-
-    /**
-     * Select a cron from a site's crons by script option or interactive prompt.
-     *
-     * @param SiteDTO $site The site containing crons
-     * @return CronDTO|int Returns CronDTO on success, or Command::SUCCESS if no crons, or Command::FAILURE if not found
-     */
-    protected function selectCron(SiteDTO $site): CronDTO|int
-    {
-        $allCrons = $this->ensureCronsAvailable($site);
-
-        if (is_int($allCrons)) {
-            return $allCrons;
-        }
-
-        //
-        // Extract scripts and prompt for selection
-
-        $scripts = array_map(fn (CronDTO $cron) => $cron->script, $allCrons);
-
-        $script = (string) $this->io->getOptionOrPrompt(
-            'script',
-            fn () => $this->io->promptSelect(
-                label: 'Select cron job:',
-                options: $scripts,
-            )
-        );
-
-        //
-        // Find cron by script
-
-        foreach ($allCrons as $cron) {
-            if ($cron->script === $script) {
-                return $cron;
-            }
-        }
-
-        $this->nay("Cron '" . $script . "' not found for '" . $site->domain . "' in inventory");
-
-        return Command::FAILURE;
-    }
-
-    /**
-     * Scan .deployer/crons/ directory recursively and return sorted list of scripts.
-     *
-     * @param string $cronsDir Absolute path to crons directory
-     * @return array<int, string> Array of script paths relative to crons directory
-     */
-    protected function scanCronScripts(string $cronsDir): array
-    {
-        $scripts = [];
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($cronsDir, \RecursiveDirectoryIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::LEAVES_ONLY
-        );
-
-        /** @var \SplFileInfo $file */
-        foreach ($iterator as $file) {
-            if ($file->isFile()) {
-                // Get path relative to crons directory
-                $relativePath = substr($file->getPathname(), strlen($cronsDir) + 1);
-                $scripts[] = $relativePath;
-            }
-        }
-
-        sort($scripts);
-
-        return $scripts;
     }
 }

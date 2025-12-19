@@ -1,33 +1,13 @@
 #!/usr/bin/env bash
 
 #
-# Deployer User Setup Playbook
+# User Installation
 #
-# Creates deployer user, sets up SSH keys, and configures permissions
-# ----
+# Creates deployer user, generates SSH keys, and configures group memberships.
 #
-# This playbook handles all deployer user-related configuration including:
-# - User creation with home directory
-# - SSH key pair generation or custom key installation
-# - Group memberships (adding caddy and www-data to deployer group)
-# - Directory permissions for deployer home
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE - Output file path
-#   DEPLOYER_PERMS       - Permissions: root|sudo
-#   DEPLOYER_SERVER_NAME - Server name for deploy key generation
-#
-# Optional Environment Variables:
-#   DEPLOYER_KEY_PRIVATE - Base64-encoded private key (if provided, overwrites existing)
-#   DEPLOYER_KEY_PUBLIC  - Base64-encoded public key (if provided, overwrites existing)
-#
-# Idempotency:
-#   - Custom keys (provided): Always overwrite existing keys
-#   - Auto-generate (not provided): Skip if keys already exist
-#
-# Returns YAML with:
-#   - status: success
-#   - deploy_public_key: public key for git deployments
+# Output:
+#   status: success
+#   deploy_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc...xyz deployer@server-name
 #
 
 set -o pipefail

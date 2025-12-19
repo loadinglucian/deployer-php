@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Supervisor;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -15,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'supervisor:status',
-    description: 'View supervisord service status'
+    description: 'View supervisor service and program logs'
 )]
 class SupervisorStatusCommand extends BaseCommand
 {
@@ -42,13 +43,13 @@ class SupervisorStatusCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('Supervisord Service Status');
+        $this->h1('Supervisor Logs');
 
         //
         // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
@@ -58,55 +59,44 @@ class SupervisorStatusCommand extends BaseCommand
         // Get number of lines
         // ----
 
-        /** @var ?string $lines */
-        $lines = $this->io->getValidatedOptionOrPrompt(
-            'lines',
-            fn ($validate) => $this->io->promptText(
-                label: 'Number of lines:',
-                default: '50',
-                validate: $validate
-            ),
-            fn ($value) => $this->validateLineCount($value)
-        );
+        try {
+            /** @var string $lines */
+            $lines = $this->io->getValidatedOptionOrPrompt(
+                'lines',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Number of lines:',
+                    default: '50',
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateLineCount($value)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
 
-        if (null === $lines) {
             return Command::FAILURE;
         }
 
         $lineCount = (int) $lines;
 
         //
-        // Retrieve supervisord logs via journalctl
+        // Retrieve supervisor service logs
         // ----
 
-        try {
-            $command = sprintf('journalctl -u supervisor -n %d --no-pager 2>&1', $lineCount);
-            $result = $this->ssh->executeCommand($server, $command);
-            $logOutput = trim($result['output']);
+        $this->retrieveJournalLogs($server, 'Supervisor', 'supervisor', $lineCount);
 
-            $noData = '' === $logOutput ||
-                      '-- No entries --' === $logOutput ||
-                      str_contains($logOutput, 'No data available');
+        //
+        // Retrieve per-site program logs
+        // ----
 
-            if (0 !== $result['exit_code'] && !$noData) {
-                $this->nay('Failed to retrieve supervisord logs');
-                $this->io->write($this->highlightErrors($logOutput), true);
-                $this->out('---');
-
-                return Command::FAILURE;
+        foreach ($this->sites->findByServer($server->name) as $site) {
+            foreach ($site->supervisors as $supervisor) {
+                $this->retrieveFileLogs(
+                    $server,
+                    "Supervisor: {$site->domain}/{$supervisor->program}",
+                    "/var/log/supervisor/{$site->domain}-{$supervisor->program}.log",
+                    $lineCount
+                );
             }
-
-            if ($noData) {
-                $this->warn('No supervisord logs found. Supervisor may not be installed or has no recent activity.');
-            } else {
-                $this->io->write($this->highlightErrors($logOutput), true);
-            }
-
-            $this->out('---');
-        } catch (\RuntimeException $e) {
-            $this->nay($e->getMessage());
-
-            return Command::FAILURE;
         }
 
         //

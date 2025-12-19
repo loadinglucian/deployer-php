@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Deployer\Traits;
 
 use Deployer\Container;
+use Deployer\DTOs\CronDTO;
 use Deployer\DTOs\ServerDTO;
+use Deployer\DTOs\SiteServerDTO;
+use Deployer\DTOs\SupervisorDTO;
 use Deployer\Exceptions\SSHTimeoutException;
 use Deployer\Services\FilesystemService;
 use Deployer\Services\IOService;
@@ -25,31 +28,9 @@ use Symfony\Component\Yaml\Yaml;
  */
 trait PlaybooksTrait
 {
-    /**
-     * Execute a playbook on a server silently.
-     *
-     * @param ServerDTO $server
-     * @param string $playbookName Playbook name without .sh extension (e.g., 'server-info', 'php-install', etc)
-     * @param string $spinnerMessage Message to display while executing the playbook
-     * @param array<string, scalar|array<mixed>> $playbookVars Playbook variables (arrays are auto-encoded to JSON)
-     * @return array<string, mixed>|int Returns parsed YAML on success or Command::FAILURE on error
-     */
-    protected function executePlaybookSilently(
-        ServerDTO $server,
-        string $playbookName,
-        string $spinnerMessage,
-        array $playbookVars = [],
-    ): array|int {
-        $capture = '';
-
-        return $this->executePlaybook(
-            $server,
-            $playbookName,
-            $spinnerMessage,
-            $playbookVars,
-            $capture
-        );
-    }
+    // ----
+    // Helpers
+    // ----
 
     /**
      * Execute a playbook on a server.
@@ -58,25 +39,91 @@ trait PlaybooksTrait
      * Playbooks write YAML output to a temp file (DEPLOYER_OUTPUT_FILE).
      * Displays errors via IOService and returns Command::FAILURE on any error.
      *
-     * Standard playbook environment variables:
-     *   - DEPLOYER_OUTPUT_FILE: Output file path (provided automatically)
-     *   - DEPLOYER_DISTRO: Exact distribution (ubuntu|debian) - caller must provide via $playbookVars
-     *   - DEPLOYER_PERMS: User permissions (root|sudo|none) - caller must provide via $playbookVars
+     * Standard playbook environment variables (auto-injected from context):
+     *   - DEPLOYER_OUTPUT_FILE: Output file path (always provided)
+     *   - DEPLOYER_SERVER_NAME: Server name - from server
+     *   - DEPLOYER_SSH_PORT: SSH port - from server
+     *   - DEPLOYER_DISTRO: Exact distribution (ubuntu|debian) - from server->info
+     *   - DEPLOYER_PERMS: User permissions (root|sudo|none) - from server->info
+     *   - DEPLOYER_SITE_DOMAIN: Site domain - from site (when SiteServerDTO context)
+     *   - DEPLOYER_PHP_VERSION: PHP version - from site (when SiteServerDTO context)
+     *   - DEPLOYER_SITE_REPO: Git repository URL - from site (when SiteServerDTO context and not null)
+     *   - DEPLOYER_SITE_BRANCH: Git branch - from site (when SiteServerDTO context and not null)
+     *   - DEPLOYER_CRONS: Cron jobs as JSON array - from site (when SiteServerDTO context)
+     *   - DEPLOYER_SUPERVISORS: Supervisor programs as JSON array - from site (when SiteServerDTO context)
      *
-     * @param ServerDTO $server
+     * @param ServerDTO|SiteServerDTO $context Server or site+server context for playbook execution
      * @param string $playbookName Playbook name without .sh extension (e.g., 'server-info', 'php-install', etc)
      * @param string $statusMessage Message to display while executing the playbook
-     * @param array<string, scalar|array<mixed>> $playbookVars Playbook variables (arrays are auto-encoded to JSON)
+     * @param array<string, scalar|array<mixed>> $playbookVars Playbook variables (arrays are auto-encoded to JSON). Explicit vars override auto-injected ones.
      * @param string|null $capture Variable passed by reference to capture raw output. If null, output is streamed to console. If provided, output is captured silently.
      * @return array<string, mixed>|int Returns parsed YAML on success or Command::FAILURE on error
      */
     protected function executePlaybook(
-        ServerDTO $server,
+        ServerDTO|SiteServerDTO $context,
         string $playbookName,
         string $statusMessage,
         array $playbookVars = [],
         ?string &$capture = null
     ): array|int {
+        //
+        // Extract context
+        // ----
+
+        $server = $context instanceof SiteServerDTO ? $context->server : $context;
+
+        // Auto-inject server vars (always available)
+        $baseVars = [
+            'DEPLOYER_SERVER_NAME' => $server->name,
+            'DEPLOYER_SSH_PORT' => (string) $server->port,
+        ];
+
+        // Auto-inject server info vars (when info has been gathered)
+        if (null !== $server->info) {
+            /** @var string $distro */
+            $distro = $server->info['distro'] ?? 'unknown';
+            /** @var string $permissions */
+            $permissions = $server->info['permissions'] ?? 'none';
+
+            $baseVars['DEPLOYER_DISTRO'] = $distro;
+            $baseVars['DEPLOYER_PERMS'] = $permissions;
+        }
+
+        // Auto-inject site vars when SiteServerDTO context
+        if ($context instanceof SiteServerDTO) {
+            $site = $context->site;
+
+            $baseVars['DEPLOYER_SITE_DOMAIN'] = $site->domain;
+            $baseVars['DEPLOYER_PHP_VERSION'] = $site->phpVersion;
+
+            if (null !== $site->repo && '' !== $site->repo) {
+                $baseVars['DEPLOYER_SITE_REPO'] = $site->repo;
+            }
+
+            if (null !== $site->branch && '' !== $site->branch) {
+                $baseVars['DEPLOYER_SITE_BRANCH'] = $site->branch;
+            }
+
+            $baseVars['DEPLOYER_CRONS'] = array_map(
+                fn (CronDTO $cron) => ['script' => $cron->script, 'schedule' => $cron->schedule],
+                $site->crons
+            );
+
+            $baseVars['DEPLOYER_SUPERVISORS'] = array_map(
+                fn (SupervisorDTO $supervisor) => [
+                    'program' => $supervisor->program,
+                    'script' => $supervisor->script,
+                    'autostart' => $supervisor->autostart,
+                    'autorestart' => $supervisor->autorestart,
+                    'stopwaitsecs' => $supervisor->stopwaitsecs,
+                    'numprocs' => $supervisor->numprocs,
+                ],
+                $site->supervisors
+            );
+        }
+
+        // Explicit vars override auto-injected defaults
+        $playbookVars = [...$baseVars, ...$playbookVars];
 
         //
         // Prepare playbook
@@ -220,5 +267,31 @@ trait PlaybooksTrait
 
             return Command::FAILURE;
         }
+    }
+
+    /**
+     * Execute a playbook on a server silently.
+     *
+     * @param ServerDTO|SiteServerDTO $context Server or site+server context for playbook execution
+     * @param string $playbookName Playbook name without .sh extension (e.g., 'server-info', 'php-install', etc)
+     * @param string $spinnerMessage Message to display while executing the playbook
+     * @param array<string, scalar|array<mixed>> $playbookVars Playbook variables (arrays are auto-encoded to JSON)
+     * @return array<string, mixed>|int Returns parsed YAML on success or Command::FAILURE on error
+     */
+    protected function executePlaybookSilently(
+        ServerDTO|SiteServerDTO $context,
+        string $playbookName,
+        string $spinnerMessage,
+        array $playbookVars = [],
+    ): array|int {
+        $capture = '';
+
+        return $this->executePlaybook(
+            $context,
+            $playbookName,
+            $spinnerMessage,
+            $playbookVars,
+            $capture
+        );
     }
 }

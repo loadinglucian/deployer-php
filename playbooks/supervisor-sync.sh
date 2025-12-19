@@ -1,41 +1,13 @@
 #!/usr/bin/env bash
 
 #
-# Supervisor Sync Playbook - Ubuntu/Debian Only
+# Supervisor Sync
 #
-# Synchronize supervisor configurations from local inventory to server
-# ----
+# Synchronizes supervisor program configurations from inventory to server.
 #
-# This playbook manages supervisor program configurations for a site.
-# It generates INI config files in /etc/supervisor/conf.d/ for each
-# supervisor defined in the inventory, creates per-program logrotate
-# configs, removes orphaned configs, and triggers supervisor to reload.
-#
-# Supervisor scripts must exist in the site's repository at .deployer/supervisors/
-# The playbook only generates config files - supervisord handles script execution.
-#
-# Required Environment Variables:
-#   DEPLOYER_OUTPUT_FILE   - Output file path (YAML)
-#   DEPLOYER_DISTRO        - Server distribution (ubuntu|debian)
-#   DEPLOYER_PERMS         - Permissions (root|sudo|none)
-#   DEPLOYER_SITE_DOMAIN   - Site domain for supervisor naming
-#   DEPLOYER_SUPERVISORS   - JSON array of supervisor objects
-#
-# Supervisor JSON Format:
-#   [
-#     {
-#       "program": "horizon",
-#       "script": "horizon.sh",
-#       "autostart": true,
-#       "autorestart": true,
-#       "stopwaitsecs": 3600,
-#       "numprocs": 1
-#     }
-#   ]
-#
-# Returns YAML with:
-#   - status: success
-#   - supervisors_synced: {count}
+# Output:
+#   status: success
+#   supervisors_synced: 2
 #
 
 set -o pipefail

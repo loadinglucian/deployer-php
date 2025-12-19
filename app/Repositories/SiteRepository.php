@@ -210,6 +210,7 @@ final class SiteRepository
             repo: $site->repo,
             branch: $site->branch,
             server: $site->server,
+            phpVersion: $site->phpVersion,
             crons: $crons,
             supervisors: $site->supervisors,
         );
@@ -246,6 +247,7 @@ final class SiteRepository
             repo: $site->repo,
             branch: $site->branch,
             server: $site->server,
+            phpVersion: $site->phpVersion,
             crons: $crons,
             supervisors: $site->supervisors,
         );
@@ -289,6 +291,7 @@ final class SiteRepository
             repo: $site->repo,
             branch: $site->branch,
             server: $site->server,
+            phpVersion: $site->phpVersion,
             crons: $site->crons,
             supervisors: $supervisors,
         );
@@ -325,6 +328,7 @@ final class SiteRepository
             repo: $site->repo,
             branch: $site->branch,
             server: $site->server,
+            phpVersion: $site->phpVersion,
             crons: $site->crons,
             supervisors: $supervisors,
         );
@@ -372,6 +376,8 @@ final class SiteRepository
             $data['branch'] = $site->branch;
         }
 
+        $data['php_version'] = $site->phpVersion;
+
         if ([] !== $site->crons) {
             $data['crons'] = array_map(
                 $this->dehydrateCronDTO(...),
@@ -415,8 +421,14 @@ final class SiteRepository
         $repo = $data['repo'] ?? null;
         $branch = $data['branch'] ?? null;
         $server = $data['server'] ?? '';
+        $phpVersion = $data['php_version'] ?? null;
         $cronsData = $data['crons'] ?? [];
         $supervisorsData = $data['supervisors'] ?? [];
+
+        if (! is_string($phpVersion) || '' === $phpVersion) {
+            $domainStr = is_string($domain) ? $domain : 'unknown';
+            throw new \RuntimeException("Site '{$domainStr}' is missing required 'php_version' in inventory");
+        }
 
         // Hydrate crons
         $crons = [];
@@ -445,6 +457,7 @@ final class SiteRepository
             repo: is_string($repo) ? $repo : null,
             branch: is_string($branch) ? $branch : null,
             server: is_string($server) ? $server : '',
+            phpVersion: $phpVersion,
             crons: $crons,
             supervisors: $supervisors,
         );
