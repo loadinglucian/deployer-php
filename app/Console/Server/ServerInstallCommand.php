@@ -141,13 +141,16 @@ class ServerInstallCommand extends BaseCommand
 
         $this->ul([
             'Run <|cyan>site:create</> to create a new site',
+            'View server and service info with <|cyan>server:info</>',
             'Add the following <|yellow>public key</> to your Git provider (GitHub, GitLab, etc.) to enable deployments:',
         ]);
 
-        // Intentionally not using $this->out() here to make the key stand out from the rest of the command output
+        // Intentionally not using $this->out() here to make the key stand out from the rest of our output
         $this->io->write([
             '',
             '<fg=yellow>' . $deployPublicKey . '</>',
+            '',
+            '↑ IMPORTANT: Add the public key to your Git provider to enable deployments'
         ], true);
 
         //
