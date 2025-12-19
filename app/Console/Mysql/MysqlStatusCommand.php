@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Mysql;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -31,7 +32,7 @@ class MysqlStatusCommand extends BaseCommand
         parent::configure();
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
-        $this->addOption('lines', 'n', InputOption::VALUE_REQUIRED, 'Number of lines to retrieve', '50');
+        $this->addOption('lines', 'n', InputOption::VALUE_REQUIRED, 'Number of lines to retrieve');
     }
 
     // ----
@@ -48,7 +49,7 @@ class MysqlStatusCommand extends BaseCommand
         // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
@@ -58,56 +59,36 @@ class MysqlStatusCommand extends BaseCommand
         // Get number of lines
         // ----
 
-        /** @var ?string $lines */
-        $lines = $this->io->getValidatedOptionOrPrompt(
-            'lines',
-            fn ($validate) => $this->io->promptText(
-                label: 'Number of lines:',
-                default: '50',
-                validate: $validate
-            ),
-            fn ($value) => $this->validateLineCount($value)
-        );
+        try {
+            /** @var string $lines */
+            $lines = $this->io->getValidatedOptionOrPrompt(
+                'lines',
+                fn ($validate) => $this->io->promptText(
+                    label: 'Number of lines:',
+                    default: '50',
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateLineCount($value)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
 
-        if (null === $lines) {
             return Command::FAILURE;
         }
 
         $lineCount = (int) $lines;
 
         //
-        // Retrieve MySQL logs via journalctl
+        // Retrieve MySQL service logs
         // ----
 
-        try {
-            $command = sprintf('journalctl -u mysql -n %d --no-pager 2>&1', $lineCount);
-            $result = $this->ssh->executeCommand($server, $command);
-            $logOutput = trim($result['output']);
+        $this->retrieveJournalLogs($server, 'MySQL Service', 'mysql', $lineCount);
 
-            $noData = '' === $logOutput ||
-                      '-- No entries --' === $logOutput ||
-                      str_contains($logOutput, 'No data available');
+        //
+        // Retrieve MySQL error logs
+        // ----
 
-            if (0 !== $result['exit_code'] && !$noData) {
-                $this->nay('Failed to retrieve MySQL logs');
-                $this->io->write($this->highlightErrors($logOutput), true);
-                $this->out('---');
-
-                return Command::FAILURE;
-            }
-
-            if ($noData) {
-                $this->warn('No MySQL logs found. MySQL may not be installed or has no recent activity.');
-            } else {
-                $this->io->write($this->highlightErrors($logOutput), true);
-            }
-
-            $this->out('---');
-        } catch (\RuntimeException $e) {
-            $this->nay($e->getMessage());
-
-            return Command::FAILURE;
-        }
+        $this->retrieveFileLogs($server, 'MySQL Error Log', '/var/log/mysql/error.log', $lineCount);
 
         //
         // Show command replay

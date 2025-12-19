@@ -47,19 +47,11 @@ class MariadbStopCommand extends BaseCommand
         // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
-
-        [
-            'distro' => $distro,
-            'permissions' => $permissions,
-        ] = $server->info;
-
-        /** @var string $distro */
-        /** @var string $permissions */
 
         //
         // Stop MariaDB service
@@ -70,8 +62,6 @@ class MariadbStopCommand extends BaseCommand
             'mariadb-service',
             'Stopping MariaDB service...',
             [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_ACTION' => 'stop',
             ],
         );

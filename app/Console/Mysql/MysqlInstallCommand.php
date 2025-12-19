@@ -7,6 +7,7 @@ namespace Deployer\Console\Mysql;
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
+use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -21,6 +22,7 @@ class MysqlInstallCommand extends BaseCommand
 {
     use PlaybooksTrait;
     use ServersTrait;
+    use SitesTrait;
 
     // ----
     // Configuration
@@ -49,16 +51,11 @@ class MysqlInstallCommand extends BaseCommand
         // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
-
-        ['distro' => $distro, 'permissions' => $permissions] = $server->info;
-
-        /** @var string $distro */
-        /** @var string $permissions */
 
         //
         // Credential output preference (collected upfront)
@@ -91,7 +88,7 @@ class MysqlInstallCommand extends BaseCommand
             } else {
                 $saveCredentialsPath = $this->io->promptText(
                     label: 'Save credentials to:',
-                    placeholder: './mysql-credentials.env',
+                    placeholder: './.env.mysql',
                     required: true
                 );
             }
@@ -105,10 +102,6 @@ class MysqlInstallCommand extends BaseCommand
             $server,
             'mysql-install',
             'Installing MySQL...',
-            [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
-            ],
         );
 
         if (is_int($result)) {
@@ -150,6 +143,8 @@ class MysqlInstallCommand extends BaseCommand
                     $deployerDatabase
                 );
             }
+        } else {
+            $this->info('MySQL is already installed on this server');
         }
 
         //

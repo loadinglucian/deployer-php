@@ -47,19 +47,11 @@ class MariadbStartCommand extends BaseCommand
         // Select server
         // ----
 
-        $server = $this->selectServer();
+        $server = $this->selectServerDeets();
 
         if (is_int($server) || null === $server->info) {
             return Command::FAILURE;
         }
-
-        [
-            'distro' => $distro,
-            'permissions' => $permissions,
-        ] = $server->info;
-
-        /** @var string $distro */
-        /** @var string $permissions */
 
         //
         // Start MariaDB service
@@ -70,8 +62,6 @@ class MariadbStartCommand extends BaseCommand
             'mariadb-service',
             'Starting MariaDB service...',
             [
-                'DEPLOYER_DISTRO' => $distro,
-                'DEPLOYER_PERMS' => $permissions,
                 'DEPLOYER_ACTION' => 'start',
             ],
         );
