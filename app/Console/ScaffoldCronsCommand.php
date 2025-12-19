@@ -18,11 +18,19 @@ class ScaffoldCronsCommand extends BaseCommand
 {
     use ScaffoldsTrait;
 
+    // ----
+    // Configuration
+    // ----
+
     protected function configure(): void
     {
         parent::configure();
         $this->configureScaffoldOptions();
     }
+
+    // ----
+    // Execution
+    // ----
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
