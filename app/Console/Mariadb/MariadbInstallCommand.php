@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Mariadb;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Traits\PathOperationsTrait;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -19,6 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class MariadbInstallCommand extends BaseCommand
 {
+    use PathOperationsTrait;
     use PlaybooksTrait;
     use ServersTrait;
 
@@ -64,13 +66,13 @@ class MariadbInstallCommand extends BaseCommand
         /** @var string|null $saveCredentialsPath */
         $saveCredentialsPath = $input->getOption('save-credentials');
 
-        if ($displayCredentials && null !== $saveCredentialsPath) {
+        if ($displayCredentials && '' !== $saveCredentialsPath && null !== $saveCredentialsPath) {
             $this->nay('Cannot use both --display-credentials and --save-credentials');
 
             return Command::FAILURE;
         }
 
-        if (!$displayCredentials && null === $saveCredentialsPath) {
+        if (!$displayCredentials && (null === $saveCredentialsPath || '' === $saveCredentialsPath)) {
             /** @var string $choice */
             $choice = $this->io->promptSelect(
                 label: 'How would you like to receive the credentials?',
@@ -87,7 +89,8 @@ class MariadbInstallCommand extends BaseCommand
                 $saveCredentialsPath = $this->io->promptText(
                     label: 'Save credentials to:',
                     placeholder: './.env.mariadb',
-                    required: true
+                    required: true,
+                    validate: fn ($value) => $this->validatePathInput($value)
                 );
             }
         }
@@ -132,6 +135,7 @@ class MariadbInstallCommand extends BaseCommand
             if ($displayCredentials) {
                 $this->displayCredentialsOnScreen($rootPass, $deployerUser, $deployerPass, $deployerDatabase);
             } else {
+                /** @var string $saveCredentialsPath */
                 try {
                     $this->saveCredentialsToFile(
                         $saveCredentialsPath,

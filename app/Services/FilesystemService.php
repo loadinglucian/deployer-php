@@ -93,6 +93,14 @@ final readonly class FilesystemService
         $this->fs->remove($files);
     }
 
+    /**
+     * Join path segments into a canonical path.
+     */
+    public function joinPaths(string ...$paths): string
+    {
+        return Path::join(...$paths);
+    }
+
     //
     // Gap-Filling Methods (Native PHP Functions)
     // ----

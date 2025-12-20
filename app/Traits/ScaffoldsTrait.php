@@ -23,6 +23,8 @@ use Symfony\Component\Console\Input\InputOption;
  */
 trait ScaffoldsTrait
 {
+    use PathOperationsTrait;
+
     // ----
     // Helpers
     // ----
@@ -54,7 +56,7 @@ trait ScaffoldsTrait
                     required: true,
                     validate: $validate
                 ),
-                fn ($value) => $this->validateDestinationInput($value)
+                fn ($value) => $this->validatePathInput($value)
             );
         } catch (ValidationException $e) {
             $this->nay($e->getMessage());
@@ -64,10 +66,10 @@ trait ScaffoldsTrait
 
         // Convert relative path to absolute if needed
         if (! str_starts_with($destinationDir, '/')) {
-            $destinationDir = $this->fs->getCwd() . '/' . $destinationDir;
+            $destinationDir = $this->fs->joinPaths($this->fs->getCwd(), $destinationDir);
         }
 
-        $targetDir = $destinationDir . '/.deployer/' . $type;
+        $targetDir = $this->fs->joinPaths($destinationDir, '.deployer', $type);
 
         // Copy templates
         try {
@@ -98,7 +100,7 @@ trait ScaffoldsTrait
             $this->fs->mkdir($destination);
         }
 
-        $scaffoldsPath = dirname(__DIR__, 2) . '/scaffolds/' . $type;
+        $scaffoldsPath = $this->fs->joinPaths(dirname(__DIR__, 2), 'scaffolds', $type);
         if (! $this->fs->isDirectory($scaffoldsPath)) {
             throw new \RuntimeException("Templates directory not found: {$scaffoldsPath}");
         }
@@ -107,8 +109,8 @@ trait ScaffoldsTrait
         $status = [];
 
         foreach ($entries as $entry) {
-            $source = $scaffoldsPath . '/' . $entry;
-            $target = $destination . '/' . $entry;
+            $source = $this->fs->joinPaths($scaffoldsPath, $entry);
+            $target = $this->fs->joinPaths($destination, $entry);
 
             if ($this->fs->isDirectory($source)) {
                 continue;
@@ -125,27 +127,5 @@ trait ScaffoldsTrait
         }
 
         $this->displayDeets($status);
-    }
-
-    // ----
-    // Validation
-    // ----
-
-    /**
-     * Validate destination path is not empty.
-     *
-     * @return string|null Error message if invalid, null if valid
-     */
-    protected function validateDestinationInput(mixed $path): ?string
-    {
-        if (! is_string($path)) {
-            return 'Path must be a string';
-        }
-
-        if ('' === trim($path)) {
-            return 'Path cannot be empty';
-        }
-
-        return null;
     }
 }
