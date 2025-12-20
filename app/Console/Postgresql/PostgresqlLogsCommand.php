@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Mariadb;
+namespace Deployer\Console\Postgresql;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
@@ -15,10 +15,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'mariadb:status',
-    description: 'View MariaDB service status'
+    name: 'postgresql:logs',
+    description: 'View PostgreSQL service logs'
 )]
-class MariadbStatusCommand extends BaseCommand
+class PostgresqlLogsCommand extends BaseCommand
 {
     use LogsTrait;
     use ServersTrait;
@@ -45,7 +45,7 @@ class MariadbStatusCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('MariaDB Service Status');
+        $this->h1('PostgreSQL Logs');
 
         //
         // Select server
@@ -81,22 +81,22 @@ class MariadbStatusCommand extends BaseCommand
         $lineCount = (int) $lines;
 
         //
-        // Retrieve MariaDB service logs
+        // Retrieve PostgreSQL service logs
         // ----
 
-        $this->retrieveJournalLogs($server, 'MariaDB Service', 'mariadb', $lineCount);
+        $this->retrieveJournalLogs($server, 'PostgreSQL Service', 'postgresql', $lineCount);
 
         //
-        // Retrieve MariaDB error logs
+        // Retrieve PostgreSQL error logs
         // ----
 
-        $this->retrieveFileLogs($server, 'MariaDB Error Log', '/var/log/mysql/error.log', $lineCount);
+        $this->retrieveFileLogs($server, 'PostgreSQL Error Log', '/var/log/postgresql/postgresql.log', $lineCount);
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('mariadb:status', [
+        $this->commandReplay('postgresql:logs', [
             'server' => $server->name,
             'lines' => $lines,
         ]);
