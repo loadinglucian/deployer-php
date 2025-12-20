@@ -7,6 +7,7 @@ namespace Deployer\Console\Site;
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
 use Deployer\Exceptions\ValidationException;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SiteSharedPathsTrait;
 use Deployer\Traits\SitesTrait;
@@ -22,6 +23,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class SiteSharedPullCommand extends BaseCommand
 {
+    use PlaybooksTrait;
     use ServersTrait;
     use SiteSharedPathsTrait;
     use SitesTrait;

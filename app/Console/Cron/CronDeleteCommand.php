@@ -6,6 +6,7 @@ namespace Deployer\Console\Cron;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\CronsTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -21,6 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class CronDeleteCommand extends BaseCommand
 {
     use CronsTrait;
+    use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
 
