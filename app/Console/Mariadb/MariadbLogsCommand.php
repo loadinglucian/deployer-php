@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Supervisor;
+namespace Deployer\Console\Mariadb;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
@@ -15,10 +15,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'supervisor:status',
-    description: 'View supervisor service and program logs'
+    name: 'mariadb:logs',
+    description: 'View MariaDB service logs'
 )]
-class SupervisorStatusCommand extends BaseCommand
+class MariadbLogsCommand extends BaseCommand
 {
     use LogsTrait;
     use ServersTrait;
@@ -32,7 +32,9 @@ class SupervisorStatusCommand extends BaseCommand
         parent::configure();
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
-        $this->addOption('lines', 'n', InputOption::VALUE_REQUIRED, 'Number of lines to retrieve', '50');
+
+        // No default value: omitting --lines displays a prompt with its own default
+        $this->addOption('lines', 'n', InputOption::VALUE_REQUIRED, 'Number of lines to retrieve');
     }
 
     // ----
@@ -43,7 +45,7 @@ class SupervisorStatusCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('Supervisor Logs');
+        $this->h1('MariaDB Logs');
 
         //
         // Select server
@@ -79,31 +81,22 @@ class SupervisorStatusCommand extends BaseCommand
         $lineCount = (int) $lines;
 
         //
-        // Retrieve supervisor service logs
+        // Retrieve MariaDB service logs
         // ----
 
-        $this->retrieveJournalLogs($server, 'Supervisor', 'supervisor', $lineCount);
+        $this->retrieveJournalLogs($server, 'MariaDB Service', 'mariadb', $lineCount);
 
         //
-        // Retrieve per-site program logs
+        // Retrieve MariaDB error logs
         // ----
 
-        foreach ($this->sites->findByServer($server->name) as $site) {
-            foreach ($site->supervisors as $supervisor) {
-                $this->retrieveFileLogs(
-                    $server,
-                    "Supervisor: {$site->domain}/{$supervisor->program}",
-                    "/var/log/supervisor/{$site->domain}-{$supervisor->program}.log",
-                    $lineCount
-                );
-            }
-        }
+        $this->retrieveFileLogs($server, 'MariaDB Error Log', '/var/log/mysql/error.log', $lineCount);
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('supervisor:status', [
+        $this->commandReplay('mariadb:logs', [
             'server' => $server->name,
             'lines' => $lines,
         ]);
