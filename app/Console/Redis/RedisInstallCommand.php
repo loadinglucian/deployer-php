@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Redis;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Traits\PathOperationsTrait;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -19,6 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class RedisInstallCommand extends BaseCommand
 {
+    use PathOperationsTrait;
     use PlaybooksTrait;
     use ServersTrait;
 
@@ -88,7 +90,7 @@ class RedisInstallCommand extends BaseCommand
                     label: 'Save credentials to:',
                     placeholder: './.env.redis',
                     required: true,
-                    validate: fn ($value) => $this->validateSaveCredentialsPath($value)
+                    validate: fn ($value) => $this->validatePathInput($value)
                 );
             }
         }
@@ -223,19 +225,4 @@ class RedisInstallCommand extends BaseCommand
         return date('Y-m-d H:i:s T');
     }
 
-    /**
-     * Validate credentials file path.
-     */
-    protected function validateSaveCredentialsPath(mixed $value): ?string
-    {
-        if (!is_string($value)) {
-            return 'Path must be a string';
-        }
-
-        if ('' === trim($value)) {
-            return 'Path cannot be empty';
-        }
-
-        return null;
-    }
 }
