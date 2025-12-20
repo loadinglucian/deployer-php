@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Mysql;
+namespace Deployer\Console\Supervisor;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
@@ -15,10 +15,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'mysql:status',
-    description: 'View MySQL service status'
+    name: 'supervisor:logs',
+    description: 'View supervisor service and program logs'
 )]
-class MysqlStatusCommand extends BaseCommand
+class SupervisorLogsCommand extends BaseCommand
 {
     use LogsTrait;
     use ServersTrait;
@@ -32,9 +32,7 @@ class MysqlStatusCommand extends BaseCommand
         parent::configure();
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
-
-        // No default value: omitting --lines displays a prompt with its own default
-        $this->addOption('lines', 'n', InputOption::VALUE_REQUIRED, 'Number of lines to retrieve');
+        $this->addOption('lines', 'n', InputOption::VALUE_REQUIRED, 'Number of lines to retrieve', '50');
     }
 
     // ----
@@ -45,7 +43,7 @@ class MysqlStatusCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('MySQL Service Status');
+        $this->h1('Supervisor Logs');
 
         //
         // Select server
@@ -81,22 +79,31 @@ class MysqlStatusCommand extends BaseCommand
         $lineCount = (int) $lines;
 
         //
-        // Retrieve MySQL service logs
+        // Retrieve supervisor service logs
         // ----
 
-        $this->retrieveJournalLogs($server, 'MySQL Service', 'mysql', $lineCount);
+        $this->retrieveJournalLogs($server, 'Supervisor', 'supervisor', $lineCount);
 
         //
-        // Retrieve MySQL error logs
+        // Retrieve per-site program logs
         // ----
 
-        $this->retrieveFileLogs($server, 'MySQL Error Log', '/var/log/mysql/error.log', $lineCount);
+        foreach ($this->sites->findByServer($server->name) as $site) {
+            foreach ($site->supervisors as $supervisor) {
+                $this->retrieveFileLogs(
+                    $server,
+                    "Supervisor: {$site->domain}/{$supervisor->program}",
+                    "/var/log/supervisor/{$site->domain}-{$supervisor->program}.log",
+                    $lineCount
+                );
+            }
+        }
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('mysql:status', [
+        $this->commandReplay('supervisor:logs', [
             'server' => $server->name,
             'lines' => $lines,
         ]);

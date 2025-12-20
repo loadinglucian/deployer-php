@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Postgresql;
+namespace Deployer\Console\Mysql;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
@@ -15,10 +15,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'postgresql:status',
-    description: 'View PostgreSQL service status'
+    name: 'mysql:logs',
+    description: 'View MySQL service logs'
 )]
-class PostgresqlStatusCommand extends BaseCommand
+class MysqlLogsCommand extends BaseCommand
 {
     use LogsTrait;
     use ServersTrait;
@@ -45,7 +45,7 @@ class PostgresqlStatusCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('PostgreSQL Service Status');
+        $this->h1('MySQL Logs');
 
         //
         // Select server
@@ -81,22 +81,22 @@ class PostgresqlStatusCommand extends BaseCommand
         $lineCount = (int) $lines;
 
         //
-        // Retrieve PostgreSQL service logs
+        // Retrieve MySQL service logs
         // ----
 
-        $this->retrieveJournalLogs($server, 'PostgreSQL Service', 'postgresql', $lineCount);
+        $this->retrieveJournalLogs($server, 'MySQL Service', 'mysql', $lineCount);
 
         //
-        // Retrieve PostgreSQL error logs
+        // Retrieve MySQL error logs
         // ----
 
-        $this->retrieveFileLogs($server, 'PostgreSQL Error Log', '/var/log/postgresql/postgresql.log', $lineCount);
+        $this->retrieveFileLogs($server, 'MySQL Error Log', '/var/log/mysql/error.log', $lineCount);
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('postgresql:status', [
+        $this->commandReplay('mysql:logs', [
             'server' => $server->name,
             'lines' => $lines,
         ]);
