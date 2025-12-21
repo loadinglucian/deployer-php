@@ -140,7 +140,7 @@ configure_authentication() {
 	echo "-> Verifying Redis authentication..."
 	local max_wait=10
 	local waited=0
-	while ! run_cmd redis-cli -a "$REDIS_PASS" ping 2> /dev/null | grep -q PONG; do
+	while ! REDISCLI_AUTH="$REDIS_PASS" run_cmd redis-cli ping 2> /dev/null | grep -q PONG; do
 		if ((waited >= max_wait)); then
 			echo "Error: Redis is not accepting authenticated connections" >&2
 			exit 1

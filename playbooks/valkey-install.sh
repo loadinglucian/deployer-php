@@ -190,7 +190,7 @@ configure_authentication() {
 	echo "-> Verifying Valkey authentication..."
 	local max_wait=10
 	local waited=0
-	while ! run_cmd valkey-cli -a "$VALKEY_PASS" ping 2> /dev/null | grep -q PONG; do
+	while ! VALKEYCLI_AUTH="$VALKEY_PASS" run_cmd valkey-cli ping 2> /dev/null | grep -q PONG; do
 		if ((waited >= max_wait)); then
 			echo "Error: Valkey is not accepting authenticated connections" >&2
 			exit 1
