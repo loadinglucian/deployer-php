@@ -8,6 +8,7 @@ use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
 use Deployer\Traits\PhpTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -23,6 +24,7 @@ class PhpLogsCommand extends BaseCommand
 {
     use LogsTrait;
     use PhpTrait;
+    use PlaybooksTrait;
     use ServersTrait;
 
     // ----

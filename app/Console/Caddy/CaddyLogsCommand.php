@@ -7,6 +7,7 @@ namespace Deployer\Console\Caddy;
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -22,6 +23,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class CaddyLogsCommand extends BaseCommand
 {
     use LogsTrait;
+    use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
 
