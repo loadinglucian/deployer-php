@@ -4,6 +4,13 @@
 # Base Installation
 #
 # Installs Caddy, Git, and core server packages for deployment infrastructure.
+# Configures UFW firewall with secure defaults (SSH, 80, 443 only).
+#
+# Required Environment Variables:
+#   DEPLOYER_OUTPUT_FILE  - Output file path
+#   DEPLOYER_DISTRO       - Distribution: ubuntu|debian
+#   DEPLOYER_PERMS        - Permissions: root|sudo|none
+#   DEPLOYER_SSH_PORT     - SSH port to allow through firewall
 #
 # Output:
 #   status: success
@@ -15,6 +22,7 @@ export DEBIAN_FRONTEND=noninteractive
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
 [[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
+[[ -z $DEPLOYER_SSH_PORT ]] && echo "Error: DEPLOYER_SSH_PORT required" && exit 1
 export DEPLOYER_PERMS
 
 # Shared helpers are automatically inlined when executing playbooks remotely
@@ -117,6 +125,34 @@ config_caddy() {
 	fi
 }
 
+#
+# Configure UFW firewall with secure defaults
+# ----
+
+config_ufw() {
+	echo "→ Configuring firewall..."
+
+	# SSH Safety: Allow SSH before any changes (prevents lockout if UFW is active)
+	run_cmd ufw allow "$DEPLOYER_SSH_PORT/tcp" > /dev/null 2>&1 || true
+
+	# Reset UFW to clear any existing rules
+	run_cmd ufw --force reset > /dev/null 2>&1 || fail "Failed to reset UFW"
+
+	# Re-allow SSH immediately after reset
+	run_cmd ufw allow "$DEPLOYER_SSH_PORT/tcp" > /dev/null 2>&1 || fail "Failed to allow SSH port"
+
+	# Set default policies
+	run_cmd ufw default deny incoming > /dev/null 2>&1 || fail "Failed to set incoming policy"
+	run_cmd ufw default allow outgoing > /dev/null 2>&1 || fail "Failed to set outgoing policy"
+
+	# Allow HTTP/HTTPS
+	run_cmd ufw allow 80/tcp > /dev/null 2>&1 || fail "Failed to allow port 80"
+	run_cmd ufw allow 443/tcp > /dev/null 2>&1 || fail "Failed to allow port 443"
+
+	# Enable UFW
+	run_cmd ufw --force enable > /dev/null 2>&1 || fail "Failed to enable UFW"
+}
+
 # ----
 # Main Execution
 # ----
@@ -125,6 +161,7 @@ main() {
 	# Execute installation tasks
 	install_packages
 	config_caddy
+	config_ufw
 
 	# Write output YAML
 	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then

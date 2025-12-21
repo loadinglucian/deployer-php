@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Supervisor;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
 use Deployer\Traits\SupervisorsTrait;
@@ -20,6 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class SupervisorDeleteCommand extends BaseCommand
 {
+    use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
     use SupervisorsTrait;

@@ -9,6 +9,7 @@ use Deployer\DTOs\ServerDTO;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\DigitalOceanTrait;
 use Deployer\Traits\KeysTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -23,8 +24,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 class ServerProvisionDigitalOceanCommand extends BaseCommand
 {
     use DigitalOceanTrait;
-    use ServersTrait;
     use KeysTrait;
+    use PlaybooksTrait;
+    use ServersTrait;
 
     // ----
     // Configuration

@@ -7,6 +7,7 @@ namespace Deployer\Console\Supervisor;
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,6 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class SupervisorLogsCommand extends BaseCommand
 {
     use LogsTrait;
+    use PlaybooksTrait;
     use ServersTrait;
 
     // ----

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Site;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
 use Deployer\Traits\SshTrait;
@@ -20,6 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class SiteSshCommand extends BaseCommand
 {
+    use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
     use SshTrait;

@@ -8,6 +8,7 @@ use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\CronDTO;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\CronsTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -23,6 +24,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class CronCreateCommand extends BaseCommand
 {
     use CronsTrait;
+    use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
 

@@ -8,6 +8,7 @@ use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\ServicesTrait;
 use Deployer\Traits\SitesTrait;
@@ -24,6 +25,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class ServerLogsCommand extends BaseCommand
 {
     use LogsTrait;
+    use PlaybooksTrait;
     use ServersTrait;
     use ServicesTrait;
     use SitesTrait;

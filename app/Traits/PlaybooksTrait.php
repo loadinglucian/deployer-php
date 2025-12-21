@@ -75,7 +75,7 @@ trait PlaybooksTrait
         // Auto-inject server vars (always available)
         $baseVars = [
             'DEPLOYER_SERVER_NAME' => $server->name,
-            'DEPLOYER_SSH_PORT' => (string) $server->port,
+            'DEPLOYER_SSH_PORT' => (int) $server->port,
         ];
 
         // Auto-inject server info vars (when info has been gathered)
