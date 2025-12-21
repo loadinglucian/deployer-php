@@ -7,6 +7,7 @@ namespace Deployer\Contracts;
 use Deployer\Container;
 use Deployer\Repositories\ServerRepository;
 use Deployer\Repositories\SiteRepository;
+use Deployer\Services\AwsService;
 use Deployer\Services\DigitalOceanService;
 use Deployer\Services\EnvService;
 use Deployer\Services\FilesystemService;
@@ -55,6 +56,7 @@ abstract class BaseCommand extends Command
         protected readonly SSHService $ssh,
 
         // Hosting providers
+        protected readonly AwsService $aws,
         protected readonly DigitalOceanService $digitalOcean,
     ) {
         parent::__construct();

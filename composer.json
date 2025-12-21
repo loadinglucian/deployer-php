@@ -18,6 +18,7 @@
     "require": {
         "php": "^8.2",
         "ext-pcntl": "*",
+        "aws/aws-sdk-php": "^3.369",
         "guzzlehttp/guzzle": "^7.10",
         "laravel/prompts": "^0.3.8",
         "phpseclib/phpseclib": "^3.0",

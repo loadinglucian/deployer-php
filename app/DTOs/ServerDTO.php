@@ -15,6 +15,7 @@ readonly class ServerDTO
         public ?string $privateKeyPath = null,
         public ?string $provider = null,
         public ?int $dropletId = null, // DigitalOcean droplet ID
+        public ?string $instanceId = null, // AWS EC2 instance ID
         public ?array $info = null,
     ) {
     }
@@ -28,11 +29,19 @@ readonly class ServerDTO
     }
 
     /**
+     * Check if this server was provisioned via AWS.
+     */
+    public function isAws(): bool
+    {
+        return 'aws' === $this->provider && null !== $this->instanceId;
+    }
+
+    /**
      * Check if this server was provisioned via a cloud provider.
      */
     public function isProvisioned(): bool
     {
-        return $this->isDigitalOcean();
+        return $this->isDigitalOcean() || $this->isAws();
     }
 
     /**
@@ -50,6 +59,7 @@ readonly class ServerDTO
             privateKeyPath: $this->privateKeyPath,
             provider: $this->provider,
             dropletId: $this->dropletId,
+            instanceId: $this->instanceId,
             info: $info,
         );
     }

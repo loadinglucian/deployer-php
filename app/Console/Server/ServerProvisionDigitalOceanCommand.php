@@ -235,6 +235,25 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
      */
     protected function gatherProvisioningDeets(array $accountData): array|int
     {
+        // Validate required data is available
+        if (0 === count($accountData['regions'])) {
+            $this->nay('No regions available in your DigitalOcean account');
+
+            return Command::FAILURE;
+        }
+
+        if (0 === count($accountData['sizes'])) {
+            $this->nay('No droplet sizes available');
+
+            return Command::FAILURE;
+        }
+
+        if (0 === count($accountData['images'])) {
+            $this->nay('No supported OS images available');
+
+            return Command::FAILURE;
+        }
+
         try {
             /** @var string $name */
             $name = $this->io->getValidatedOptionOrPrompt(
@@ -350,6 +369,10 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
             );
 
             $availableVpcs = $this->digitalOcean->account->getUserVpcs($region);
+
+            if (0 === count($availableVpcs)) {
+                throw new \RuntimeException("No VPCs found in region '{$region}'");
+            }
 
             /** @var string $vpcUuid */
             $vpcUuid = $this->io->getValidatedOptionOrPrompt(

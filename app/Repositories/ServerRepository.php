@@ -164,6 +164,7 @@ final class ServerRepository
             'privateKeyPath' => $server->privateKeyPath,
             'provider' => $server->provider,
             'dropletId' => $server->dropletId,
+            'instanceId' => $server->instanceId,
         ];
     }
 
@@ -181,6 +182,7 @@ final class ServerRepository
         $privateKeyPath = $data['privateKeyPath'] ?? null;
         $provider = $data['provider'] ?? null;
         $dropletId = $data['dropletId'] ?? null;
+        $instanceId = $data['instanceId'] ?? null;
 
         return new ServerDTO(
             name: is_string($name) ? $name : '',
@@ -190,6 +192,7 @@ final class ServerRepository
             privateKeyPath: is_string($privateKeyPath) ? $privateKeyPath : null,
             provider: is_string($provider) ? $provider : null,
             dropletId: is_int($dropletId) ? $dropletId : null,
+            instanceId: is_string($instanceId) ? $instanceId : null,
         );
     }
 }
