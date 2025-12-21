@@ -66,16 +66,6 @@ class ValkeyInstallCommand extends BaseCommand
         /** @var string|null $saveCredentialsPath */
         $saveCredentialsPath = $input->getOption('save-credentials');
 
-        // Validate CLI-provided path
-        if (null !== $saveCredentialsPath && '' !== $saveCredentialsPath) {
-            $error = $this->validatePathInput($saveCredentialsPath);
-            if (null !== $error) {
-                $this->nay($error);
-
-                return Command::FAILURE;
-            }
-        }
-
         if ($displayCredentials && '' !== $saveCredentialsPath && null !== $saveCredentialsPath) {
             $this->nay('Cannot use both --display-credentials and --save-credentials');
 
