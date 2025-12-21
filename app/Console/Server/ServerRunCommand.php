@@ -7,6 +7,7 @@ namespace Deployer\Console\Server;
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\SSHTimeoutException;
 use Deployer\Exceptions\ValidationException;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -20,6 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class ServerRunCommand extends BaseCommand
 {
+    use PlaybooksTrait;
     use ServersTrait;
 
     // ----

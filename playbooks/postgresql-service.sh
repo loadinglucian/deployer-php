@@ -32,26 +32,26 @@ export DEPLOYER_PERMS
 
 execute_action() {
 	case $DEPLOYER_ACTION in
-	start | restart)
-		echo "→ Running systemctl ${DEPLOYER_ACTION} postgresql..."
-		if ! run_cmd systemctl "$DEPLOYER_ACTION" postgresql; then
-			echo "Error: Failed to ${DEPLOYER_ACTION} PostgreSQL" >&2
+		start | restart)
+			echo "→ Running systemctl ${DEPLOYER_ACTION} postgresql..."
+			if ! run_cmd systemctl "$DEPLOYER_ACTION" postgresql; then
+				echo "Error: Failed to ${DEPLOYER_ACTION} PostgreSQL" >&2
+				exit 1
+			fi
+			verify_service_active
+			;;
+		stop)
+			echo "→ Running systemctl stop postgresql..."
+			if ! run_cmd systemctl stop postgresql; then
+				echo "Error: Failed to stop PostgreSQL" >&2
+				exit 1
+			fi
+			verify_service_stopped
+			;;
+		*)
+			echo "Error: Invalid action '${DEPLOYER_ACTION}'" >&2
 			exit 1
-		fi
-		verify_service_active
-		;;
-	stop)
-		echo "→ Running systemctl stop postgresql..."
-		if ! run_cmd systemctl stop postgresql; then
-			echo "Error: Failed to stop PostgreSQL" >&2
-			exit 1
-		fi
-		verify_service_stopped
-		;;
-	*)
-		echo "Error: Invalid action '${DEPLOYER_ACTION}'" >&2
-		exit 1
-		;;
+			;;
 	esac
 }
 
@@ -63,7 +63,7 @@ verify_service_active() {
 	local max_wait=10
 	local waited=0
 
-	while ! systemctl is-active --quiet postgresql 2>/dev/null; do
+	while ! systemctl is-active --quiet postgresql 2> /dev/null; do
 		if ((waited >= max_wait)); then
 			echo "Error: PostgreSQL service failed to start" >&2
 			exit 1
@@ -81,7 +81,7 @@ verify_service_stopped() {
 	local max_wait=10
 	local waited=0
 
-	while systemctl is-active --quiet postgresql 2>/dev/null; do
+	while systemctl is-active --quiet postgresql 2> /dev/null; do
 		if ((waited >= max_wait)); then
 			echo "Error: PostgreSQL service failed to stop" >&2
 			exit 1
@@ -98,7 +98,7 @@ verify_service_stopped() {
 main() {
 	execute_action
 
-	if ! cat >"$DEPLOYER_OUTPUT_FILE" <<-EOF; then
+	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 		status: success
 	EOF
 		echo "Error: Failed to write output file" >&2

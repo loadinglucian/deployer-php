@@ -21,14 +21,14 @@ use Symfony\Component\Console\Command\Command;
  *
  * Requires classes using this trait to have IOService, ProcessService, ServerRepository, SiteRepository, and SSHService properties.
  *
+ * @mixin ServersTrait
+ *
  * @property IOService $io
  * @property ProcessService $proc
  * @property ServerRepository $servers
  * @property SiteRepository $sites
  * @property SSHService $ssh
  * @property GitService $git
- *
- * @mixin ServersTrait
  */
 trait SitesTrait
 {

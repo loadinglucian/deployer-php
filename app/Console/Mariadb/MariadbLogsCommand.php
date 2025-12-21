@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Mysql;
+namespace Deployer\Console\Mariadb;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -15,12 +16,13 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'mysql:status',
-    description: 'View MySQL service status'
+    name: 'mariadb:logs',
+    description: 'View MariaDB service logs'
 )]
-class MysqlStatusCommand extends BaseCommand
+class MariadbLogsCommand extends BaseCommand
 {
     use LogsTrait;
+    use PlaybooksTrait;
     use ServersTrait;
 
     // ----
@@ -45,7 +47,7 @@ class MysqlStatusCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('MySQL Service Status');
+        $this->h1('MariaDB Logs');
 
         //
         // Select server
@@ -81,22 +83,22 @@ class MysqlStatusCommand extends BaseCommand
         $lineCount = (int) $lines;
 
         //
-        // Retrieve MySQL service logs
+        // Retrieve MariaDB service logs
         // ----
 
-        $this->retrieveJournalLogs($server, 'MySQL Service', 'mysql', $lineCount);
+        $this->retrieveJournalLogs($server, 'MariaDB Service', 'mariadb', $lineCount);
 
         //
-        // Retrieve MySQL error logs
+        // Retrieve MariaDB error logs
         // ----
 
-        $this->retrieveFileLogs($server, 'MySQL Error Log', '/var/log/mysql/error.log', $lineCount);
+        $this->retrieveFileLogs($server, 'MariaDB Error Log', '/var/log/mysql/error.log', $lineCount);
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('mysql:status', [
+        $this->commandReplay('mariadb:logs', [
             'server' => $server->name,
             'lines' => $lines,
         ]);

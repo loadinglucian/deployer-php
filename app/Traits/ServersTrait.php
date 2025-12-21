@@ -20,6 +20,8 @@ use Symfony\Component\Console\Command\Command;
  * Requires classes using this trait to have IOService, ServerRepository, SSHService, and SiteRepository properties.
  * Also requires PlaybooksTrait for serverInfo() method.
  *
+ * @mixin PlaybooksTrait
+ *
  * @property IOService $io
  * @property ServerRepository $servers
  * @property SSHService $ssh
@@ -27,8 +29,6 @@ use Symfony\Component\Console\Command\Command;
  */
 trait ServersTrait
 {
-    use PlaybooksTrait;
-
     // ----
     // Helpers
     // ----

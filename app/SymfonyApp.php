@@ -11,19 +11,19 @@ use Deployer\Console\Key\KeyAddDigitalOceanCommand;
 use Deployer\Console\Key\KeyDeleteDigitalOceanCommand;
 use Deployer\Console\Key\KeyListDigitalOceanCommand;
 use Deployer\Console\Mariadb\MariadbInstallCommand;
+use Deployer\Console\Mariadb\MariadbLogsCommand;
 use Deployer\Console\Mariadb\MariadbRestartCommand;
 use Deployer\Console\Mariadb\MariadbStartCommand;
-use Deployer\Console\Mariadb\MariadbStatusCommand;
 use Deployer\Console\Mariadb\MariadbStopCommand;
 use Deployer\Console\Mysql\MysqlInstallCommand;
+use Deployer\Console\Mysql\MysqlLogsCommand;
 use Deployer\Console\Mysql\MysqlRestartCommand;
 use Deployer\Console\Mysql\MysqlStartCommand;
-use Deployer\Console\Mysql\MysqlStatusCommand;
 use Deployer\Console\Mysql\MysqlStopCommand;
 use Deployer\Console\Postgresql\PostgresqlInstallCommand;
+use Deployer\Console\Postgresql\PostgresqlLogsCommand;
 use Deployer\Console\Postgresql\PostgresqlRestartCommand;
 use Deployer\Console\Postgresql\PostgresqlStartCommand;
-use Deployer\Console\Postgresql\PostgresqlStatusCommand;
 use Deployer\Console\Postgresql\PostgresqlStopCommand;
 use Deployer\Console\ScaffoldCronsCommand;
 use Deployer\Console\ScaffoldHooksCommand;
@@ -46,9 +46,9 @@ use Deployer\Console\Site\SiteSharedPushCommand;
 use Deployer\Console\Site\SiteSshCommand;
 use Deployer\Console\Supervisor\SupervisorCreateCommand;
 use Deployer\Console\Supervisor\SupervisorDeleteCommand;
+use Deployer\Console\Supervisor\SupervisorLogsCommand;
 use Deployer\Console\Supervisor\SupervisorRestartCommand;
 use Deployer\Console\Supervisor\SupervisorStartCommand;
-use Deployer\Console\Supervisor\SupervisorStatusCommand;
 use Deployer\Console\Supervisor\SupervisorStopCommand;
 use Deployer\Console\Supervisor\SupervisorSyncCommand;
 use Deployer\Services\VersionService;
@@ -199,9 +199,9 @@ final class SymfonyApp extends SymfonyApplication
 
             SupervisorCreateCommand::class,
             SupervisorDeleteCommand::class,
+            SupervisorLogsCommand::class,
             SupervisorRestartCommand::class,
             SupervisorStartCommand::class,
-            SupervisorStatusCommand::class,
             SupervisorStopCommand::class,
             SupervisorSyncCommand::class,
 
@@ -209,27 +209,27 @@ final class SymfonyApp extends SymfonyApplication
             // MySQL management
 
             MysqlInstallCommand::class,
+            MysqlLogsCommand::class,
             MysqlRestartCommand::class,
             MysqlStartCommand::class,
-            MysqlStatusCommand::class,
             MysqlStopCommand::class,
 
             //
             // MariaDB management
 
             MariadbInstallCommand::class,
+            MariadbLogsCommand::class,
             MariadbRestartCommand::class,
             MariadbStartCommand::class,
-            MariadbStatusCommand::class,
             MariadbStopCommand::class,
 
             //
             // PostgreSQL management
 
             PostgresqlInstallCommand::class,
+            PostgresqlLogsCommand::class,
             PostgresqlRestartCommand::class,
             PostgresqlStartCommand::class,
-            PostgresqlStatusCommand::class,
             PostgresqlStopCommand::class,
         ];
 

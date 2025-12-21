@@ -56,14 +56,14 @@ install_packages() {
 	fi
 
 	# Enable and start PostgreSQL service
-	if ! systemctl is-enabled --quiet postgresql 2>/dev/null; then
+	if ! systemctl is-enabled --quiet postgresql 2> /dev/null; then
 		if ! run_cmd systemctl enable --quiet postgresql; then
 			echo "Error: Failed to enable PostgreSQL service" >&2
 			exit 1
 		fi
 	fi
 
-	if ! systemctl is-active --quiet postgresql 2>/dev/null; then
+	if ! systemctl is-active --quiet postgresql 2> /dev/null; then
 		if ! run_cmd systemctl start postgresql; then
 			echo "Error: Failed to start PostgreSQL service" >&2
 			exit 1
@@ -74,7 +74,7 @@ install_packages() {
 	echo "→ Waiting for PostgreSQL to accept connections..."
 	local max_wait=30
 	local waited=0
-	while ! run_cmd pg_isready -h localhost -q 2>/dev/null; do
+	while ! run_cmd pg_isready -h localhost -q 2> /dev/null; do
 		if ((waited >= max_wait)); then
 			echo "Error: PostgreSQL started but is not accepting connections" >&2
 			exit 1
@@ -96,7 +96,7 @@ configure_logging() {
 
 	# Find the PostgreSQL config directory (version-specific)
 	local pg_version
-	pg_version=$(find /etc/postgresql/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | head -1)
+	pg_version=$(find /etc/postgresql/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2> /dev/null | head -1)
 
 	if [[ -z $pg_version ]]; then
 		echo "Error: Could not detect PostgreSQL version" >&2
@@ -112,21 +112,21 @@ configure_logging() {
 
 	# Configure logging to use a predictable filename
 	# First, ensure log_destination and logging_collector are set
-	if ! grep -q "^log_destination = 'stderr'" "$pg_conf" 2>/dev/null; then
+	if ! grep -q "^log_destination = 'stderr'" "$pg_conf" 2> /dev/null; then
 		if ! run_cmd sed -i "s/^#*log_destination.*/log_destination = 'stderr'/" "$pg_conf"; then
 			echo "Error: Failed to configure log_destination" >&2
 			exit 1
 		fi
 	fi
 
-	if ! grep -q "^logging_collector = on" "$pg_conf" 2>/dev/null; then
+	if ! grep -q "^logging_collector = on" "$pg_conf" 2> /dev/null; then
 		if ! run_cmd sed -i "s/^#*logging_collector.*/logging_collector = on/" "$pg_conf"; then
 			echo "Error: Failed to configure logging_collector" >&2
 			exit 1
 		fi
 	fi
 
-	if ! grep -q "^log_directory = '/var/log/postgresql'" "$pg_conf" 2>/dev/null; then
+	if ! grep -q "^log_directory = '/var/log/postgresql'" "$pg_conf" 2> /dev/null; then
 		if ! run_cmd sed -i "s|^#*log_directory.*|log_directory = '/var/log/postgresql'|" "$pg_conf"; then
 			echo "Error: Failed to configure log_directory" >&2
 			exit 1
@@ -134,7 +134,7 @@ configure_logging() {
 	fi
 
 	# Set a fixed log filename instead of the version-specific default
-	if ! grep -q "^log_filename = 'postgresql.log'" "$pg_conf" 2>/dev/null; then
+	if ! grep -q "^log_filename = 'postgresql.log'" "$pg_conf" 2> /dev/null; then
 		if ! run_cmd sed -i "s/^#*log_filename.*/log_filename = 'postgresql.log'/" "$pg_conf"; then
 			echo "Error: Failed to configure log_filename" >&2
 			exit 1
@@ -142,7 +142,7 @@ configure_logging() {
 	fi
 
 	# Disable log rotation in PostgreSQL (we'll use logrotate)
-	if ! grep -q "^log_rotation_age = 0" "$pg_conf" 2>/dev/null; then
+	if ! grep -q "^log_rotation_age = 0" "$pg_conf" 2> /dev/null; then
 		if ! run_cmd sed -i "s/^#*log_rotation_age.*/log_rotation_age = 0/" "$pg_conf"; then
 			echo "Error: Failed to disable log_rotation_age" >&2
 			exit 1
@@ -172,7 +172,7 @@ set_postgres_password() {
 	echo "→ Setting postgres user password..."
 
 	# Set password for postgres user using psql as postgres user
-	if ! run_cmd su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD '${POSTGRES_PASS}';\"" >/dev/null 2>&1; then
+	if ! run_cmd su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD '${POSTGRES_PASS}';\"" > /dev/null 2>&1; then
 		echo "Error: Failed to set postgres password" >&2
 		exit 1
 	fi
@@ -186,7 +186,7 @@ configure_auth() {
 
 	# Find the PostgreSQL config directory (version-specific)
 	local pg_version
-	pg_version=$(find /etc/postgresql/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | head -1)
+	pg_version=$(find /etc/postgresql/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2> /dev/null | head -1)
 
 	if [[ -z $pg_version ]]; then
 		echo "Error: Could not detect PostgreSQL version" >&2
@@ -201,7 +201,7 @@ configure_auth() {
 	fi
 
 	# Check if we've already configured this
-	if grep -q "# DEPLOYER-MANAGED" "$pg_hba" 2>/dev/null; then
+	if grep -q "# DEPLOYER-MANAGED" "$pg_hba" 2> /dev/null; then
 		echo "→ Authentication already configured, skipping..."
 		return 0
 	fi
@@ -213,7 +213,7 @@ configure_auth() {
 	# - local connections use peer for postgres user
 	# - local connections use scram-sha-256 for other users
 	# - host connections use scram-sha-256
-	if ! run_cmd tee "$pg_hba" >/dev/null <<-'EOF'; then
+	if ! run_cmd tee "$pg_hba" > /dev/null <<- 'EOF'; then
 		# DEPLOYER-MANAGED PostgreSQL Client Authentication Configuration
 		# TYPE  DATABASE        USER            ADDRESS                 METHOD
 
@@ -242,7 +242,7 @@ configure_auth() {
 create_deployer_user() {
 	# Check if user already exists
 	local user_exists
-	user_exists=$(run_cmd su - postgres -c "psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='${DEPLOYER_USER}';\"" 2>/dev/null)
+	user_exists=$(run_cmd su - postgres -c "psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='${DEPLOYER_USER}';\"" 2> /dev/null)
 
 	if [[ $user_exists == "1" ]]; then
 		echo "→ Deployer user already exists, skipping user creation..."
@@ -251,7 +251,7 @@ create_deployer_user() {
 
 	echo "→ Creating deployer user..."
 
-	if ! run_cmd su - postgres -c "psql -c \"CREATE USER ${DEPLOYER_USER} WITH PASSWORD '${DEPLOYER_PASS}';\"" >/dev/null 2>&1; then
+	if ! run_cmd su - postgres -c "psql -c \"CREATE USER ${DEPLOYER_USER} WITH PASSWORD '${DEPLOYER_PASS}';\"" > /dev/null 2>&1; then
 		echo "Error: Failed to create deployer user" >&2
 		exit 1
 	fi
@@ -267,24 +267,24 @@ create_deployer_user() {
 create_deployer_database() {
 	# Check if database already exists
 	local db_exists
-	db_exists=$(run_cmd su - postgres -c "psql -tAc \"SELECT 1 FROM pg_database WHERE datname='${DEPLOYER_DATABASE}';\"" 2>/dev/null)
+	db_exists=$(run_cmd su - postgres -c "psql -tAc \"SELECT 1 FROM pg_database WHERE datname='${DEPLOYER_DATABASE}';\"" 2> /dev/null)
 
 	if [[ $db_exists == "1" ]]; then
 		echo "→ Deployer database already exists, skipping database creation..."
 		# Ensure ownership is correct
-		run_cmd su - postgres -c "psql -c \"ALTER DATABASE ${DEPLOYER_DATABASE} OWNER TO ${DEPLOYER_USER};\"" >/dev/null 2>&1 || true
+		run_cmd su - postgres -c "psql -c \"ALTER DATABASE ${DEPLOYER_DATABASE} OWNER TO ${DEPLOYER_USER};\"" > /dev/null 2>&1 || true
 		return 0
 	fi
 
 	echo "→ Creating deployer database..."
 
-	if ! run_cmd su - postgres -c "psql -c \"CREATE DATABASE ${DEPLOYER_DATABASE} OWNER ${DEPLOYER_USER} ENCODING 'UTF8' LC_COLLATE 'en_US.UTF-8' LC_CTYPE 'en_US.UTF-8' TEMPLATE template0;\"" >/dev/null 2>&1; then
+	if ! run_cmd su - postgres -c "psql -c \"CREATE DATABASE ${DEPLOYER_DATABASE} OWNER ${DEPLOYER_USER} ENCODING 'UTF8' LC_COLLATE 'en_US.UTF-8' LC_CTYPE 'en_US.UTF-8' TEMPLATE template0;\"" > /dev/null 2>&1; then
 		echo "Error: Failed to create deployer database" >&2
 		exit 1
 	fi
 
 	# Grant all privileges
-	if ! run_cmd su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE ${DEPLOYER_DATABASE} TO ${DEPLOYER_USER};\"" >/dev/null 2>&1; then
+	if ! run_cmd su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE ${DEPLOYER_DATABASE} TO ${DEPLOYER_USER};\"" > /dev/null 2>&1; then
 		echo "Error: Failed to grant privileges to deployer user" >&2
 		exit 1
 	fi
@@ -302,7 +302,7 @@ config_logrotate() {
 
 	local logrotate_config="/etc/logrotate.d/postgresql-deployer"
 
-	if ! run_cmd tee "$logrotate_config" >/dev/null <<-'EOF'; then
+	if ! run_cmd tee "$logrotate_config" > /dev/null <<- 'EOF'; then
 		/var/log/postgresql/postgresql.log {
 		    daily
 		    rotate 5
@@ -326,11 +326,11 @@ config_logrotate() {
 
 main() {
 	# Check if PostgreSQL is already installed - exit gracefully if so
-	if systemctl is-active --quiet postgresql 2>/dev/null; then
+	if systemctl is-active --quiet postgresql 2> /dev/null; then
 		echo "→ PostgreSQL server is already installed and running"
 
 		# Return success with marker indicating already installed
-		if ! cat >"$DEPLOYER_OUTPUT_FILE" <<-EOF; then
+		if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 			status: success
 			already_installed: true
 		EOF
@@ -363,7 +363,7 @@ main() {
 	# Wait for service to be ready after restart
 	local max_wait=30
 	local waited=0
-	while ! run_cmd pg_isready -h localhost -q 2>/dev/null; do
+	while ! run_cmd pg_isready -h localhost -q 2> /dev/null; do
 		if ((waited >= max_wait)); then
 			echo "Error: PostgreSQL not accepting connections after restart" >&2
 			exit 1
@@ -373,7 +373,7 @@ main() {
 	done
 
 	# Write output YAML
-	if ! cat >"$DEPLOYER_OUTPUT_FILE" <<-EOF; then
+	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 		status: success
 		postgres_pass: ${POSTGRES_PASS}
 		deployer_user: ${DEPLOYER_USER}

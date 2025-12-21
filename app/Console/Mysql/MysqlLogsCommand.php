@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Mariadb;
+namespace Deployer\Console\Mysql;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -15,12 +16,13 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'mariadb:status',
-    description: 'View MariaDB service status'
+    name: 'mysql:logs',
+    description: 'View MySQL service logs'
 )]
-class MariadbStatusCommand extends BaseCommand
+class MysqlLogsCommand extends BaseCommand
 {
     use LogsTrait;
+    use PlaybooksTrait;
     use ServersTrait;
 
     // ----
@@ -45,7 +47,7 @@ class MariadbStatusCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('MariaDB Service Status');
+        $this->h1('MySQL Logs');
 
         //
         // Select server
@@ -81,22 +83,22 @@ class MariadbStatusCommand extends BaseCommand
         $lineCount = (int) $lines;
 
         //
-        // Retrieve MariaDB service logs
+        // Retrieve MySQL service logs
         // ----
 
-        $this->retrieveJournalLogs($server, 'MariaDB Service', 'mariadb', $lineCount);
+        $this->retrieveJournalLogs($server, 'MySQL Service', 'mysql', $lineCount);
 
         //
-        // Retrieve MariaDB error logs
+        // Retrieve MySQL error logs
         // ----
 
-        $this->retrieveFileLogs($server, 'MariaDB Error Log', '/var/log/mysql/error.log', $lineCount);
+        $this->retrieveFileLogs($server, 'MySQL Error Log', '/var/log/mysql/error.log', $lineCount);
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('mariadb:status', [
+        $this->commandReplay('mysql:logs', [
             'server' => $server->name,
             'lines' => $lines,
         ]);

@@ -7,6 +7,7 @@ namespace Deployer\Console\Postgresql;
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -15,12 +16,13 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'postgresql:status',
-    description: 'View PostgreSQL service status'
+    name: 'postgresql:logs',
+    description: 'View PostgreSQL service logs'
 )]
-class PostgresqlStatusCommand extends BaseCommand
+class PostgresqlLogsCommand extends BaseCommand
 {
     use LogsTrait;
+    use PlaybooksTrait;
     use ServersTrait;
 
     // ----
@@ -45,7 +47,7 @@ class PostgresqlStatusCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('PostgreSQL Service Status');
+        $this->h1('PostgreSQL Logs');
 
         //
         // Select server
@@ -96,7 +98,7 @@ class PostgresqlStatusCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('postgresql:status', [
+        $this->commandReplay('postgresql:logs', [
             'server' => $server->name,
             'lines' => $lines,
         ]);

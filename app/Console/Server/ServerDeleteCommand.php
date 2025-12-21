@@ -7,6 +7,7 @@ namespace Deployer\Console\Server;
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\AwsTrait;
 use Deployer\Traits\DigitalOceanTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -22,6 +23,7 @@ class ServerDeleteCommand extends BaseCommand
 {
     use AwsTrait;
     use DigitalOceanTrait;
+    use PlaybooksTrait;
     use ServersTrait;
 
     // ----

@@ -19,10 +19,12 @@ trait ServicesTrait
     private const SERVICE_LABELS = [
         'caddy' => 'Caddy',
         'mariadb' => 'MariaDB',
+        'memcached' => 'Memcached',
         'mysqld' => 'MySQL',
         'postgres' => 'PostgreSQL',
         'redis-server' => 'Redis',
         'sshd' => 'SSH',
+        'valkey-server' => 'Valkey',
     ];
 
     // ----

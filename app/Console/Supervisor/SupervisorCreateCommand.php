@@ -7,6 +7,7 @@ namespace Deployer\Console\Supervisor;
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\SupervisorDTO;
 use Deployer\Exceptions\ValidationException;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SitesTrait;
 use Deployer\Traits\SupervisorsTrait;
@@ -22,6 +23,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class SupervisorCreateCommand extends BaseCommand
 {
+    use PlaybooksTrait;
     use ServersTrait;
     use SitesTrait;
     use SupervisorsTrait;

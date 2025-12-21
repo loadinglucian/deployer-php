@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\SshTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -19,6 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class ServerSshCommand extends BaseCommand
 {
+    use PlaybooksTrait;
     use ServersTrait;
     use SshTrait;
 

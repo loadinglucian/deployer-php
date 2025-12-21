@@ -7,6 +7,7 @@ namespace Deployer\Console\Supervisor;
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -15,12 +16,13 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'supervisor:status',
+    name: 'supervisor:logs',
     description: 'View supervisor service and program logs'
 )]
-class SupervisorStatusCommand extends BaseCommand
+class SupervisorLogsCommand extends BaseCommand
 {
     use LogsTrait;
+    use PlaybooksTrait;
     use ServersTrait;
 
     // ----
@@ -103,7 +105,7 @@ class SupervisorStatusCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('supervisor:status', [
+        $this->commandReplay('supervisor:logs', [
             'server' => $server->name,
             'lines' => $lines,
         ]);

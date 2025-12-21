@@ -210,14 +210,21 @@ class IOService
         mixed $validate = null,
         string $hint = ''
     ): string {
-        return text(
+        $normalizedValidate = $this->normalizeStringValidator(
+            $validate instanceof Closure ? $validate : null,
+            $required
+        );
+
+        $result = text(
             label: $label,
             placeholder: $placeholder,
             default: $default,
-            required: $required,
-            validate: $validate,
+            required: false,
+            validate: $normalizedValidate,
             hint: $hint
         );
+
+        return trim($result);
     }
 
     /**
@@ -238,11 +245,17 @@ class IOService
         mixed $validate = null,
         string $hint = ''
     ): string {
+        $normalizedValidate = $this->normalizeStringValidator(
+            $validate instanceof Closure ? $validate : null,
+            $required,
+            false
+        );
+
         return password(
             label: $label,
             placeholder: $placeholder,
-            required: $required,
-            validate: $validate,
+            required: false,
+            validate: $normalizedValidate,
             hint: $hint
         );
     }
@@ -373,16 +386,23 @@ class IOService
         mixed $validate = null,
         string $hint = ''
     ): string {
-        return suggest(
+        $normalizedValidate = $this->normalizeStringValidator(
+            $validate instanceof Closure ? $validate : null,
+            $required
+        );
+
+        $result = suggest(
             label: $label,
             options: $options,
             placeholder: $placeholder,
             default: $default,
             scroll: $scroll,
-            required: $required,
-            validate: $validate,
+            required: false,
+            validate: $normalizedValidate,
             hint: $hint
         );
+
+        return trim($result);
     }
 
     /**
@@ -443,6 +463,48 @@ class IOService
     // ----
     // Private methods
     // ----
+
+    /**
+     * Normalize a validator to handle whitespace for string prompts.
+     *
+     * Wraps the original validator to:
+     * - Reject whitespace-only input when required
+     * - Pass trimmed values to the validator (unless $trimValue is false)
+     *
+     * @param Closure|null $validate Original validator or null
+     * @param bool $required Whether input is required
+     * @param bool $trimValue Whether to trim before passing to validator (false for passwords)
+     *
+     * @return Closure|null Wrapped validator or null if no wrapping needed
+     */
+    private function normalizeStringValidator(?Closure $validate, bool $required, bool $trimValue = true): ?Closure
+    {
+        if (!$required && null === $validate) {
+            return null;
+        }
+
+        return function (mixed $value) use ($validate, $required, $trimValue): ?string {
+            if (!is_string($value)) {
+                /** @var ?string */
+                return null !== $validate ? $validate($value) : null;
+            }
+
+            $trimmed = trim($value);
+
+            // Reject whitespace-only when required
+            if ($required && '' === $trimmed) {
+                return 'This field is required.';
+            }
+
+            // Pass trimmed (or original for passwords) to validator
+            if (null !== $validate) {
+                /** @var ?string */
+                return $validate($trimValue ? $trimmed : $value);
+            }
+
+            return null;
+        };
+    }
 
     /**
      * Get option value or prompt user interactively.

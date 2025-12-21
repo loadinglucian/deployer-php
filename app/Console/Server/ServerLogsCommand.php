@@ -8,6 +8,7 @@ use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\LogsTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Deployer\Traits\ServicesTrait;
 use Deployer\Traits\SitesTrait;
@@ -24,6 +25,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class ServerLogsCommand extends BaseCommand
 {
     use LogsTrait;
+    use PlaybooksTrait;
     use ServersTrait;
     use ServicesTrait;
     use SitesTrait;
@@ -49,10 +51,13 @@ class ServerLogsCommand extends BaseCommand
      */
     private const PORT_SOURCES = [
         'caddy' => ['type' => 'journalctl', 'unit' => 'caddy'],
-        'sshd' => ['type' => 'journalctl', 'unit' => 'ssh'],
-        'mysqld' => ['type' => 'both', 'unit' => 'mysql', 'path' => '/var/log/mysql/error.log'],
         'mariadb' => ['type' => 'both', 'unit' => 'mariadb', 'path' => '/var/log/mysql/error.log'],
+        'memcached' => ['type' => 'both', 'unit' => 'memcached', 'path' => '/var/log/memcached.log'],
+        'mysqld' => ['type' => 'both', 'unit' => 'mysql', 'path' => '/var/log/mysql/error.log'],
         'postgres' => ['type' => 'both', 'unit' => 'postgresql', 'path' => '/var/log/postgresql/postgresql.log'],
+        'redis-server' => ['type' => 'both', 'unit' => 'redis-server', 'path' => '/var/log/redis/redis-server.log'],
+        'sshd' => ['type' => 'journalctl', 'unit' => 'ssh'],
+        'valkey-server' => ['type' => 'both', 'unit' => 'valkey-server', 'path' => '/var/log/valkey/valkey-server.log'],
     ];
 
     // ----
