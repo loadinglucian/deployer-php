@@ -88,11 +88,14 @@ secure_configuration() {
 
 	echo "→ Configuring Memcached for localhost-only access..."
 
-	# Ensure -l 127.0.0.1 is set (may need to uncomment or add)
-	if grep -q "^#.*-l 127.0.0.1" "$config_file" 2> /dev/null; then
-		# Uncomment the line
-		run_cmd sed -i 's/^#.*-l 127.0.0.1/-l 127.0.0.1/' "$config_file"
-	elif ! grep -q "^-l" "$config_file" 2> /dev/null; then
+	# Replace any existing -l directive or add if missing
+	if grep -q "^-l" "$config_file" 2> /dev/null; then
+		# Replace existing -l directive with localhost
+		run_cmd sed -i 's/^-l.*/-l 127.0.0.1/' "$config_file"
+	elif grep -q "^#.*-l" "$config_file" 2> /dev/null; then
+		# Uncomment and set to localhost
+		run_cmd sed -i 's/^#.*-l.*/-l 127.0.0.1/' "$config_file"
+	else
 		# Add the line if no -l directive exists
 		echo "-l 127.0.0.1" | run_cmd tee -a "$config_file" > /dev/null
 	fi
