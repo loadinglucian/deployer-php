@@ -9,6 +9,7 @@ use Deployer\DTOs\ServerDTO;
 use Deployer\Exceptions\ValidationException;
 use Deployer\Traits\AwsTrait;
 use Deployer\Traits\KeysTrait;
+use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -24,6 +25,7 @@ class ServerProvisionAwsCommand extends BaseCommand
 {
     use AwsTrait;
     use KeysTrait;
+    use PlaybooksTrait;
     use ServersTrait;
 
     // ----
@@ -254,6 +256,21 @@ class ServerProvisionAwsCommand extends BaseCommand
     protected function gatherProvisioningDeets(array $accountData): array|int
     {
         try {
+            //
+            // Validate account data availability
+
+            if (0 === count($accountData['instanceTypes'])) {
+                throw new ValidationException('No instance types available in this region');
+            }
+
+            if (0 === count($accountData['images'])) {
+                throw new ValidationException('No supported OS images available in this region');
+            }
+
+            if (0 === count($accountData['vpcs'])) {
+                throw new ValidationException('No VPCs found in this region');
+            }
+
             /** @var string $name */
             $name = $this->io->getValidatedOptionOrPrompt(
                 'name',

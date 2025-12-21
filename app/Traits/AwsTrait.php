@@ -300,6 +300,10 @@ trait AwsTrait
             return 'Key pair name must be a string';
         }
 
+        if ('' === trim($keyName)) {
+            return 'Key pair name cannot be empty';
+        }
+
         if (!isset($validKeys[$keyName])) {
             return 'EC2 key pair not found';
         }

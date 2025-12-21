@@ -50,6 +50,12 @@ class KeyListAwsCommand extends BaseCommand
         $this->info("Region: {$this->aws->getRegion()}");
         $this->displayDeets($keys);
 
+        //
+        // Show command replay
+        // ----
+
+        $this->commandReplay('key:list:aws', []);
+
         return Command::SUCCESS;
     }
 }

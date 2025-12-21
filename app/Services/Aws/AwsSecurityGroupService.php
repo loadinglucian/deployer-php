@@ -88,6 +88,7 @@ class AwsSecurityGroupService extends BaseAwsService
     private function createDeployerSecurityGroup(string $vpcId): string
     {
         $ec2 = $this->createEc2Client();
+        $groupId = null;
 
         try {
             // Create the security group
@@ -130,6 +131,21 @@ class AwsSecurityGroupService extends BaseAwsService
 
             return $groupId;
         } catch (\Throwable $e) {
+            // Clean up orphaned security group if ingress rules failed
+            if (null !== $groupId) {
+                try {
+                    $ec2->deleteSecurityGroup(['GroupId' => $groupId]);
+                } catch (\Throwable) {
+                    // Cleanup failed - include in error message
+                    throw new \RuntimeException(
+                        "Failed to configure security group ingress rules: {$e->getMessage()}. " .
+                        "An orphaned security group (ID: {$groupId}) may exist and should be manually deleted.",
+                        0,
+                        $e
+                    );
+                }
+            }
+
             throw new \RuntimeException('Failed to create security group: ' . $e->getMessage(), 0, $e);
         }
     }
