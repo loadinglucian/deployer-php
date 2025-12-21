@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Server;
+namespace Deployer\Console\More;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
@@ -18,10 +18,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'server:provision:aws',
+    name: 'more:provision:aws',
     description: 'Provision a new AWS EC2 instance and add it to inventory'
 )]
-class ServerProvisionAwsCommand extends BaseCommand
+class MoreProvisionAwsCommand extends BaseCommand
 {
     use AwsTrait;
     use KeysTrait;
@@ -227,7 +227,7 @@ class ServerProvisionAwsCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('server:provision:aws', [
+        $this->commandReplay('more:provision:aws', [
             'name' => $name,
             'instance-type' => $instanceType,
             'ami' => $ami,

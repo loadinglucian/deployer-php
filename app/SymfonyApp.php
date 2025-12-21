@@ -34,7 +34,8 @@ use Deployer\Console\Server\ServerFirewallCommand;
 use Deployer\Console\Server\ServerInfoCommand;
 use Deployer\Console\Server\ServerInstallCommand;
 use Deployer\Console\Server\ServerLogsCommand;
-use Deployer\Console\Server\ServerProvisionDigitalOceanCommand;
+use Deployer\Console\More\MoreProvisionAwsCommand;
+use Deployer\Console\More\MoreProvisionDigitalOceanCommand;
 use Deployer\Console\Server\ServerRunCommand;
 use Deployer\Console\Server\ServerSshCommand;
 use Deployer\Console\Site\SiteCreateCommand;
@@ -173,8 +174,11 @@ final class SymfonyApp extends SymfonyApplication
             ServerRunCommand::class,
             ServerSshCommand::class,
 
-            // Providers
-            ServerProvisionDigitalOceanCommand::class,
+            //
+            // More (provider provisioning)
+
+            MoreProvisionAwsCommand::class,
+            MoreProvisionDigitalOceanCommand::class,
 
             //
             // Site management

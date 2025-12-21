@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Server;
+namespace Deployer\Console\More;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\DTOs\ServerDTO;
@@ -18,10 +18,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'server:provision:digitalocean',
+    name: 'more:provision:digitalocean',
     description: 'Provision a new DigitalOcean droplet and add it to inventory'
 )]
-class ServerProvisionDigitalOceanCommand extends BaseCommand
+class MoreProvisionDigitalOceanCommand extends BaseCommand
 {
     use DigitalOceanTrait;
     use KeysTrait;
@@ -207,7 +207,7 @@ class ServerProvisionDigitalOceanCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('server:provision:digitalocean', [
+        $this->commandReplay('more:provision:digitalocean', [
             'name' => $name,
             'region' => $region,
             'size' => $size,
