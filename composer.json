@@ -73,9 +73,19 @@
         ],
         "bash:check": [
             "shfmt -i 0 -bn -ci -sr -d playbooks/*.sh"
+        ],
+        "bats": [
+            "./tests/bats/run.sh run"
+        ],
+        "bats:start": [
+            "./tests/bats/run.sh start"
+        ],
+        "bats:stop": [
+            "./tests/bats/run.sh stop"
         ]
     },
     "config": {
+        "process-timeout": 900,
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,

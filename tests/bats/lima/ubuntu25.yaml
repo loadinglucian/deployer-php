@@ -1,0 +1,75 @@
+# Lima VM configuration for Ubuntu 25.04 (Plucky Puffin)
+# Used for Deployer BATS integration testing
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/25.04/release/ubuntu-25.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+  - location: "https://cloud-images.ubuntu.com/releases/25.04/release/ubuntu-25.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 2
+memory: "2GiB"
+disk: "10GiB"
+
+ssh:
+  localPort: 2224
+  loadDotSSHPubKeys: false
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+
+      # Prevent interactive prompts
+      export DEBIAN_FRONTEND=noninteractive
+
+      # Install essential packages
+      apt-get update
+      apt-get install -y \
+        openssh-server \
+        sudo \
+        curl \
+        wget \
+        git \
+        jq \
+        rsync \
+        supervisor \
+        cron \
+        ufw \
+        gnupg \
+        lsb-release \
+        ca-certificates
+
+      # Configure SSH for root login
+      sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+      sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+      sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+      echo "root:root" | chpasswd
+
+      # Create deployer user with passwordless sudo
+      if ! id deployer &>/dev/null; then
+        useradd -m -s /bin/bash deployer
+      fi
+      echo "deployer ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/deployer
+      chmod 0440 /etc/sudoers.d/deployer
+
+      # Setup SSH directories
+      mkdir -p /root/.ssh
+      chmod 700 /root/.ssh
+
+      # Create standard deployer directories
+      mkdir -p /home/deployer/sites
+      chown -R deployer:deployer /home/deployer
+
+      # Restart SSH to apply changes
+      systemctl restart sshd
+
+  - mode: user
+    script: |
+      #!/bin/bash
+      echo "Ubuntu 25.04 VM provisioned for Deployer testing"
