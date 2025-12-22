@@ -214,6 +214,26 @@ get_listening_services() {
 	fi
 }
 
+#
+# Detect SSH daemon listening port
+#
+# Returns the port sshd is actually listening on, or 22 as fallback.
+# Uses get_listening_services() for reliable cross-distro detection.
+
+detect_sshd_port() {
+	local port process
+
+	while IFS=: read -r port process; do
+		if [[ $process == "sshd" ]]; then
+			echo "$port"
+			return
+		fi
+	done < <(get_listening_services)
+
+	# Fallback if sshd not detected (e.g., service not running yet)
+	echo "22"
+}
+
 # ----
 # Shared Resources Management
 # ----

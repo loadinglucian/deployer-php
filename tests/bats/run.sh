@@ -32,6 +32,9 @@ DISTROS=("ubuntu24" "ubuntu25" "debian12" "debian13")
 # Lima VM instance name prefix
 LIMA_PREFIX="deployer-test"
 
+# Track which distros this runner is responsible for (set during run)
+RUNNER_DISTROS=()
+
 # ----
 # Functions
 # ----
@@ -206,34 +209,72 @@ wait_for_ssh() {
     exit 1
 }
 
-stop_lima() {
-    echo -e "${YELLOW}Stopping Lima VMs...${NC}"
+stop_lima_instance() {
+    local distro="$1"
+    local instance
+    instance="$(lima_instance_name "$distro")"
 
-    for distro in "${DISTROS[@]}"; do
-        local instance
-        instance="$(lima_instance_name "$distro")"
-        if lima_exists "$instance"; then
-            echo -e "${YELLOW}Stopping ${instance}...${NC}"
-            limactl stop "$instance" 2>/dev/null || true
-        fi
-    done
+    if lima_exists "$instance"; then
+        echo -e "${YELLOW}Stopping ${instance}...${NC}"
+        limactl stop "$instance" 2>/dev/null || true
+    fi
+}
+
+stop_lima() {
+    local target_distro="${1:-}"
+
+    if [[ -n "$target_distro" ]]; then
+        # Stop single distro
+        echo -e "${YELLOW}Stopping Lima VM for ${target_distro}...${NC}"
+        stop_lima_instance "$target_distro"
+    else
+        # Stop all distros
+        echo -e "${YELLOW}Stopping all Lima VMs...${NC}"
+        for distro in "${DISTROS[@]}"; do
+            stop_lima_instance "$distro"
+        done
+    fi
+}
+
+reset_lima_instance() {
+    local distro="$1"
+    local instance
+    instance="$(lima_instance_name "$distro")"
+
+    if lima_exists "$instance"; then
+        echo -e "${YELLOW}Factory resetting ${instance}...${NC}"
+        limactl stop "$instance" 2>/dev/null || true
+        limactl delete "$instance" --force 2>/dev/null || true
+    fi
+
+    # Recreate VM
+    start_lima_instance "$distro"
+    wait_for_ssh "${DISTRO_PORTS[$distro]}"
 }
 
 reset_lima() {
-    echo -e "${YELLOW}Resetting Lima VMs to clean state...${NC}"
+    local target_distro="${1:-}"
 
-    for distro in "${DISTROS[@]}"; do
-        local instance
-        instance="$(lima_instance_name "$distro")"
-        if lima_exists "$instance"; then
-            echo -e "${YELLOW}Factory resetting ${instance}...${NC}"
-            limactl stop "$instance" 2>/dev/null || true
-            limactl delete "$instance" --force 2>/dev/null || true
-        fi
-    done
+    if [[ -n "$target_distro" ]]; then
+        # Reset single distro
+        echo -e "${YELLOW}Resetting Lima VM for ${target_distro}...${NC}"
+        reset_lima_instance "$target_distro"
+    else
+        # Reset all distros
+        echo -e "${YELLOW}Resetting all Lima VMs to clean state...${NC}"
+        for distro in "${DISTROS[@]}"; do
+            local instance
+            instance="$(lima_instance_name "$distro")"
+            if lima_exists "$instance"; then
+                echo -e "${YELLOW}Factory resetting ${instance}...${NC}"
+                limactl stop "$instance" 2>/dev/null || true
+                limactl delete "$instance" --force 2>/dev/null || true
+            fi
+        done
 
-    # Recreate VMs
-    start_lima
+        # Recreate all VMs
+        start_lima
+    fi
 }
 
 clean_vm() {
@@ -347,16 +388,21 @@ select_distro() {
     echo "$selected"
 }
 
-cleanup_all_vms() {
+cleanup_runner_vms() {
+    if [[ ${#RUNNER_DISTROS[@]} -eq 0 ]]; then
+        return 0
+    fi
+
     echo ""
-    echo -e "${YELLOW}Cleaning up all VMs...${NC}"
-    for distro in "${DISTROS[@]}"; do
+    echo -e "${YELLOW}Cleaning up VMs started by this runner...${NC}"
+    for distro in "${RUNNER_DISTROS[@]}"; do
         local instance
         instance="$(lima_instance_name "$distro")"
+        echo -e "${YELLOW}Stopping ${instance}...${NC}"
         limactl stop "$instance" 2>/dev/null || true
         limactl delete "$instance" --force 2>/dev/null || true
     done
-    echo -e "${GREEN}All VMs removed${NC}"
+    echo -e "${GREEN}Runner VMs removed${NC}"
 }
 
 run_tests() {
@@ -367,8 +413,15 @@ run_tests() {
     local selected
     selected=$(select_distro)
 
-    # Ensure cleanup happens on exit (success or failure)
-    trap cleanup_all_vms EXIT
+    # Track which distros this runner is responsible for
+    if [[ "$selected" == "all" ]]; then
+        RUNNER_DISTROS=("${DISTROS[@]}")
+    else
+        RUNNER_DISTROS=("$selected")
+    fi
+
+    # Ensure cleanup happens on exit (success or failure) - only cleans this runner's VMs
+    trap cleanup_runner_vms EXIT
 
     if [[ "$selected" == "all" ]]; then
         # Start all VMs, then run tests on each
@@ -391,27 +444,28 @@ show_usage() {
     echo ""
     echo "Commands:"
     echo "  run [filter]      Run tests (optionally filtered by test file name)"
-    echo "  start             Start VMs only"
-    echo "  stop              Stop VMs"
-    echo "  reset             Factory reset VMs to fresh state"
-    echo "  clean             Clean VM state without restarting"
+    echo "  start [distro]    Start VMs (all if no distro specified)"
+    echo "  stop [distro]     Stop VMs (all if no distro specified)"
+    echo "  reset [distro]    Factory reset VMs (all if no distro specified)"
+    echo "  clean [distro]    Clean VM state without restarting"
     echo "  ssh <distro>      SSH into a test VM"
     echo ""
     echo "Examples:"
-    echo "  $0 run            # Run all tests on all distros"
-    echo "  $0 run server     # Run only server.bats on all distros"
-    echo "  $0 start          # Start VMs without running tests"
+    echo "  $0 run            # Run all tests (interactive distro selection)"
+    echo "  $0 run server     # Run only server.bats"
+    echo "  $0 start          # Start all VMs"
+    echo "  $0 start ubuntu24 # Start only ubuntu24 VM"
+    echo "  $0 stop debian12  # Stop only debian12 VM"
     echo "  $0 ssh ubuntu24   # SSH into ubuntu24 VM"
-    echo "  $0 ssh debian12   # SSH into debian12 VM"
     echo ""
     echo "Available distros: ${DISTROS[*]}"
     echo ""
     echo "Environment:"
     echo "  BATS_DEBUG=1      # Enable verbose debug output in tests"
     echo ""
-    echo "Output:"
-    echo "  By default, only test names and failure details are shown."
-    echo "  Use BATS_DEBUG=1 for verbose output on all tests."
+    echo "Parallel execution:"
+    echo "  Each command operates only on specified distro(s), allowing"
+    echo "  multiple runners to operate on different distros in parallel."
 }
 
 # ----
@@ -434,24 +488,60 @@ case "${1:-run}" in
     start)
         setup_keys
         setup_inventory
-        start_lima
-        echo ""
-        echo -e "${GREEN}VMs running.${NC}"
+        distro="${2:-}"
+        if [[ -n "$distro" ]]; then
+            if [[ -z "${DISTRO_PORTS[$distro]:-}" ]]; then
+                echo -e "${RED}Unknown distro: ${distro}${NC}"
+                echo "Available distros: ${DISTROS[*]}"
+                exit 1
+            fi
+            start_lima_instance "$distro"
+            wait_for_ssh "${DISTRO_PORTS[$distro]}"
+            echo ""
+            echo -e "${GREEN}VM ${distro} running.${NC}"
+        else
+            start_lima
+            echo ""
+            echo -e "${GREEN}All VMs running.${NC}"
+        fi
         echo "  Run tests:  $0 run"
         echo "  SSH in:     $0 ssh <distro>"
-        echo "  Stop:       $0 stop"
+        echo "  Stop:       $0 stop [distro]"
         ;;
     stop)
-        stop_lima
+        distro="${2:-}"
+        if [[ -n "$distro" && -z "${DISTRO_PORTS[$distro]:-}" ]]; then
+            echo -e "${RED}Unknown distro: ${distro}${NC}"
+            echo "Available distros: ${DISTROS[*]}"
+            exit 1
+        fi
+        stop_lima "$distro"
         ;;
     reset)
         setup_keys
         setup_inventory
-        reset_lima
+        distro="${2:-}"
+        if [[ -n "$distro" && -z "${DISTRO_PORTS[$distro]:-}" ]]; then
+            echo -e "${RED}Unknown distro: ${distro}${NC}"
+            echo "Available distros: ${DISTROS[*]}"
+            exit 1
+        fi
+        reset_lima "$distro"
         ;;
     clean)
-        clean_all_vms
-        echo -e "${GREEN}All VMs cleaned${NC}"
+        distro="${2:-}"
+        if [[ -n "$distro" ]]; then
+            if [[ -z "${DISTRO_PORTS[$distro]:-}" ]]; then
+                echo -e "${RED}Unknown distro: ${distro}${NC}"
+                echo "Available distros: ${DISTROS[*]}"
+                exit 1
+            fi
+            clean_vm "$distro"
+            echo -e "${GREEN}VM ${distro} cleaned${NC}"
+        else
+            clean_all_vms
+            echo -e "${GREEN}All VMs cleaned${NC}"
+        fi
         ;;
     ssh)
         distro="${2:-}"

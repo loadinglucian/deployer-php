@@ -132,19 +132,22 @@ config_caddy() {
 config_ufw() {
 	echo "→ Configuring firewall..."
 
+	# Detect actual sshd listening port (handles port-forwarding scenarios)
+	local detected_port
+	detected_port=$(detect_sshd_port)
+
 	# SSH Safety: Allow SSH before any changes (prevents lockout if UFW is active)
-	# Always allow both port 22 and custom port to handle port forwarding scenarios
-	run_cmd ufw allow 22/tcp > /dev/null 2>&1 || true
-	run_cmd ufw allow "$DEPLOYER_SSH_PORT/tcp" > /dev/null 2>&1 || true
+	run_cmd ufw allow "${detected_port}/tcp" > /dev/null 2>&1 || true
+	if [[ $DEPLOYER_SSH_PORT -ne $detected_port ]]; then
+		run_cmd ufw allow "$DEPLOYER_SSH_PORT/tcp" > /dev/null 2>&1 || true
+	fi
 
 	# Reset UFW to clear any existing rules
 	run_cmd ufw --force reset > /dev/null 2>&1 || fail "Failed to reset UFW"
 
 	# Re-allow SSH immediately after reset
-	# Port 22: Standard SSH port (required for port-forwarded environments like VMs)
-	# DEPLOYER_SSH_PORT: Custom SSH port if configured differently
-	run_cmd ufw allow 22/tcp > /dev/null 2>&1 || fail "Failed to allow SSH port 22"
-	if [[ $DEPLOYER_SSH_PORT -ne 22 ]]; then
+	run_cmd ufw allow "${detected_port}/tcp" > /dev/null 2>&1 || fail "Failed to allow SSH port ${detected_port}"
+	if [[ $DEPLOYER_SSH_PORT -ne $detected_port ]]; then
 		run_cmd ufw allow "$DEPLOYER_SSH_PORT/tcp" > /dev/null 2>&1 || fail "Failed to allow SSH port ${DEPLOYER_SSH_PORT}"
 	fi
 

@@ -34,12 +34,18 @@ export DEPLOYER_PERMS
 
 #
 # Allow SSH ports (idempotent, silent on existing rule)
-# Always allows port 22 for port-forwarded environments (VMs, containers)
-# plus the configured SSH port if different
+# Detects actual sshd listening port and also allows configured port if different.
+# Handles port-forwarding scenarios (VMs, containers) where daemon port differs from connection port.
 
 allow_ssh_port() {
-	run_cmd ufw allow 22/tcp > /dev/null 2>&1 || true
-	if [[ $DEPLOYER_SSH_PORT -ne 22 ]]; then
+	local detected_port
+	detected_port=$(detect_sshd_port)
+
+	# Allow detected sshd port
+	run_cmd ufw allow "${detected_port}/tcp" > /dev/null 2>&1 || true
+
+	# Also allow configured port if different (handles port forwarding)
+	if [[ $DEPLOYER_SSH_PORT -ne $detected_port ]]; then
 		run_cmd ufw allow "$DEPLOYER_SSH_PORT/tcp" > /dev/null 2>&1 || true
 	fi
 }
