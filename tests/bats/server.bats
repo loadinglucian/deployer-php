@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 # Server command tests
-# Tests: server:add, server:info, server:delete, server:install
+# Tests: server:add, server:info, server:delete, server:install, server:firewall, server:logs, server:run
 
 load 'lib/helpers'
 load 'lib/lima'
@@ -267,3 +267,139 @@ setup() {
     remote_key=$(ssh_exec "cat /home/deployer/.ssh/id_ed25519.pub")
     [[ "$remote_key" == "$expected_key" ]]
 }
+
+# ----
+# server:firewall
+# ----
+
+@test "server:firewall shows info when no servers in inventory" {
+    reset_inventory
+
+    run_deployer server:firewall --server="nonexistent" --allow="80" --yes
+
+    debug_output
+
+    assert_info_output
+    assert_output_contains "No servers found"
+}
+
+@test "server:firewall configures UFW with Caddy admin port" {
+    add_test_server
+
+    # After server:install, Caddy admin API listens on port 2019
+    run_deployer server:firewall \
+        --server="$TEST_SERVER_NAME" \
+        --allow="2019" \
+        --yes
+
+    debug_output
+
+    [ "$status" -eq 0 ]
+    assert_success_output
+    assert_output_contains "Firewall configured successfully"
+    assert_command_replay "server:firewall"
+}
+
+@test "server:firewall verifies UFW is enabled on server" {
+    add_test_server
+
+    # UFW should be enabled by server:install (base-install.sh)
+    local ufw_status
+    ufw_status=$(ssh_exec "ufw status")
+    [[ "$ufw_status" =~ "Status: active" ]]
+}
+
+# ----
+# server:logs
+# ----
+
+@test "server:logs shows info when no servers in inventory" {
+    reset_inventory
+
+    run_deployer server:logs --server="nonexistent" --service="system" --lines=10
+
+    debug_output
+
+    assert_info_output
+    assert_output_contains "No servers found"
+}
+
+@test "server:logs retrieves system logs" {
+    add_test_server
+
+    run_deployer server:logs \
+        --server="$TEST_SERVER_NAME" \
+        --service="system" \
+        --lines=10
+
+    debug_output
+
+    [ "$status" -eq 0 ]
+    assert_output_contains "System logs"
+    assert_command_replay "server:logs"
+}
+
+@test "server:logs retrieves multiple service logs" {
+    add_test_server
+
+    run_deployer server:logs \
+        --server="$TEST_SERVER_NAME" \
+        --service="system,cron" \
+        --lines=5
+
+    debug_output
+
+    [ "$status" -eq 0 ]
+    assert_output_contains "System logs"
+    assert_output_contains "Cron"
+}
+
+# ----
+# server:run
+# ----
+
+@test "server:run shows info when no servers in inventory" {
+    reset_inventory
+
+    run_deployer server:run --server="nonexistent" --command="whoami"
+
+    debug_output
+
+    assert_info_output
+    assert_output_contains "No servers found"
+}
+
+@test "server:run executes command on server" {
+    add_test_server
+
+    run_deployer server:run \
+        --server="$TEST_SERVER_NAME" \
+        --command="whoami"
+
+    debug_output
+
+    [ "$status" -eq 0 ]
+    assert_output_contains "root"
+    assert_command_replay "server:run"
+}
+
+@test "server:run shows command output" {
+    add_test_server
+
+    run_deployer server:run \
+        --server="$TEST_SERVER_NAME" \
+        --command="echo hello-deployer-test"
+
+    debug_output
+
+    [ "$status" -eq 0 ]
+    assert_output_contains "hello-deployer-test"
+}
+
+# ----
+# server:ssh
+# ----
+
+# NOTE: server:ssh cannot be tested in BATS because it uses pcntl_exec() to
+# replace the PHP process with an SSH session. Control never returns to BATS
+# after successful execution, making automated testing impossible.
