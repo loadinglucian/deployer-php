@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Key;
+namespace Deployer\Console\Pro\Aws;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\AwsTrait;
@@ -13,10 +13,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'key:delete:aws',
+    name: 'pro:aws:key:delete',
     description: 'Delete a key pair from AWS'
 )]
-class KeyDeleteAwsCommand extends BaseCommand
+class KeyDeleteCommand extends BaseCommand
 {
     use AwsTrait;
 
@@ -44,17 +44,9 @@ class KeyDeleteAwsCommand extends BaseCommand
 
         $this->h1('Delete a Key Pair from AWS');
 
-        //
-        // Initialize AWS API
-        // ----
-
         if (Command::FAILURE === $this->initializeAwsAPI()) {
             return Command::FAILURE;
         }
-
-        //
-        // Select key
-        // ----
 
         $selectedKey = $this->selectAwsKey();
 
@@ -62,10 +54,7 @@ class KeyDeleteAwsCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        [
-            'name' => $keyName,
-            'description' => $keyDescription,
-        ] = $selectedKey;
+        ['name' => $keyName, 'description' => $keyDescription] = $selectedKey;
 
         $this->displayDeets([
             'Name' => $keyName,
@@ -76,43 +65,20 @@ class KeyDeleteAwsCommand extends BaseCommand
         $this->out('───');
         $this->io->write("\n");
 
-        //
-        // Confirm deletion with extra safety
-        // ----
-
         /** @var bool $forceSkip */
         $forceSkip = $input->getOption('force') ?? false;
 
-        if (!$forceSkip) {
-            $typedKeyName = $this->io->promptText(
-                label: "Type the key pair name '{$keyName}' to confirm deletion:",
-                required: true
-            );
+        $confirmed = $this->confirmDeletion($keyName, $forceSkip);
 
-            if ($typedKeyName !== $keyName) {
-                $this->nay('Key pair name does not match. Deletion cancelled.');
-
-                return Command::FAILURE;
-            }
+        if (null === $confirmed) {
+            return Command::FAILURE;
         }
-
-        $confirmed = $this->io->getBooleanOptionOrPrompt(
-            'yes',
-            fn (): bool => $this->io->promptConfirm(
-                label: 'Are you absolutely sure?',
-                default: false
-            )
-        );
 
         if (!$confirmed) {
             $this->warn('Cancelled deleting key pair');
 
             return Command::SUCCESS;
         }
-
-        //
-        // Delete key
-        // ----
 
         try {
             $this->io->promptSpin(
@@ -127,16 +93,45 @@ class KeyDeleteAwsCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        //
-        // Show command replay
-        // ----
-
-        $this->commandReplay('key:delete:aws', [
+        $this->commandReplay('pro:aws:key:delete', [
             'key' => $keyName,
             'force' => true,
             'yes' => $confirmed,
         ]);
 
         return Command::SUCCESS;
+    }
+
+    // ----
+    // Helpers
+    // ----
+
+    /**
+     * Confirm key pair deletion with type-to-confirm and yes/no prompt.
+     *
+     * @return bool|null True if confirmed, false if cancelled, null if validation failed
+     */
+    protected function confirmDeletion(string $keyName, bool $forceSkip): ?bool
+    {
+        if (!$forceSkip) {
+            $typedKeyName = $this->io->promptText(
+                label: "Type the key pair name '{$keyName}' to confirm deletion:",
+                required: true
+            );
+
+            if ($typedKeyName !== $keyName) {
+                $this->nay('Key pair name does not match. Deletion cancelled.');
+
+                return null;
+            }
+        }
+
+        return $this->io->getBooleanOptionOrPrompt(
+            'yes',
+            fn (): bool => $this->io->promptConfirm(
+                label: 'Are you absolutely sure?',
+                default: false
+            )
+        );
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Deployer\Traits;
 
 use Deployer\Exceptions\ValidationException;
-use Deployer\Services\DigitalOceanService;
+use Deployer\Services\DoService;
 use Deployer\Services\EnvService;
 use Deployer\Services\IOService;
 use Symfony\Component\Console\Command\Command;
@@ -13,11 +13,11 @@ use Symfony\Component\Console\Command\Command;
 /**
  * Reusable DigitalOcean things.
  *
- * @property DigitalOceanService $digitalOcean
+ * @property DoService $do
  * @property EnvService $env
  * @property IOService $io
  */
-trait DigitalOceanTrait
+trait DoTrait
 {
     // ----
     // Helpers
@@ -37,7 +37,7 @@ trait DigitalOceanTrait
      *
      * @return int Command::SUCCESS on success, Command::FAILURE on error
      */
-    protected function initializeDigitalOceanAPI(): int
+    protected function initializeDoAPI(): int
     {
         try {
             /** @var string $apiToken */
@@ -45,7 +45,7 @@ trait DigitalOceanTrait
 
             // Initialize DigitalOcean API
             $this->io->promptSpin(
-                fn () => $this->digitalOcean->initialize($apiToken),
+                fn () => $this->do->initialize($apiToken),
                 'Initializing DigitalOcean API...'
             );
 
@@ -80,9 +80,9 @@ trait DigitalOceanTrait
         //
         // Get all keys
 
-        if ($keys === null) {
+        if (null === $keys) {
             try {
-                $keys = $this->digitalOcean->account->getPublicKeys();
+                $keys = $this->do->account->getPublicKeys();
             } catch (\RuntimeException $e) {
                 $this->nay('Failed to retrieve public SSH keys: ' . $e->getMessage());
                 return Command::FAILURE;
@@ -92,10 +92,10 @@ trait DigitalOceanTrait
         //
         // Check if no keys are available
 
-        if (count($keys) === 0) {
+        if (0 === count($keys)) {
             $this->info('No public SSH keys found in your DigitalOcean account');
             $this->ul([
-                'Run <fg=cyan>key:add:digitalocean</> to add a public SSH key',
+                'Run <fg=cyan>pro:do:key:add</> to add a public SSH key',
             ]);
 
             return Command::FAILURE;
@@ -160,13 +160,13 @@ trait DigitalOceanTrait
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateDigitalOceanDropletImage(mixed $image, array $validImages): ?string
+    protected function validateDoDropletImage(mixed $image, array $validImages): ?string
     {
         if (!is_string($image)) {
             return 'Droplet image must be a string';
         }
 
-        if (trim($image) === '') {
+        if ('' === trim($image)) {
             return 'Droplet image cannot be empty';
         }
 
@@ -185,13 +185,13 @@ trait DigitalOceanTrait
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateDigitalOceanDropletSize(mixed $size, array $validSizes): ?string
+    protected function validateDoDropletSize(mixed $size, array $validSizes): ?string
     {
         if (!is_string($size)) {
             return 'Droplet size must be a string';
         }
 
-        if (trim($size) === '') {
+        if ('' === trim($size)) {
             return 'Droplet size cannot be empty';
         }
 
@@ -210,13 +210,13 @@ trait DigitalOceanTrait
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateDigitalOceanRegion(mixed $region, array $validRegions): ?string
+    protected function validateDoRegion(mixed $region, array $validRegions): ?string
     {
         if (!is_string($region)) {
             return 'Region must be a string';
         }
 
-        if (trim($region) === '') {
+        if ('' === trim($region)) {
             return 'Region cannot be empty';
         }
 
@@ -235,7 +235,7 @@ trait DigitalOceanTrait
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateDigitalOceanSSHKey(mixed $keyId, array $validKeys): ?string
+    protected function validateDoSSHKey(mixed $keyId, array $validKeys): ?string
     {
         if (!is_string($keyId) && !is_int($keyId)) {
             return 'SSH key ID must be a string or integer';
@@ -264,7 +264,7 @@ trait DigitalOceanTrait
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateDigitalOceanVPCUUID(mixed $uuid, array $availableVpcs = []): ?string
+    protected function validateDoVPCUUID(mixed $uuid, array $availableVpcs = []): ?string
     {
         if (!is_string($uuid)) {
             return 'VPC UUID must be a string';

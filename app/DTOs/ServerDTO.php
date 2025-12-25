@@ -23,7 +23,7 @@ readonly class ServerDTO
     /**
      * Check if this server was provisioned via DigitalOcean.
      */
-    public function isDigitalOcean(): bool
+    public function isDo(): bool
     {
         return 'digitalocean' === $this->provider && null !== $this->dropletId;
     }
@@ -41,7 +41,7 @@ readonly class ServerDTO
      */
     public function isProvisioned(): bool
     {
-        return $this->isDigitalOcean() || $this->isAws();
+        return $this->isDo() || $this->isAws();
     }
 
     /**

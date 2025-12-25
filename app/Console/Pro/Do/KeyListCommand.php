@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Key;
+namespace Deployer\Console\Pro\Do;
 
 use Deployer\Contracts\BaseCommand;
-use Deployer\Traits\DigitalOceanTrait;
+use Deployer\Traits\DoTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'key:list:digitalocean',
+    name: 'pro:do:key:list',
     description: 'List public SSH keys in DigitalOcean'
 )]
-class KeyListDigitalOceanCommand extends BaseCommand
+class KeyListCommand extends BaseCommand
 {
-    use DigitalOceanTrait;
+    use DoTrait;
 
     // ----
     // Execution
@@ -33,7 +33,7 @@ class KeyListDigitalOceanCommand extends BaseCommand
         // Retrieve DigitalOcean account data
         // ----
 
-        if ($this->initializeDigitalOceanAPI() === Command::FAILURE) {
+        if (Command::FAILURE === $this->initializeDoAPI()) {
             return Command::FAILURE;
         }
 
@@ -49,7 +49,7 @@ class KeyListDigitalOceanCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('key:list:digitalocean', []);
+        $this->commandReplay('pro:do:key:list', []);
 
         return Command::SUCCESS;
     }

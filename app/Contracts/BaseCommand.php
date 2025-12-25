@@ -8,7 +8,7 @@ use Deployer\Container;
 use Deployer\Repositories\ServerRepository;
 use Deployer\Repositories\SiteRepository;
 use Deployer\Services\AwsService;
-use Deployer\Services\DigitalOceanService;
+use Deployer\Services\DoService;
 use Deployer\Services\EnvService;
 use Deployer\Services\FilesystemService;
 use Deployer\Services\GitService;
@@ -57,7 +57,7 @@ abstract class BaseCommand extends Command
 
         // Hosting providers
         protected readonly AwsService $aws,
-        protected readonly DigitalOceanService $digitalOcean,
+        protected readonly DoService $do,
     ) {
         parent::__construct();
     }

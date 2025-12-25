@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Key;
+namespace Deployer\Console\Pro\Aws;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
@@ -15,10 +15,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'key:add:aws',
+    name: 'pro:aws:key:add',
     description: 'Add a local SSH public key to AWS'
 )]
-class KeyAddAwsCommand extends BaseCommand
+class KeyAddCommand extends BaseCommand
 {
     use AwsTrait;
     use KeysTrait;
@@ -95,7 +95,7 @@ class KeyAddAwsCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('key:add:aws', [
+        $this->commandReplay('pro:aws:key:add', [
             'public-key-path' => $publicKeyPath,
             'name' => $keyName,
         ]);

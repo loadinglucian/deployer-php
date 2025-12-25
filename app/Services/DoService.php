@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Deployer\Services;
 
-use Deployer\Services\DigitalOcean\DigitalOceanAccountService;
-use Deployer\Services\DigitalOcean\DigitalOceanDropletService;
-use Deployer\Services\DigitalOcean\DigitalOceanKeyService;
+use Deployer\Services\Do\DoAccountService;
+use Deployer\Services\Do\DoDropletService;
+use Deployer\Services\Do\DoKeyService;
 use DigitalOceanV2\Client;
 
 /**
@@ -14,7 +14,7 @@ use DigitalOceanV2\Client;
  *
  * Provides access to specialized DigitalOcean services through a unified interface.
  */
-class DigitalOceanService
+class DoService
 {
     private ?Client $api = null;
 
@@ -24,9 +24,9 @@ class DigitalOceanService
     private array $cache = [];
 
     public function __construct(
-        public readonly DigitalOceanAccountService $account,
-        public readonly DigitalOceanKeyService $key,
-        public readonly DigitalOceanDropletService $droplet,
+        public readonly DoAccountService $account,
+        public readonly DoKeyService $key,
+        public readonly DoDropletService $droplet,
     ) {
     }
 
@@ -68,11 +68,11 @@ class DigitalOceanService
      */
     private function initializeAPI(): Client
     {
-        if ($this->api !== null) {
+        if (null !== $this->api) {
             return $this->api;
         }
 
-        if ($this->token === null || $this->token === '') {
+        if (null === $this->token || '' === $this->token) {
             throw new \RuntimeException(
                 'DigitalOcean API token not set. '.
                 'Set API token before making API requests.'

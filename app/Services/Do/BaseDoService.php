@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Services\DigitalOcean;
+namespace Deployer\Services\Do;
 
 use DigitalOceanV2\Client;
 
@@ -11,7 +11,7 @@ use DigitalOceanV2\Client;
  *
  * Provides common API client management for all DigitalOcean services.
  */
-abstract class BaseDigitalOceanService
+abstract class BaseDoService
 {
     private ?Client $api = null;
 
@@ -30,7 +30,7 @@ abstract class BaseDigitalOceanService
      */
     protected function getAPI(): Client
     {
-        if ($this->api === null) {
+        if (null === $this->api) {
             throw new \RuntimeException('DigitalOcean API client not configured. Call setAPI() first.');
         }
 

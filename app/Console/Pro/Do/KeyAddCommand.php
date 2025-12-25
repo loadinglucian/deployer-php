@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Key;
+namespace Deployer\Console\Pro\Do;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Exceptions\ValidationException;
-use Deployer\Traits\DigitalOceanTrait;
+use Deployer\Traits\DoTrait;
 use Deployer\Traits\KeysTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -15,12 +15,12 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'key:add:digitalocean',
+    name: 'pro:do:key:add',
     description: 'Add a local SSH public key to DigitalOcean'
 )]
-class KeyAddDigitalOceanCommand extends BaseCommand
+class KeyAddCommand extends BaseCommand
 {
-    use DigitalOceanTrait;
+    use DoTrait;
     use KeysTrait;
 
     // ----
@@ -50,7 +50,7 @@ class KeyAddDigitalOceanCommand extends BaseCommand
         // Retrieve DigitalOcean account data
         // ----
 
-        if ($this->initializeDigitalOceanAPI() === Command::FAILURE) {
+        if (Command::FAILURE === $this->initializeDoAPI()) {
             return Command::FAILURE;
         }
 
@@ -75,7 +75,7 @@ class KeyAddDigitalOceanCommand extends BaseCommand
 
         try {
             $keyId = $this->io->promptSpin(
-                fn () => $this->digitalOcean->key->uploadPublicKey($publicKeyPath, $keyName),
+                fn () => $this->do->key->uploadPublicKey($publicKeyPath, $keyName),
                 'Uploading public SSH key...'
             );
 
@@ -90,7 +90,7 @@ class KeyAddDigitalOceanCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('key:add:digitalocean', [
+        $this->commandReplay('pro:do:key:add', [
             'public-key-path' => $publicKeyPath,
             'name' => $keyName,
         ]);

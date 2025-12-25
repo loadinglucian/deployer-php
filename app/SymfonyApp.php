@@ -7,16 +7,11 @@ namespace Deployer;
 use Deployer\Console\Cron\CronCreateCommand;
 use Deployer\Console\Cron\CronDeleteCommand;
 use Deployer\Console\Cron\CronSyncCommand;
-use Deployer\Console\Key\KeyAddDigitalOceanCommand;
-use Deployer\Console\Key\KeyDeleteDigitalOceanCommand;
-use Deployer\Console\Key\KeyListDigitalOceanCommand;
 use Deployer\Console\Mariadb\MariadbInstallCommand;
 use Deployer\Console\Mariadb\MariadbLogsCommand;
 use Deployer\Console\Mariadb\MariadbRestartCommand;
 use Deployer\Console\Mariadb\MariadbStartCommand;
 use Deployer\Console\Mariadb\MariadbStopCommand;
-use Deployer\Console\More\MoreProvisionAwsCommand;
-use Deployer\Console\More\MoreProvisionDigitalOceanCommand;
 use Deployer\Console\Mysql\MysqlInstallCommand;
 use Deployer\Console\Mysql\MysqlLogsCommand;
 use Deployer\Console\Mysql\MysqlRestartCommand;
@@ -27,6 +22,14 @@ use Deployer\Console\Postgresql\PostgresqlLogsCommand;
 use Deployer\Console\Postgresql\PostgresqlRestartCommand;
 use Deployer\Console\Postgresql\PostgresqlStartCommand;
 use Deployer\Console\Postgresql\PostgresqlStopCommand;
+use Deployer\Console\Pro\Aws\KeyAddCommand as AwsKeyAddCommand;
+use Deployer\Console\Pro\Aws\KeyDeleteCommand as AwsKeyDeleteCommand;
+use Deployer\Console\Pro\Aws\KeyListCommand as AwsKeyListCommand;
+use Deployer\Console\Pro\Aws\ProvisionCommand as AwsProvisionCommand;
+use Deployer\Console\Pro\Do\KeyAddCommand as DoKeyAddCommand;
+use Deployer\Console\Pro\Do\KeyDeleteCommand as DoKeyDeleteCommand;
+use Deployer\Console\Pro\Do\KeyListCommand as DoKeyListCommand;
+use Deployer\Console\Pro\Do\ProvisionCommand as DoProvisionCommand;
 use Deployer\Console\ScaffoldCronsCommand;
 use Deployer\Console\ScaffoldHooksCommand;
 use Deployer\Console\ScaffoldSupervisorsCommand;
@@ -156,13 +159,6 @@ final class SymfonyApp extends SymfonyApplication
             ScaffoldSupervisorsCommand::class,
 
             //
-            // Provider key management
-
-            KeyAddDigitalOceanCommand::class,
-            KeyDeleteDigitalOceanCommand::class,
-            KeyListDigitalOceanCommand::class,
-
-            //
             // Server management
 
             ServerAddCommand::class,
@@ -175,10 +171,16 @@ final class SymfonyApp extends SymfonyApplication
             ServerSshCommand::class,
 
             //
-            // More (provider provisioning)
+            // Provider integrations (keys + provisioning)
 
-            MoreProvisionAwsCommand::class,
-            MoreProvisionDigitalOceanCommand::class,
+            AwsKeyAddCommand::class,
+            AwsKeyDeleteCommand::class,
+            AwsKeyListCommand::class,
+            AwsProvisionCommand::class,
+            DoKeyAddCommand::class,
+            DoKeyDeleteCommand::class,
+            DoKeyListCommand::class,
+            DoProvisionCommand::class,
 
             //
             // Site management

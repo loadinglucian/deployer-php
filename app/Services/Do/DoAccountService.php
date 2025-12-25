@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Services\DigitalOcean;
+namespace Deployer\Services\Do;
 
 use Deployer\Enums\Distribution;
 use DigitalOceanV2\Entity\Image as ImageEntity;
@@ -14,7 +14,7 @@ use DigitalOceanV2\Entity\Size as SizeEntity;
  *
  * Handles fetching account-level resources: regions, sizes, images, VPCs, SSH keys.
  */
-class DigitalOceanAccountService extends BaseDigitalOceanService
+class DoAccountService extends BaseDoService
 {
     //
     // Account data retrieval
@@ -112,13 +112,13 @@ class DigitalOceanAccountService extends BaseDigitalOceanService
             foreach ($images as $image) {
                 /** @var ImageEntity $image */
                 // Filter to supported distributions only (Debian/Ubuntu)
-                if ($image->status === 'available' && $image->public === true) {
+                if ('available' === $image->status && true === $image->public) {
                     $distribution = strtolower($image->distribution ?? '');
                     $distEnum = Distribution::tryFrom($distribution);
 
-                    if ($distEnum !== null && $distEnum->isSupported()) {
+                    if (null !== $distEnum && $distEnum->isSupported()) {
                         $slug = $image->slug;
-                        if ($slug !== null && $slug !== '') {
+                        if (null !== $slug && '' !== $slug) {
                             $options[$slug] = "{$image->distribution} {$image->name}";
                         }
                     }

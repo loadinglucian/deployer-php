@@ -6,7 +6,7 @@ namespace Deployer\Console\Server;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\AwsTrait;
-use Deployer\Traits\DigitalOceanTrait;
+use Deployer\Traits\DoTrait;
 use Deployer\Traits\PlaybooksTrait;
 use Deployer\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -22,7 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class ServerDeleteCommand extends BaseCommand
 {
     use AwsTrait;
-    use DigitalOceanTrait;
+    use DoTrait;
     use PlaybooksTrait;
     use ServersTrait;
 
@@ -82,7 +82,7 @@ class ServerDeleteCommand extends BaseCommand
             $deletionInfo[] = "Delete {$siteCount} associated site(s): {$sitesList}";
         }
 
-        if ($server->isDigitalOcean() && !$inventoryOnly) {
+        if ($server->isDo() && !$inventoryOnly) {
             $deletionInfo[] = "Destroy the droplet on DigitalOcean (ID: {$server->dropletId})";
         }
 
@@ -137,9 +137,9 @@ class ServerDeleteCommand extends BaseCommand
 
         $destroyed = false;
 
-        if ($server->isDigitalOcean() && !$inventoryOnly) {
+        if ($server->isDo() && !$inventoryOnly) {
             try {
-                if (Command::FAILURE === $this->initializeDigitalOceanAPI()) {
+                if (Command::FAILURE === $this->initializeDoAPI()) {
                     throw new \RuntimeException('Destroying droplet failed');
                 }
 
@@ -147,7 +147,7 @@ class ServerDeleteCommand extends BaseCommand
                 $dropletId = $server->dropletId;
 
                 $this->io->promptSpin(
-                    fn () => $this->digitalOcean->droplet->destroyDroplet($dropletId),
+                    fn () => $this->do->droplet->destroyDroplet($dropletId),
                     "Destroying droplet (ID: {$dropletId})"
                 );
 

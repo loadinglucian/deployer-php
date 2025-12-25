@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Key;
+namespace Deployer\Console\Pro\Aws;
 
 use Deployer\Contracts\BaseCommand;
 use Deployer\Traits\AwsTrait;
@@ -12,10 +12,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'key:list:aws',
+    name: 'pro:aws:key:list',
     description: 'List EC2 key pairs in AWS'
 )]
-class KeyListAwsCommand extends BaseCommand
+class KeyListCommand extends BaseCommand
 {
     use AwsTrait;
 
@@ -54,7 +54,7 @@ class KeyListAwsCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('key:list:aws', []);
+        $this->commandReplay('pro:aws:key:list', []);
 
         return Command::SUCCESS;
     }
