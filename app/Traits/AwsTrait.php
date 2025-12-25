@@ -99,7 +99,7 @@ trait AwsTrait
         if (0 === count($keys)) {
             $this->info('No EC2 key pairs found in your AWS account for this region');
             $this->ul([
-                'Run <fg=cyan>key:add:aws</> to add a public SSH key',
+                'Run <fg=cyan>pro:aws:key:add</> to add a public SSH key',
             ]);
 
             return Command::FAILURE;
