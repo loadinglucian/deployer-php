@@ -310,15 +310,15 @@ class ProvisionCommand extends BaseCommand
     protected function validateAccountDataAvailability(array $accountData): void
     {
         if (0 === count($accountData['instanceTypes'])) {
-            throw new ValidationException('No instance types available in this region');
+            throw new ValidationException("No instance types available in {$this->aws->getRegion()}");
         }
 
         if (0 === count($accountData['images'])) {
-            throw new ValidationException('No supported OS images available in this region');
+            throw new ValidationException("No supported OS images available in {$this->aws->getRegion()}");
         }
 
         if (0 === count($accountData['vpcs'])) {
-            throw new ValidationException('No VPCs found in this region');
+            throw new ValidationException("No VPCs found in {$this->aws->getRegion()}");
         }
     }
 

@@ -97,7 +97,7 @@ trait AwsTrait
         // Check if no keys are available
 
         if (0 === count($keys)) {
-            $this->info('No EC2 key pairs found in your AWS account for this region');
+            $this->info("No EC2 key pairs found in your AWS account for {$this->aws->getRegion()}");
             $this->ul([
                 'Run <fg=cyan>pro:aws:key:add</> to add a public SSH key',
             ]);
@@ -199,7 +199,7 @@ trait AwsTrait
         }
 
         if (!isset($validImages[$ami])) {
-            return "Invalid AMI: '{$ami}' is not available in this region";
+            return "Invalid AMI: '{$ami}' is not available in {$this->aws->getRegion()}";
         }
 
         return null;
@@ -223,7 +223,7 @@ trait AwsTrait
         }
 
         if (!isset($validKeys[$keyName])) {
-            return "Invalid key pair: '{$keyName}' is not available in this region";
+            return "Invalid key pair: '{$keyName}' is not available in {$this->aws->getRegion()}";
         }
 
         return null;
@@ -252,7 +252,7 @@ trait AwsTrait
         }
 
         if (!isset($availableVpcs[$vpcId])) {
-            return "Invalid VPC: '{$vpcId}' not found in this region";
+            return "Invalid VPC: '{$vpcId}' not found in {$this->aws->getRegion()}";
         }
 
         return null;
