@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Services\Do;
+namespace DeployerPHP\Services\Do;
 
-use Deployer\Services\FilesystemService;
+use DeployerPHP\Services\FilesystemService;
 use DigitalOceanV2\Exception\ResourceNotFoundException;
 
 /**

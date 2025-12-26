@@ -3,8 +3,8 @@
 
 declare(strict_types=1);
 
-use Deployer\Container;
-use Deployer\SymfonyApp;
+use DeployerPHP\Container;
+use DeployerPHP\SymfonyApp;
 
 //
 // Bootstrap the autoloader

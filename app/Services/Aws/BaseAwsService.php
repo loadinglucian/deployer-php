@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Services\Aws;
+namespace DeployerPHP\Services\Aws;
 
 use Aws\Sdk;
 

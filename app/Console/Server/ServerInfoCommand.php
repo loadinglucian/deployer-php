@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Server;
+namespace DeployerPHP\Console\Server;
 
-use Deployer\Contracts\BaseCommand;
-use Deployer\Enums\Distribution;
-use Deployer\Traits\PlaybooksTrait;
-use Deployer\Traits\ServersTrait;
-use Deployer\Traits\ServicesTrait;
+use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\Enums\Distribution;
+use DeployerPHP\Traits\PlaybooksTrait;
+use DeployerPHP\Traits\ServersTrait;
+use DeployerPHP\Traits\ServicesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

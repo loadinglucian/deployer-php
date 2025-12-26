@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Services;
+namespace DeployerPHP\Services;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;

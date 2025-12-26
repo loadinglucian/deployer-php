@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Traits;
+namespace DeployerPHP\Traits;
 
-use Deployer\DTOs\ServerDTO;
-use Deployer\Services\SshService;
+use DeployerPHP\DTOs\ServerDTO;
+use DeployerPHP\Services\SshService;
 
 /**
  * Shared utilities for log-viewing commands.

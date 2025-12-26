@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Services;
+namespace DeployerPHP\Services;
 
 use Aws\Sdk;
-use Deployer\Services\Aws\AwsAccountService;
-use Deployer\Services\Aws\AwsInstanceService;
-use Deployer\Services\Aws\AwsKeyService;
-use Deployer\Services\Aws\AwsSecurityGroupService;
+use DeployerPHP\Services\Aws\AwsAccountService;
+use DeployerPHP\Services\Aws\AwsInstanceService;
+use DeployerPHP\Services\Aws\AwsKeyService;
+use DeployerPHP\Services\Aws\AwsSecurityGroupService;
 
 /**
  * AWS API facade service.

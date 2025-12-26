@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Traits;
+namespace DeployerPHP\Traits;
 
-use Deployer\DTOs\CronDTO;
-use Deployer\DTOs\SiteDTO;
-use Deployer\Exceptions\ValidationException;
-use Deployer\Services\IoService;
+use DeployerPHP\DTOs\CronDTO;
+use DeployerPHP\DTOs\SiteDTO;
+use DeployerPHP\Exceptions\ValidationException;
+use DeployerPHP\Services\IoService;
 use Symfony\Component\Console\Command\Command;
 
 /**
@@ -171,7 +171,7 @@ trait CronsTrait
     /**
      * Validate cron selection exists for site.
      *
-     * @param array<int, \Deployer\DTOs\CronDTO> $crons Available crons for the site
+     * @param array<int, \DeployerPHP\DTOs\CronDTO> $crons Available crons for the site
      *
      * @return string|null Error message if invalid, null if valid
      */

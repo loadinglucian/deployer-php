@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Pro\Do;
+namespace DeployerPHP\Console\Pro\Do;
 
-use Deployer\Contracts\BaseCommand;
-use Deployer\Exceptions\ValidationException;
-use Deployer\Traits\DoTrait;
-use Deployer\Traits\KeysTrait;
+use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\Exceptions\ValidationException;
+use DeployerPHP\Traits\DoTrait;
+use DeployerPHP\Traits\KeysTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

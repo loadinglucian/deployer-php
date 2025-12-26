@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Services;
+namespace DeployerPHP\Services;
 
 /**
  * Git operations service.

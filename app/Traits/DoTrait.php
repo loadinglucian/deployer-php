@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Traits;
+namespace DeployerPHP\Traits;
 
-use Deployer\Exceptions\ValidationException;
-use Deployer\Services\DoService;
-use Deployer\Services\EnvService;
-use Deployer\Services\IoService;
+use DeployerPHP\Exceptions\ValidationException;
+use DeployerPHP\Services\DoService;
+use DeployerPHP\Services\EnvService;
+use DeployerPHP\Services\IoService;
 use Symfony\Component\Console\Command\Command;
 
 /**

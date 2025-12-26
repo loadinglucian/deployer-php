@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Pro\Do;
+namespace DeployerPHP\Console\Pro\Do;
 
-use Deployer\Contracts\BaseCommand;
-use Deployer\Traits\DoTrait;
+use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\Traits\DoTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

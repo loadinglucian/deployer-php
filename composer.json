@@ -1,5 +1,5 @@
 {
-    "name": "loadinglucian/deployer",
+    "name": "loadinglucian/deployer-php",
     "description": "Server and site deployment tool for PHP",
     "type": "library",
     "keywords": [
@@ -38,7 +38,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Deployer\\": "app"
+            "DeployerPHP\\": "app"
         }
     },
     "autoload-dev": {

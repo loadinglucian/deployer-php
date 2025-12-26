@@ -2,60 +2,60 @@
 
 declare(strict_types=1);
 
-namespace Deployer;
+namespace DeployerPHP;
 
-use Deployer\Console\Cron\CronCreateCommand;
-use Deployer\Console\Cron\CronDeleteCommand;
-use Deployer\Console\Cron\CronSyncCommand;
-use Deployer\Console\Mariadb\MariadbInstallCommand;
-use Deployer\Console\Mariadb\MariadbLogsCommand;
-use Deployer\Console\Mariadb\MariadbRestartCommand;
-use Deployer\Console\Mariadb\MariadbStartCommand;
-use Deployer\Console\Mariadb\MariadbStopCommand;
-use Deployer\Console\Mysql\MysqlInstallCommand;
-use Deployer\Console\Mysql\MysqlLogsCommand;
-use Deployer\Console\Mysql\MysqlRestartCommand;
-use Deployer\Console\Mysql\MysqlStartCommand;
-use Deployer\Console\Mysql\MysqlStopCommand;
-use Deployer\Console\Postgresql\PostgresqlInstallCommand;
-use Deployer\Console\Postgresql\PostgresqlLogsCommand;
-use Deployer\Console\Postgresql\PostgresqlRestartCommand;
-use Deployer\Console\Postgresql\PostgresqlStartCommand;
-use Deployer\Console\Postgresql\PostgresqlStopCommand;
-use Deployer\Console\Pro\Aws\KeyAddCommand as AwsKeyAddCommand;
-use Deployer\Console\Pro\Aws\KeyDeleteCommand as AwsKeyDeleteCommand;
-use Deployer\Console\Pro\Aws\KeyListCommand as AwsKeyListCommand;
-use Deployer\Console\Pro\Aws\ProvisionCommand as AwsProvisionCommand;
-use Deployer\Console\Pro\Do\KeyAddCommand as DoKeyAddCommand;
-use Deployer\Console\Pro\Do\KeyDeleteCommand as DoKeyDeleteCommand;
-use Deployer\Console\Pro\Do\KeyListCommand as DoKeyListCommand;
-use Deployer\Console\Pro\Do\ProvisionCommand as DoProvisionCommand;
-use Deployer\Console\ScaffoldCronsCommand;
-use Deployer\Console\ScaffoldHooksCommand;
-use Deployer\Console\ScaffoldSupervisorsCommand;
-use Deployer\Console\Server\ServerAddCommand;
-use Deployer\Console\Server\ServerDeleteCommand;
-use Deployer\Console\Server\ServerFirewallCommand;
-use Deployer\Console\Server\ServerInfoCommand;
-use Deployer\Console\Server\ServerInstallCommand;
-use Deployer\Console\Server\ServerLogsCommand;
-use Deployer\Console\Server\ServerRunCommand;
-use Deployer\Console\Server\ServerSshCommand;
-use Deployer\Console\Site\SiteCreateCommand;
-use Deployer\Console\Site\SiteDeleteCommand;
-use Deployer\Console\Site\SiteDeployCommand;
-use Deployer\Console\Site\SiteHttpsCommand;
-use Deployer\Console\Site\SiteSharedPullCommand;
-use Deployer\Console\Site\SiteSharedPushCommand;
-use Deployer\Console\Site\SiteSshCommand;
-use Deployer\Console\Supervisor\SupervisorCreateCommand;
-use Deployer\Console\Supervisor\SupervisorDeleteCommand;
-use Deployer\Console\Supervisor\SupervisorLogsCommand;
-use Deployer\Console\Supervisor\SupervisorRestartCommand;
-use Deployer\Console\Supervisor\SupervisorStartCommand;
-use Deployer\Console\Supervisor\SupervisorStopCommand;
-use Deployer\Console\Supervisor\SupervisorSyncCommand;
-use Deployer\Services\VersionService;
+use DeployerPHP\Console\Cron\CronCreateCommand;
+use DeployerPHP\Console\Cron\CronDeleteCommand;
+use DeployerPHP\Console\Cron\CronSyncCommand;
+use DeployerPHP\Console\Mariadb\MariadbInstallCommand;
+use DeployerPHP\Console\Mariadb\MariadbLogsCommand;
+use DeployerPHP\Console\Mariadb\MariadbRestartCommand;
+use DeployerPHP\Console\Mariadb\MariadbStartCommand;
+use DeployerPHP\Console\Mariadb\MariadbStopCommand;
+use DeployerPHP\Console\Mysql\MysqlInstallCommand;
+use DeployerPHP\Console\Mysql\MysqlLogsCommand;
+use DeployerPHP\Console\Mysql\MysqlRestartCommand;
+use DeployerPHP\Console\Mysql\MysqlStartCommand;
+use DeployerPHP\Console\Mysql\MysqlStopCommand;
+use DeployerPHP\Console\Postgresql\PostgresqlInstallCommand;
+use DeployerPHP\Console\Postgresql\PostgresqlLogsCommand;
+use DeployerPHP\Console\Postgresql\PostgresqlRestartCommand;
+use DeployerPHP\Console\Postgresql\PostgresqlStartCommand;
+use DeployerPHP\Console\Postgresql\PostgresqlStopCommand;
+use DeployerPHP\Console\Pro\Aws\KeyAddCommand as AwsKeyAddCommand;
+use DeployerPHP\Console\Pro\Aws\KeyDeleteCommand as AwsKeyDeleteCommand;
+use DeployerPHP\Console\Pro\Aws\KeyListCommand as AwsKeyListCommand;
+use DeployerPHP\Console\Pro\Aws\ProvisionCommand as AwsProvisionCommand;
+use DeployerPHP\Console\Pro\Do\KeyAddCommand as DoKeyAddCommand;
+use DeployerPHP\Console\Pro\Do\KeyDeleteCommand as DoKeyDeleteCommand;
+use DeployerPHP\Console\Pro\Do\KeyListCommand as DoKeyListCommand;
+use DeployerPHP\Console\Pro\Do\ProvisionCommand as DoProvisionCommand;
+use DeployerPHP\Console\ScaffoldCronsCommand;
+use DeployerPHP\Console\ScaffoldHooksCommand;
+use DeployerPHP\Console\ScaffoldSupervisorsCommand;
+use DeployerPHP\Console\Server\ServerAddCommand;
+use DeployerPHP\Console\Server\ServerDeleteCommand;
+use DeployerPHP\Console\Server\ServerFirewallCommand;
+use DeployerPHP\Console\Server\ServerInfoCommand;
+use DeployerPHP\Console\Server\ServerInstallCommand;
+use DeployerPHP\Console\Server\ServerLogsCommand;
+use DeployerPHP\Console\Server\ServerRunCommand;
+use DeployerPHP\Console\Server\ServerSshCommand;
+use DeployerPHP\Console\Site\SiteCreateCommand;
+use DeployerPHP\Console\Site\SiteDeleteCommand;
+use DeployerPHP\Console\Site\SiteDeployCommand;
+use DeployerPHP\Console\Site\SiteHttpsCommand;
+use DeployerPHP\Console\Site\SiteSharedPullCommand;
+use DeployerPHP\Console\Site\SiteSharedPushCommand;
+use DeployerPHP\Console\Site\SiteSshCommand;
+use DeployerPHP\Console\Supervisor\SupervisorCreateCommand;
+use DeployerPHP\Console\Supervisor\SupervisorDeleteCommand;
+use DeployerPHP\Console\Supervisor\SupervisorLogsCommand;
+use DeployerPHP\Console\Supervisor\SupervisorRestartCommand;
+use DeployerPHP\Console\Supervisor\SupervisorStartCommand;
+use DeployerPHP\Console\Supervisor\SupervisorStopCommand;
+use DeployerPHP\Console\Supervisor\SupervisorSyncCommand;
+use DeployerPHP\Services\VersionService;
 use Symfony\Component\Console\Application as SymfonyApplication;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -76,7 +76,7 @@ final class SymfonyApp extends SymfonyApplication
         private readonly Container $container,
         private readonly VersionService $versionService,
     ) {
-        $name = 'Deployer';
+        $name = 'DeployerPHP';
         $version = $this->versionService->getVersion();
         parent::__construct($name, $version);
 
@@ -140,7 +140,7 @@ final class SymfonyApp extends SymfonyApplication
 
         $this->io->writeln([
             '',
-            '<fg=cyan>▒ ▶</> <fg=cyan;options=bold>Deployer</> <fg=cyan>━━━━━━━━━━━━━━━━</><fg=bright-blue>━━━━━━━━━━━━━━━━</><fg=magenta>━━━━━━━━━━━━━━━━</><fg=gray>━━━━━━━━━━━━━━━━━</>',
+            '<fg=cyan>▒ ▶</> <fg=cyan;options=bold>DeployerPHP</> <fg=cyan>━━━━━━━━━━━━━━━━</><fg=bright-blue>━━━━━━━━━━━━━━━━</><fg=magenta>━━━━━━━━━━━━━━━━</><fg=gray>━━━━━━━━━━━━━━━━━</>',
             '<fg=gray>▒ Ver: '.$version.'</>',
         ]);
     }

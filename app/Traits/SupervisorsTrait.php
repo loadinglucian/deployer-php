@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Traits;
+namespace DeployerPHP\Traits;
 
-use Deployer\DTOs\SiteDTO;
-use Deployer\DTOs\SupervisorDTO;
-use Deployer\Exceptions\ValidationException;
-use Deployer\Services\IoService;
+use DeployerPHP\DTOs\SiteDTO;
+use DeployerPHP\DTOs\SupervisorDTO;
+use DeployerPHP\Exceptions\ValidationException;
+use DeployerPHP\Services\IoService;
 use Symfony\Component\Console\Command\Command;
 
 /**
@@ -236,7 +236,7 @@ trait SupervisorsTrait
     /**
      * Validate supervisor selection exists for site.
      *
-     * @param array<int, \Deployer\DTOs\SupervisorDTO> $supervisors Available supervisors for the site
+     * @param array<int, \DeployerPHP\DTOs\SupervisorDTO> $supervisors Available supervisors for the site
      *
      * @return string|null Error message if invalid, null if valid
      */

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Traits;
+namespace DeployerPHP\Traits;
 
 /**
  * Centralized service display formatting.

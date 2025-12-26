@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Pro\Aws;
+namespace DeployerPHP\Console\Pro\Aws;
 
-use Deployer\Contracts\BaseCommand;
-use Deployer\DTOs\ServerDTO;
-use Deployer\Exceptions\ValidationException;
-use Deployer\Traits\AwsTrait;
-use Deployer\Traits\KeysTrait;
-use Deployer\Traits\PlaybooksTrait;
-use Deployer\Traits\ServersTrait;
+use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\DTOs\ServerDTO;
+use DeployerPHP\Exceptions\ValidationException;
+use DeployerPHP\Traits\AwsTrait;
+use DeployerPHP\Traits\KeysTrait;
+use DeployerPHP\Traits\PlaybooksTrait;
+use DeployerPHP\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

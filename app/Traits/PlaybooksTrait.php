@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Traits;
+namespace DeployerPHP\Traits;
 
-use Deployer\Container;
-use Deployer\DTOs\CronDTO;
-use Deployer\DTOs\ServerDTO;
-use Deployer\DTOs\SiteServerDTO;
-use Deployer\DTOs\SupervisorDTO;
-use Deployer\Exceptions\SshTimeoutException;
-use Deployer\Services\FilesystemService;
-use Deployer\Services\IoService;
-use Deployer\Services\SshService;
+use DeployerPHP\Container;
+use DeployerPHP\DTOs\CronDTO;
+use DeployerPHP\DTOs\ServerDTO;
+use DeployerPHP\DTOs\SiteServerDTO;
+use DeployerPHP\DTOs\SupervisorDTO;
+use DeployerPHP\Exceptions\SshTimeoutException;
+use DeployerPHP\Services\FilesystemService;
+use DeployerPHP\Services\IoService;
+use DeployerPHP\Services\SshService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Yaml\Yaml;
 

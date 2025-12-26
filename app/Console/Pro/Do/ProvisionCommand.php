@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Pro\Do;
+namespace DeployerPHP\Console\Pro\Do;
 
-use Deployer\Contracts\BaseCommand;
-use Deployer\DTOs\ServerDTO;
-use Deployer\Exceptions\ValidationException;
-use Deployer\Traits\DoTrait;
-use Deployer\Traits\KeysTrait;
-use Deployer\Traits\PlaybooksTrait;
-use Deployer\Traits\ServersTrait;
+use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\DTOs\ServerDTO;
+use DeployerPHP\Exceptions\ValidationException;
+use DeployerPHP\Traits\DoTrait;
+use DeployerPHP\Traits\KeysTrait;
+use DeployerPHP\Traits\PlaybooksTrait;
+use DeployerPHP\Traits\ServersTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

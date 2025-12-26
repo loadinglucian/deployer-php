@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Repositories;
+namespace DeployerPHP\Repositories;
 
-use Deployer\DTOs\ServerDTO;
-use Deployer\Services\InventoryService;
+use DeployerPHP\DTOs\ServerDTO;
+use DeployerPHP\Services\InventoryService;
 
 /**
  * Repository for server CRUD operations using inventory storage.

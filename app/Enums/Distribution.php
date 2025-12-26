@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Enums;
+namespace DeployerPHP\Enums;
 
 /**
  * Supported Linux distributions.

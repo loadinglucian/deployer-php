@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Services\Aws;
+namespace DeployerPHP\Services\Aws;
 
-use Deployer\Services\FilesystemService;
+use DeployerPHP\Services\FilesystemService;
 
 /**
  * AWS EC2 key pair management service.

@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Traits;
+namespace DeployerPHP\Traits;
 
-use Deployer\DTOs\ServerDTO;
-use Deployer\DTOs\SiteDTO;
-use Deployer\DTOs\SiteServerDTO;
-use Deployer\Exceptions\ValidationException;
-use Deployer\Repositories\ServerRepository;
-use Deployer\Repositories\SiteRepository;
-use Deployer\Services\GitService;
-use Deployer\Services\IoService;
-use Deployer\Services\ProcessService;
-use Deployer\Services\SshService;
+use DeployerPHP\DTOs\ServerDTO;
+use DeployerPHP\DTOs\SiteDTO;
+use DeployerPHP\DTOs\SiteServerDTO;
+use DeployerPHP\Exceptions\ValidationException;
+use DeployerPHP\Repositories\ServerRepository;
+use DeployerPHP\Repositories\SiteRepository;
+use DeployerPHP\Services\GitService;
+use DeployerPHP\Services\IoService;
+use DeployerPHP\Services\ProcessService;
+use DeployerPHP\Services\SshService;
 use Symfony\Component\Console\Command\Command;
 
 /**

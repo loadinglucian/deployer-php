@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Console\Site;
+namespace DeployerPHP\Console\Site;
 
-use Deployer\Contracts\BaseCommand;
-use Deployer\DTOs\SiteDTO;
-use Deployer\DTOs\SiteServerDTO;
-use Deployer\Exceptions\ValidationException;
-use Deployer\Traits\PlaybooksTrait;
-use Deployer\Traits\ServersTrait;
-use Deployer\Traits\SitesTrait;
+use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\DTOs\SiteDTO;
+use DeployerPHP\DTOs\SiteServerDTO;
+use DeployerPHP\Exceptions\ValidationException;
+use DeployerPHP\Traits\PlaybooksTrait;
+use DeployerPHP\Traits\ServersTrait;
+use DeployerPHP\Traits\SitesTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

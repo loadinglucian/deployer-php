@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\DTOs;
+namespace DeployerPHP\DTOs;
 
 readonly class CronDTO
 {

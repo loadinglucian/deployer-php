@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Services\Do;
+namespace DeployerPHP\Services\Do;
 
 use DigitalOceanV2\Entity\Droplet as DropletEntity;
 use DigitalOceanV2\Exception\ResourceNotFoundException;

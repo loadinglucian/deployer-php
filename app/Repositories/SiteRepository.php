@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Repositories;
+namespace DeployerPHP\Repositories;
 
-use Deployer\DTOs\CronDTO;
-use Deployer\DTOs\SiteDTO;
-use Deployer\DTOs\SupervisorDTO;
-use Deployer\Services\InventoryService;
+use DeployerPHP\DTOs\CronDTO;
+use DeployerPHP\DTOs\SiteDTO;
+use DeployerPHP\DTOs\SupervisorDTO;
+use DeployerPHP\Services\InventoryService;
 
 /**
  * Repository for site CRUD operations using inventory storage.

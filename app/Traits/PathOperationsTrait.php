@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Traits;
+namespace DeployerPHP\Traits;
 
-use Deployer\Exceptions\ValidationException;
+use DeployerPHP\Exceptions\ValidationException;
 
 trait PathOperationsTrait
 {

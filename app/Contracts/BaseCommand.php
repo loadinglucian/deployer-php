@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Deployer\Contracts;
+namespace DeployerPHP\Contracts;
 
-use Deployer\Container;
-use Deployer\Repositories\ServerRepository;
-use Deployer\Repositories\SiteRepository;
-use Deployer\Services\AwsService;
-use Deployer\Services\DoService;
-use Deployer\Services\EnvService;
-use Deployer\Services\FilesystemService;
-use Deployer\Services\GitService;
-use Deployer\Services\HttpService;
-use Deployer\Services\InventoryService;
-use Deployer\Services\IoService;
-use Deployer\Services\ProcessService;
-use Deployer\Services\SshService;
+use DeployerPHP\Container;
+use DeployerPHP\Repositories\ServerRepository;
+use DeployerPHP\Repositories\SiteRepository;
+use DeployerPHP\Services\AwsService;
+use DeployerPHP\Services\DoService;
+use DeployerPHP\Services\EnvService;
+use DeployerPHP\Services\FilesystemService;
+use DeployerPHP\Services\GitService;
+use DeployerPHP\Services\HttpService;
+use DeployerPHP\Services\InventoryService;
+use DeployerPHP\Services\IoService;
+use DeployerPHP\Services\ProcessService;
+use DeployerPHP\Services\SshService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
