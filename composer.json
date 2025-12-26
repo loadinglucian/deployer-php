@@ -34,7 +34,7 @@
         "pestphp/pest-plugin-arch": "^2.7",
         "phpmd/phpmd": "^2.15",
         "phpstan/phpstan": "^2.1",
-        "rector/rector": "^2.2"
+        "rector/rector": "^2.3"
     },
     "autoload": {
         "psr-4": {
