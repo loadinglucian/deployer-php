@@ -6,6 +6,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BATS_DIR="$SCRIPT_DIR"
 PROJECT_ROOT="$(cd "${BATS_DIR}/../.." && pwd)"
 
+# Load .env file if it exists (for AWS/DO credentials)
+if [[ -f "${PROJECT_ROOT}/.env" ]]; then
+	set -a
+	# shellcheck source=/dev/null
+	source "${PROJECT_ROOT}/.env"
+	set +a
+fi
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -308,6 +316,39 @@ clean_all_vms() {
 # Test Execution
 # ----
 
+# API-only tests (no VM required)
+API_ONLY_TESTS=("pro-aws" "pro-do")
+
+is_api_only_test() {
+	local test_filter="$1"
+	for api_test in "${API_ONLY_TESTS[@]}"; do
+		if [[ "$test_filter" == "$api_test" ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+run_api_tests() {
+	local test_filter="$1"
+	local exit_code=0
+	local bats_opts=("--print-output-on-failure")
+
+	echo ""
+	echo -e "${BLUE}Running API tests: ${test_filter}${NC}"
+	echo -e "${BLUE}(No VM required)${NC}"
+	echo ""
+
+	if [[ -f "${BATS_DIR}/${test_filter}.bats" ]]; then
+		bats "${bats_opts[@]}" "${BATS_DIR}/${test_filter}.bats" || exit_code=$?
+	else
+		echo -e "${RED}Test file not found: ${test_filter}.bats${NC}"
+		exit_code=1
+	fi
+
+	return $exit_code
+}
+
 run_tests_for_distro() {
     local distro="$1"
     local test_filter="${2:-}"
@@ -400,6 +441,12 @@ run_tests() {
     local test_filter="${1:-}"
     local exit_code=0
 
+    # API-only tests don't need VMs
+    if [[ -n "$test_filter" ]] && is_api_only_test "$test_filter"; then
+        run_api_tests "$test_filter"
+        return $?
+    fi
+
     # Interactive distro selection
     local selected
     selected=$(select_distro)
@@ -444,12 +491,15 @@ show_usage() {
     echo "Examples:"
     echo "  $0 run            # Run all tests (interactive distro selection)"
     echo "  $0 run server     # Run only server.bats"
+    echo "  $0 run pro-aws    # Run AWS API tests (no VM needed)"
+    echo "  $0 run pro-do     # Run DigitalOcean API tests (no VM needed)"
     echo "  $0 start          # Start all VMs"
     echo "  $0 start ubuntu24 # Start only ubuntu24 VM"
     echo "  $0 stop debian12  # Stop only debian12 VM"
     echo "  $0 ssh ubuntu24   # SSH into ubuntu24 VM"
     echo ""
     echo "Available distros: ${DISTROS[*]}"
+    echo "API-only tests (no VM): ${API_ONLY_TESTS[*]}"
     echo ""
     echo "Environment:"
     echo "  BATS_DEBUG=1      # Enable verbose debug output in tests"
