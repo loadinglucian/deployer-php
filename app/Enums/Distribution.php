@@ -13,34 +13,29 @@ enum Distribution: string
 {
     case UBUNTU = 'ubuntu';
     case DEBIAN = 'debian';
-    case FEDORA = 'fedora';
-    case CENTOS = 'centos';
-    case ROCKY = 'rocky';
-    case ALMA = 'alma';
-    case RHEL = 'rhel';
-    case AMAZON = 'amazon';
 
-    /**
-     * Get the distribution family.
-     */
-    public function family(): DistributionFamily
-    {
-        return match ($this) {
-            self::UBUNTU, self::DEBIAN => DistributionFamily::DEBIAN,
-            default => throw new \RuntimeException("Distribution '{$this->value}' is not supported. Use isSupported() to check before calling family()"),
-        };
-    }
+    // ----
+    // Codename Mappings
+    // ----
 
-    /**
-     * Check if distribution is supported.
-     */
-    public function isSupported(): bool
-    {
-        return match ($this) {
-            self::UBUNTU, self::DEBIAN => true,
-            default => false,
-        };
-    }
+    private const UBUNTU_CODENAMES = [
+        '20.04' => 'Focal Fossa',
+        '22.04' => 'Jammy Jellyfish',
+        '24.04' => 'Noble Numbat',
+        '26.04' => 'TBD',
+    ];
+
+    private const DEBIAN_CODENAMES = [
+        '10' => 'Buster',
+        '11' => 'Bullseye',
+        '12' => 'Bookworm',
+        '13' => 'Trixie',
+        '14' => 'Forky',
+    ];
+
+    // ----
+    // Display Methods
+    // ----
 
     /**
      * Get human-readable display name.
@@ -50,14 +45,51 @@ enum Distribution: string
         return match ($this) {
             self::UBUNTU => 'Ubuntu',
             self::DEBIAN => 'Debian',
-            self::FEDORA => 'Fedora',
-            self::CENTOS => 'CentOS',
-            self::ROCKY => 'Rocky Linux',
-            self::ALMA => 'AlmaLinux',
-            self::RHEL => 'Red Hat Enterprise Linux',
-            self::AMAZON => 'Amazon Linux',
         };
     }
+
+    /**
+     * Get codename for a version.
+     */
+    public function codename(string $version): string
+    {
+        return match ($this) {
+            self::UBUNTU => self::UBUNTU_CODENAMES[$version] ?? 'LTS',
+            self::DEBIAN => self::DEBIAN_CODENAMES[$version] ?? 'Stable',
+        };
+    }
+
+    /**
+     * Format version for display.
+     */
+    public function formatVersion(string $version): string
+    {
+        $codename = $this->codename($version);
+
+        return match ($this) {
+            self::UBUNTU => "{$this->displayName()} {$version} LTS ({$codename})",
+            self::DEBIAN => "{$this->displayName()} {$version} ({$codename})",
+        };
+    }
+
+    // ----
+    // Server Configuration
+    // ----
+
+    /**
+     * Get default SSH username for this distribution.
+     */
+    public function defaultSshUsername(): string
+    {
+        return match ($this) {
+            self::UBUNTU => 'ubuntu',
+            self::DEBIAN => 'admin',
+        };
+    }
+
+    // ----
+    // Static Helpers
+    // ----
 
     /**
      * Get all distribution slugs as array.
