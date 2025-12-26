@@ -47,7 +47,7 @@ class KeyAddCommand extends BaseCommand
         $this->h1('Add SSH Key to DigitalOcean');
 
         //
-        // Retrieve DigitalOcean account data
+        // Initialize DigitalOcean API
         // ----
 
         if (Command::FAILURE === $this->initializeDoAPI()) {

@@ -69,7 +69,7 @@ class ProvisionCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $keys = $this->ensureKeysAvailable($accountData['keys']);
+        $keys = $this->ensureDoKeysAvailable($accountData['keys']);
 
         if (Command::FAILURE === $keys) {
             return Command::FAILURE;

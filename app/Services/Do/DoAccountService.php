@@ -94,7 +94,7 @@ class DoAccountService extends BaseDoService
     }
 
     /**
-     * Get available OS images (filtered to supported distributions).
+     * Get available OS images (filtered to latest 2 versions per distribution).
      *
      * @return array<string, string> Array of image slug => description
      */
@@ -104,25 +104,44 @@ class DoAccountService extends BaseDoService
 
         try {
             $imageApi = $client->image();
-
-            // Get distribution images (not snapshots or backups)
             $images = $imageApi->getAll(['type' => 'distribution']);
 
-            $options = [];
+            // Parse and collect all valid images
+            $ubuntu = [];
+            $debian = [];
+
             foreach ($images as $image) {
                 /** @var ImageEntity $image */
-                // Filter to supported distributions only (Debian/Ubuntu)
-                if ('available' === $image->status && true === $image->public) {
-                    $distribution = strtolower($image->distribution ?? '');
-                    $distEnum = Distribution::tryFrom($distribution);
-
-                    if (null !== $distEnum && $distEnum->isSupported()) {
-                        $slug = $image->slug;
-                        if (null !== $slug && '' !== $slug) {
-                            $options[$slug] = "{$image->distribution} {$image->name}";
-                        }
-                    }
+                $parsed = $this->parseValidImage($image);
+                if (null === $parsed) {
+                    continue;
                 }
+
+                [$distribution, $slug, $version] = $parsed;
+
+                if (Distribution::UBUNTU === $distribution) {
+                    $ubuntu[$version] = ['slug' => $slug, 'version' => $version];
+                } else {
+                    $debian[$version] = ['slug' => $slug, 'version' => $version];
+                }
+            }
+
+            // Sort versions descending and limit to latest 2 each
+            // Cast to string because PHP converts numeric keys like "12" to int
+            uksort($ubuntu, fn ($a, $b) => version_compare((string) $b, (string) $a));
+            uksort($debian, fn ($a, $b) => version_compare((string) $b, (string) $a));
+
+            $ubuntu = array_slice($ubuntu, 0, 2, true);
+            $debian = array_slice($debian, 0, 2, true);
+
+            // Build options with formatted display
+            $options = [];
+
+            foreach ($ubuntu as $data) {
+                $options[$data['slug']] = Distribution::UBUNTU->formatVersion($data['version']);
+            }
+            foreach ($debian as $data) {
+                $options[$data['slug']] = Distribution::DEBIAN->formatVersion($data['version']);
             }
 
             asort($options);
@@ -131,6 +150,35 @@ class DoAccountService extends BaseDoService
         } catch (\Throwable $e) {
             throw new \RuntimeException('Failed to fetch images: ' . $e->getMessage(), 0, $e);
         }
+    }
+
+    /**
+     * Parse and validate an image entity.
+     *
+     * @return array{0: Distribution, 1: string, 2: string}|null Returns [Distribution, slug, version] or null
+     */
+    private function parseValidImage(ImageEntity $image): ?array
+    {
+        if ('available' !== $image->status || true !== $image->public) {
+            return null;
+        }
+
+        $slug = $image->slug;
+        if (null === $slug || '' === $slug) {
+            return null;
+        }
+
+        // Ubuntu LTS: ubuntu-24-04-x64 (only xx.04 versions)
+        if (preg_match('/^ubuntu-(\d+)-04/', $slug, $matches)) {
+            return [Distribution::UBUNTU, $slug, $matches[1] . '.04'];
+        }
+
+        // Debian: debian-12-x64
+        if (preg_match('/^debian-(\d+)/', $slug, $matches)) {
+            return [Distribution::DEBIAN, $slug, $matches[1]];
+        }
+
+        return null;
     }
 
     /**

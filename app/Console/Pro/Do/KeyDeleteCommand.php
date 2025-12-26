@@ -48,7 +48,7 @@ class KeyDeleteCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $selectedKey = $this->selectKey();
+        $selectedKey = $this->selectDoKey();
 
         if (is_int($selectedKey)) {
             return Command::FAILURE;

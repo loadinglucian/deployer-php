@@ -75,7 +75,7 @@ trait DoTrait
      * @param array<int|string, string>|null $keys Optional pre-fetched keys; if null, fetches from DigitalOcean API
      * @return array<int|string, string>|int Returns array of keys (ID => description) or Command::FAILURE
      */
-    protected function ensureKeysAvailable(?array $keys = null): array|int
+    protected function ensureDoKeysAvailable(?array $keys = null): array|int
     {
         //
         // Get all keys
@@ -109,12 +109,12 @@ trait DoTrait
      *
      * @return array{id: string|int, description: string}|int Array with selected key ID and description on success, or Command::FAILURE on error
      */
-    protected function selectKey(): array|int
+    protected function selectDoKey(): array|int
     {
         //
         // Get all keys
 
-        $availableKeys = $this->ensureKeysAvailable();
+        $availableKeys = $this->ensureDoKeysAvailable();
 
         if (is_int($availableKeys)) {
             return Command::FAILURE;
@@ -132,7 +132,7 @@ trait DoTrait
                     options: $availableKeys,
                     validate: $validate
                 ),
-                fn ($value) => $this->validateKeySelection($value, $availableKeys)
+                fn ($value) => $this->validateDoKeySelection($value, $availableKeys)
             );
         } catch (ValidationException $e) {
             $this->nay($e->getMessage());
@@ -296,7 +296,7 @@ trait DoTrait
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateKeySelection(mixed $keyId, array $validKeys): ?string
+    protected function validateDoKeySelection(mixed $keyId, array $validKeys): ?string
     {
         if (! is_string($keyId) && ! is_int($keyId)) {
             return 'Key ID must be a string or integer';

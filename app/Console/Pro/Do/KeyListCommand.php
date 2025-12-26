@@ -37,7 +37,7 @@ class KeyListCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $keys = $this->ensureKeysAvailable();
+        $keys = $this->ensureDoKeysAvailable();
 
         if (is_int($keys)) {
             return Command::FAILURE;
