@@ -100,7 +100,7 @@ final class Container
      */
     private function buildDependencies(array $parameters): array
     {
-        return array_values(array_map([$this, 'buildParameter'], $parameters));
+        return array_values(array_map($this->buildParameter(...), $parameters));
     }
 
     /**
