@@ -17,7 +17,7 @@ trait ServicesTrait
      * @var array<string, string>
      */
     private const SERVICE_LABELS = [
-        'caddy' => 'Caddy',
+        'nginx' => 'Nginx',
         'mariadb' => 'MariaDB',
         'memcached' => 'Memcached',
         'mysqld' => 'MySQL',
