@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DeployerPHP\Console\Caddy;
+namespace DeployerPHP\Console\Nginx;
 
 use DeployerPHP\Contracts\BaseCommand;
 use DeployerPHP\Traits\PlaybooksTrait;
@@ -14,10 +14,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'caddy:stop',
-    description: 'Stop Caddy service'
+    name: 'nginx:stop',
+    description: 'Stop Nginx service'
 )]
-class CaddyStopCommand extends BaseCommand
+class NginxStopCommand extends BaseCommand
 {
     use PlaybooksTrait;
     use ServersTrait;
@@ -41,7 +41,7 @@ class CaddyStopCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('Stop Caddy Service');
+        $this->h1('Stop Nginx Service');
 
         //
         // Select server
@@ -54,31 +54,31 @@ class CaddyStopCommand extends BaseCommand
         }
 
         //
-        // Stop Caddy service
+        // Stop Nginx service
         // ----
 
         $result = $this->executePlaybookSilently(
             $server,
-            'caddy-service',
-            'Stopping Caddy service...',
+            'nginx-service',
+            'Stopping Nginx service...',
             [
                 'DEPLOYER_ACTION' => 'stop',
             ],
         );
 
         if (is_int($result)) {
-            $this->nay('Failed to stop Caddy service');
+            $this->nay('Failed to stop Nginx service');
 
             return Command::FAILURE;
         }
 
-        $this->yay('Caddy service stopped');
+        $this->yay('Nginx service stopped');
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('caddy:stop', [
+        $this->commandReplay('nginx:stop', [
             'server' => $server->name,
         ]);
 
