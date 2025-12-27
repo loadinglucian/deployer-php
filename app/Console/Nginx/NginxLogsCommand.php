@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DeployerPHP\Console\Caddy;
+namespace DeployerPHP\Console\Nginx;
 
 use DeployerPHP\Contracts\BaseCommand;
 use DeployerPHP\Exceptions\ValidationException;
@@ -17,10 +17,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'caddy:logs',
-    description: 'View Caddy service and site logs'
+    name: 'nginx:logs',
+    description: 'View Nginx service and site logs'
 )]
-class CaddyLogsCommand extends BaseCommand
+class NginxLogsCommand extends BaseCommand
 {
     use LogsTrait;
     use PlaybooksTrait;
@@ -49,7 +49,7 @@ class CaddyLogsCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('Caddy Logs');
+        $this->h1('Nginx Logs');
 
         //
         // Select server
@@ -85,10 +85,10 @@ class CaddyLogsCommand extends BaseCommand
         $lineCount = (int) $lines;
 
         //
-        // Retrieve Caddy service logs
+        // Retrieve Nginx service logs
         // ----
 
-        $this->retrieveJournalLogs($server, 'Caddy Service', 'caddy', $lineCount);
+        $this->retrieveJournalLogs($server, 'Nginx Service', 'nginx', $lineCount);
 
         //
         // Retrieve site access logs
@@ -100,7 +100,7 @@ class CaddyLogsCommand extends BaseCommand
             $this->retrieveFileLogs(
                 $server,
                 "Site: {$site->domain}",
-                "/var/log/caddy/{$site->domain}-access.log",
+                "/var/log/nginx/{$site->domain}-access.log",
                 $lineCount
             );
         }
@@ -109,7 +109,7 @@ class CaddyLogsCommand extends BaseCommand
         // Show command replay
         // ----
 
-        $this->commandReplay('caddy:logs', [
+        $this->commandReplay('nginx:logs', [
             'server' => $server->name,
             'lines' => $lines,
         ]);

@@ -216,17 +216,17 @@ setup() {
     assert_remote_dir_exists "/home/deployer/sites"
 }
 
-@test "server:install installs Caddy web server" {
+@test "server:install installs Nginx web server" {
     add_test_server
 
     # Command failure fails the test
-    ssh_exec "command -v caddy"
+    ssh_exec "command -v nginx"
 }
 
-@test "server:install creates Caddy config structure" {
+@test "server:install creates Nginx config structure" {
     add_test_server
 
-    assert_remote_dir_exists "/etc/caddy/conf.d/sites"
+    assert_remote_dir_exists "/etc/nginx/sites-enabled"
 }
 
 @test "server:install installs PHP-FPM" {
@@ -283,13 +283,13 @@ setup() {
     assert_output_contains "No servers found"
 }
 
-@test "server:firewall configures UFW with Caddy admin port" {
+@test "server:firewall configures UFW with HTTP port" {
     add_test_server
 
-    # After server:install, Caddy admin API listens on port 2019
+    # After server:install, Nginx listens on port 80
     run_deployer server:firewall \
         --server="$TEST_SERVER_NAME" \
-        --allow="2019" \
+        --allow="80" \
         --yes
 
     debug_output

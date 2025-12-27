@@ -307,7 +307,7 @@ class SiteCreateCommand extends BaseCommand
      * Validate that server is ready to create a site.
      *
      * Checks for:
-     * - Caddy web server installed
+     * - Nginx web server installed
      * - PHP installed
      *
      * @param array<string, mixed> $info Server information from serverInfo()
@@ -315,13 +315,13 @@ class SiteCreateCommand extends BaseCommand
      */
     private function ensureServerInstalled(array $info): ?int
     {
-        // Check if Caddy is installed
-        $caddyInstalled = isset($info['caddy']) && is_array($info['caddy']) && true === ($info['caddy']['available'] ?? false);
+        // Check if Nginx is installed
+        $nginxInstalled = isset($info['nginx']) && is_array($info['nginx']) && true === ($info['nginx']['available'] ?? false);
 
         // Check if PHP is installed
         $phpInstalled = isset($info['php']) && is_array($info['php']) && isset($info['php']['versions']) && is_array($info['php']['versions']) && count($info['php']['versions']) > 0;
 
-        if (! $caddyInstalled || ! $phpInstalled) {
+        if (! $nginxInstalled || ! $phpInstalled) {
             $this->warn('Server has not been installed yet');
             $this->info('Run <|cyan>server:install</> to install the server first');
 

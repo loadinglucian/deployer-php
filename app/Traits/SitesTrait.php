@@ -300,7 +300,7 @@ trait SitesTrait
      *
      * Checks for:
      * - Site directory structure exists at /home/deployer/sites/{domain}
-     * - Caddy configuration file exists
+     * - Nginx configuration file exists
      *
      * @return int|null Returns Command::FAILURE if validation fails, null if successful
      */
@@ -310,7 +310,7 @@ trait SitesTrait
             $result = $this->ssh->executeCommand(
                 $server,
                 sprintf(
-                    'test -d /home/deployer/sites/%s && test -f /etc/caddy/conf.d/sites/%s.caddy',
+                    'test -d /home/deployer/sites/%s && test -f /etc/nginx/sites-available/%s',
                     escapeshellarg($site->domain),
                     escapeshellarg($site->domain)
                 )

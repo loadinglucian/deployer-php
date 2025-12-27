@@ -167,28 +167,6 @@ main() {
 	fi
 
 	#
-	# Caddy repository (same for both Ubuntu and Debian)
-	# ----
-
-	if ! [[ -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg ]]; then
-		echo "→ Adding Caddy GPG key..."
-		if ! curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | run_cmd gpg --batch --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg; then
-			echo "Error: Failed to add Caddy GPG key" >&2
-			exit 1
-		fi
-		repo_added=true
-	fi
-
-	if ! [[ -f /etc/apt/sources.list.d/caddy-stable.list ]]; then
-		echo "→ Adding Caddy repository..."
-		if ! curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | run_cmd tee /etc/apt/sources.list.d/caddy-stable.list > /dev/null; then
-			echo "Error: Failed to add Caddy repository" >&2
-			exit 1
-		fi
-		repo_added=true
-	fi
-
-	#
 	# PHP repository
 	# ----
 

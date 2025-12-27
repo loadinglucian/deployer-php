@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DeployerPHP\Console\Caddy;
+namespace DeployerPHP\Console\Nginx;
 
 use DeployerPHP\Contracts\BaseCommand;
 use DeployerPHP\Traits\PlaybooksTrait;
@@ -14,10 +14,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'caddy:start',
-    description: 'Start Caddy service'
+    name: 'nginx:restart',
+    description: 'Restart Nginx service'
 )]
-class CaddyStartCommand extends BaseCommand
+class NginxRestartCommand extends BaseCommand
 {
     use PlaybooksTrait;
     use ServersTrait;
@@ -41,7 +41,7 @@ class CaddyStartCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('Start Caddy Service');
+        $this->h1('Restart Nginx Service');
 
         //
         // Select server
@@ -54,31 +54,31 @@ class CaddyStartCommand extends BaseCommand
         }
 
         //
-        // Start Caddy service
+        // Restart Nginx service
         // ----
 
         $result = $this->executePlaybookSilently(
             $server,
-            'caddy-service',
-            'Starting Caddy service...',
+            'nginx-service',
+            'Restarting Nginx service...',
             [
-                'DEPLOYER_ACTION' => 'start',
+                'DEPLOYER_ACTION' => 'restart',
             ],
         );
 
         if (is_int($result)) {
-            $this->nay('Failed to start Caddy service');
+            $this->nay('Failed to restart Nginx service');
 
             return Command::FAILURE;
         }
 
-        $this->yay('Caddy service started');
+        $this->yay('Nginx service restarted');
 
         //
         // Show command replay
         // ----
 
-        $this->commandReplay('caddy:start', [
+        $this->commandReplay('nginx:restart', [
             'server' => $server->name,
         ]);
 

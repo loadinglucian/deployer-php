@@ -174,7 +174,7 @@ class SiteLogsCommand extends BaseCommand
                 'access' => $this->retrieveFileLogs(
                     $server,
                     "Access: {$domain}",
-                    "/var/log/caddy/{$domain}-access.log",
+                    "/var/log/nginx/{$domain}-access.log",
                     $lines
                 ),
                 'crons' => $this->displayCronLogs($server, $site, $lines),

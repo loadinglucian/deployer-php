@@ -22,6 +22,9 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'server:logs',
     description: 'View server logs (system, services, sites, and supervisors)'
 )]
+/**
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
+ */
 class ServerLogsCommand extends BaseCommand
 {
     use LogsTrait;
@@ -50,7 +53,7 @@ class ServerLogsCommand extends BaseCommand
      * @var array<string, array{type: string, unit?: string, path?: string}>
      */
     private const PORT_SOURCES = [
-        'caddy' => ['type' => 'journalctl', 'unit' => 'caddy'],
+        'nginx' => ['type' => 'journalctl', 'unit' => 'nginx'],
         'mariadb' => ['type' => 'both', 'unit' => 'mariadb', 'path' => '/var/log/mysql/error.log'],
         'memcached' => ['type' => 'both', 'unit' => 'memcached', 'path' => '/var/log/memcached.log'],
         'mysqld' => ['type' => 'both', 'unit' => 'mysql', 'path' => '/var/log/mysql/error.log'],
@@ -176,16 +179,34 @@ class ServerLogsCommand extends BaseCommand
         $info = $server->info;
         $options = [];
 
-        //
         // Static sources (always available)
-
         foreach (self::STATIC_SOURCES as $key => $source) {
             $options[$key] = $source['label'];
         }
 
-        //
         // Port-detected services
+        $this->addPortDetectedOptions($info, $options);
 
+        // PHP-FPM versions
+        $this->addPhpFpmOptions($info, $options);
+
+        // Sites (Nginx access logs)
+        $this->addSiteOptions($info, $options);
+
+        // Per-site resources (from inventory)
+        $this->addSiteResourceOptions($server, $options);
+
+        return $options;
+    }
+
+    /**
+     * Add port-detected service options.
+     *
+     * @param array<string, mixed> $info
+     * @param array<string, string> $options
+     */
+    private function addPortDetectedOptions(array $info, array &$options): void
+    {
         /** @var array<int, string> $ports */
         $ports = $info['ports'] ?? [];
 
@@ -196,63 +217,95 @@ class ServerLogsCommand extends BaseCommand
                 $options[$key] = $this->getServiceLabel($key);
             }
         }
+    }
 
-        //
-        // PHP-FPM versions
-
+    /**
+     * Add PHP-FPM version options.
+     *
+     * @param array<string, mixed> $info
+     * @param array<string, string> $options
+     */
+    private function addPhpFpmOptions(array $info, array &$options): void
+    {
         /** @var array<mixed, mixed> $phpData */
         $phpData = is_array($info['php'] ?? null) ? $info['php'] : [];
 
-        if (isset($phpData['versions']) && is_array($phpData['versions'])) {
-            foreach ($phpData['versions'] as $versionData) {
-                $version = null;
-
-                if (is_array($versionData) && isset($versionData['version'])) {
-                    /** @var mixed $versionValue */
-                    $versionValue = $versionData['version'];
-                    if (is_string($versionValue)) {
-                        $version = $versionValue;
-                    } elseif (is_int($versionValue) || is_float($versionValue)) {
-                        $version = (string) $versionValue;
-                    }
-                } elseif (is_string($versionData)) {
-                    $version = $versionData;
-                }
-
-                if (null !== $version && '' !== $version) {
-                    $key = "php{$version}-fpm";
-                    $options[$key] = "PHP {$version} FPM";
-                }
-            }
+        if (!isset($phpData['versions']) || !is_array($phpData['versions'])) {
+            return;
         }
 
-        //
-        // Sites (Caddy access logs)
+        foreach ($phpData['versions'] as $versionData) {
+            $version = $this->extractPhpVersion($versionData);
 
-        if (isset($info['sites_config']) && is_array($info['sites_config'])) {
-            foreach (array_keys($info['sites_config']) as $domain) {
-                $options[(string) $domain] = "Site: {$domain}";
+            if (null !== $version) {
+                $key = "php{$version}-fpm";
+                $options[$key] = "PHP {$version} FPM";
             }
         }
+    }
 
-        //
-        // Per-site resources (from inventory)
+    /**
+     * Extract PHP version string from version data.
+     */
+    private function extractPhpVersion(mixed $versionData): ?string
+    {
+        if (is_string($versionData) && '' !== $versionData) {
+            return $versionData;
+        }
 
+        if (!is_array($versionData) || !isset($versionData['version'])) {
+            return null;
+        }
+
+        /** @var mixed $versionValue */
+        $versionValue = $versionData['version'];
+
+        if (is_string($versionValue) && '' !== $versionValue) {
+            return $versionValue;
+        }
+
+        if (is_int($versionValue) || is_float($versionValue)) {
+            return (string) $versionValue;
+        }
+
+        return null;
+    }
+
+    /**
+     * Add site access log options.
+     *
+     * @param array<string, mixed> $info
+     * @param array<string, string> $options
+     */
+    private function addSiteOptions(array $info, array &$options): void
+    {
+        if (!isset($info['sites_config']) || !is_array($info['sites_config'])) {
+            return;
+        }
+
+        foreach (array_keys($info['sites_config']) as $domain) {
+            $options[(string) $domain] = "Site: {$domain}";
+        }
+    }
+
+    /**
+     * Add per-site resource options (crons, supervisors).
+     *
+     * @param array<string, string> $options
+     */
+    private function addSiteResourceOptions(ServerDTO $server, array &$options): void
+    {
         foreach ($this->sites->findByServer($server->name) as $site) {
-            // Cron scripts (one option per script)
             foreach ($site->crons as $cron) {
                 $key = "cron:{$site->domain}/{$cron->script}";
                 $options[$key] = "Cron: {$site->domain}/{$cron->script}";
             }
 
-            // Supervisor programs
             foreach ($site->supervisors as $supervisor) {
                 $key = "supervisor:{$site->domain}/{$supervisor->program}";
                 $options[$key] = "Supervisor: {$site->domain}/{$supervisor->program}";
             }
         }
-
-        return $options;
     }
 
     /**
@@ -271,114 +324,157 @@ class ServerLogsCommand extends BaseCommand
             : [];
 
         foreach ($services as $key) {
-            //
-            // Static sources
-
-            if (isset(self::STATIC_SOURCES[$key])) {
-                $source = self::STATIC_SOURCES[$key];
-                $this->retrieveJournalLogs($server, $source['label'], $source['unit'] ?? null, $lines);
-
-                continue;
-            }
-
-            //
-            // Port-detected sources
-
-            if (isset(self::PORT_SOURCES[$key])) {
-                $source = self::PORT_SOURCES[$key];
-                $label = $this->getServiceLabel($key);
-
-                /** @var string $sourceType */
-                $sourceType = $source['type'];
-
-                if ('both' === $sourceType) {
-                    /** @var string $unit */
-                    $unit = $source['unit'];
-                    /** @var string $path */
-                    $path = $source['path'] ?? '';
-                    $this->retrieveJournalLogs($server, "{$label} Service", $unit, $lines);
-                    $this->retrieveFileLogs($server, "{$label} Error Log", $path, $lines);
-                } else {
-                    match ($sourceType) {
-                        'journalctl' => $this->retrieveJournalLogs($server, $label, $source['unit'], $lines),
-                        'file' => $this->retrieveFileLogs($server, $label, $source['path'] ?? '', $lines),
-                        default => $this->warn("Unknown log type: {$sourceType}"),
-                    };
-                }
-
-                continue;
-            }
-
-            //
-            // PHP-FPM
-
-            if (str_starts_with($key, 'php') && str_ends_with($key, '-fpm')) {
-                $this->retrieveFileLogs($server, strtoupper($key), "/var/log/{$key}.log", $lines);
-
-                continue;
-            }
-
-            //
-            // Cron script logs
-
-            if (str_starts_with($key, 'cron:')) {
-                $parts = explode('/', substr($key, 5), 2);
-
-                if (2 !== count($parts)) {
-                    $this->warn("Invalid cron key format: {$key}");
-
-                    continue;
-                }
-
-                [$domain, $script] = $parts;
-                $scriptBase = pathinfo($script, PATHINFO_FILENAME);
-                $this->retrieveFileLogs(
-                    $server,
-                    "Cron: {$domain}/{$script}",
-                    "/var/log/cron/{$domain}-{$scriptBase}.log",
-                    $lines
-                );
-
-                continue;
-            }
-
-            //
-            // Supervisor program
-
-            if (str_starts_with($key, 'supervisor:')) {
-                $parts = explode('/', substr($key, 11), 2);
-
-                if (2 !== count($parts)) {
-                    $this->warn("Invalid supervisor key format: {$key}");
-
-                    continue;
-                }
-
-                [$domain, $program] = $parts;
-                $this->retrieveFileLogs(
-                    $server,
-                    "Supervisor: {$domain}/{$program}",
-                    "/var/log/supervisor/{$domain}-{$program}.log",
-                    $lines
-                );
-
-                continue;
-            }
-
-            //
-            // Site access log
-
-            if (in_array($key, $sites, true)) {
-                $this->retrieveFileLogs($server, "Site: {$key}", "/var/log/caddy/{$key}-access.log", $lines);
-
-                continue;
-            }
-
-            //
-            // Unknown source (fallthrough warning)
-
-            $this->warn("Unhandled log source: {$key}");
+            $this->displayLogForKey($server, $key, $sites, $lines);
         }
+    }
+
+    /**
+     * Display log for a single service key.
+     *
+     * @param list<string> $sites
+     */
+    private function displayLogForKey(ServerDTO $server, string $key, array $sites, int $lines): void
+    {
+        // Static sources
+        if ($this->displayStaticLog($server, $key, $lines)) {
+            return;
+        }
+
+        // Port-detected sources
+        if ($this->displayPortLog($server, $key, $lines)) {
+            return;
+        }
+
+        // PHP-FPM
+        if (str_starts_with($key, 'php') && str_ends_with($key, '-fpm')) {
+            $this->retrieveFileLogs($server, strtoupper($key), "/var/log/{$key}.log", $lines);
+
+            return;
+        }
+
+        // Cron script logs
+        if ($this->displayCronLog($server, $key, $lines)) {
+            return;
+        }
+
+        // Supervisor program
+        if ($this->displaySupervisorLog($server, $key, $lines)) {
+            return;
+        }
+
+        // Site access log
+        if (in_array($key, $sites, true)) {
+            $this->retrieveFileLogs($server, "Site: {$key}", "/var/log/nginx/{$key}-access.log", $lines);
+
+            return;
+        }
+
+        $this->warn("Unhandled log source: {$key}");
+    }
+
+    /**
+     * Display static source log if key matches.
+     */
+    private function displayStaticLog(ServerDTO $server, string $key, int $lines): bool
+    {
+        if (!isset(self::STATIC_SOURCES[$key])) {
+            return false;
+        }
+
+        $source = self::STATIC_SOURCES[$key];
+        $this->retrieveJournalLogs($server, $source['label'], $source['unit'] ?? null, $lines);
+
+        return true;
+    }
+
+    /**
+     * Display port-detected source log if key matches.
+     */
+    private function displayPortLog(ServerDTO $server, string $key, int $lines): bool
+    {
+        if (!isset(self::PORT_SOURCES[$key])) {
+            return false;
+        }
+
+        $source = self::PORT_SOURCES[$key];
+        $label = $this->getServiceLabel($key);
+
+        /** @var string $sourceType */
+        $sourceType = $source['type'];
+
+        if ('both' === $sourceType) {
+            /** @var string $unit */
+            $unit = $source['unit'];
+            /** @var string $path */
+            $path = $source['path'] ?? '';
+            $this->retrieveJournalLogs($server, "{$label} Service", $unit, $lines);
+            $this->retrieveFileLogs($server, "{$label} Error Log", $path, $lines);
+        } else {
+            match ($sourceType) {
+                'journalctl' => $this->retrieveJournalLogs($server, $label, $source['unit'], $lines),
+                'file' => $this->retrieveFileLogs($server, $label, $source['path'] ?? '', $lines),
+                default => $this->warn("Unknown log type: {$sourceType}"),
+            };
+        }
+
+        return true;
+    }
+
+    /**
+     * Display cron log if key matches.
+     */
+    private function displayCronLog(ServerDTO $server, string $key, int $lines): bool
+    {
+        if (!str_starts_with($key, 'cron:')) {
+            return false;
+        }
+
+        $parts = explode('/', substr($key, 5), 2);
+
+        if (2 !== count($parts)) {
+            $this->warn("Invalid cron key format: {$key}");
+
+            return true;
+        }
+
+        [$domain, $script] = $parts;
+        $scriptBase = pathinfo($script, PATHINFO_FILENAME);
+        $this->retrieveFileLogs(
+            $server,
+            "Cron: {$domain}/{$script}",
+            "/var/log/cron/{$domain}-{$scriptBase}.log",
+            $lines
+        );
+
+        return true;
+    }
+
+    /**
+     * Display supervisor log if key matches.
+     */
+    private function displaySupervisorLog(ServerDTO $server, string $key, int $lines): bool
+    {
+        if (!str_starts_with($key, 'supervisor:')) {
+            return false;
+        }
+
+        $parts = explode('/', substr($key, 11), 2);
+
+        if (2 !== count($parts)) {
+            $this->warn("Invalid supervisor key format: {$key}");
+
+            return true;
+        }
+
+        [$domain, $program] = $parts;
+        $this->retrieveFileLogs(
+            $server,
+            "Supervisor: {$domain}/{$program}",
+            "/var/log/supervisor/{$domain}-{$program}.log",
+            $lines
+        );
+
+        return true;
     }
 
     // ----
