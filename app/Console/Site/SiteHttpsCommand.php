@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'site:https',
-    description: 'Enable HTTPS for a site using Caddy automatic certificates'
+    description: 'Enable HTTPS for a site using Certbot'
 )]
 class SiteHttpsCommand extends BaseCommand
 {

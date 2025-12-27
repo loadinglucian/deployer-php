@@ -153,46 +153,32 @@ class ServerInfoCommand extends BaseCommand
 
         $this->displayFirewallDeets($info);
 
-        // Display Caddy information if available
-        if (isset($info['caddy']) && is_array($info['caddy']) && ($info['caddy']['available'] ?? false) === true) {
-            $caddyItems = [];
+        // Display Nginx information if available
+        if (isset($info['nginx']) && is_array($info['nginx']) && true === ($info['nginx']['available'] ?? false)) {
+            $nginxItems = [];
 
-            if (isset($info['caddy']['version']) && $info['caddy']['version'] !== 'unknown') {
+            if (isset($info['nginx']['version']) && 'unknown' !== $info['nginx']['version']) {
                 /** @var string $version */
-                $version = $info['caddy']['version'];
-                $caddyItems['Version'] = $version;
+                $version = $info['nginx']['version'];
+                $nginxItems['Version'] = $version;
             }
 
-            if (isset($info['caddy']['uptime_seconds'])) {
-                /** @var int|string|float $rawUptime */
-                $rawUptime = $info['caddy']['uptime_seconds'];
-                /** @var int $uptimeSeconds */
-                $uptimeSeconds = (int) $rawUptime;
-                $caddyItems['Uptime'] = $this->formatUptime($uptimeSeconds);
+            if (isset($info['nginx']['active_connections'])) {
+                /** @var int|string $activeConns */
+                $activeConns = $info['nginx']['active_connections'];
+                $nginxItems['Active Conn'] = $activeConns;
             }
 
-            if (isset($info['caddy']['total_requests'])) {
-                /** @var int|string|float $rawTotalReq */
-                $rawTotalReq = $info['caddy']['total_requests'];
-                /** @var int $totalReq */
-                $totalReq = (int) $rawTotalReq;
-                $caddyItems['Total Req'] = number_format($totalReq);
+            if (isset($info['nginx']['requests'])) {
+                /** @var int|string|float $rawRequests */
+                $rawRequests = $info['nginx']['requests'];
+                /** @var int $requests */
+                $requests = (int) $rawRequests;
+                $nginxItems['Requests'] = number_format($requests);
             }
 
-            if (isset($info['caddy']['active_requests'])) {
-                /** @var int|string $activeRequests */
-                $activeRequests = $info['caddy']['active_requests'];
-                $caddyItems['Active Req'] = $activeRequests;
-            }
-
-            if (isset($info['caddy']['memory_mb']) && $info['caddy']['memory_mb'] !== '0') {
-                /** @var string $memoryMb */
-                $memoryMb = $info['caddy']['memory_mb'];
-                $caddyItems['Memory'] = $memoryMb.' MB';
-            }
-
-            if (count($caddyItems) > 0) {
-                $this->displayDeets(['Caddy' => $caddyItems]);
+            if (count($nginxItems) > 0) {
+                $this->displayDeets(['Nginx' => $nginxItems]);
             }
         }
 
@@ -327,33 +313,4 @@ class ServerInfoCommand extends BaseCommand
             }
         }
     }
-
-    /**
-     * Format uptime seconds into human-readable string.
-     */
-    private function formatUptime(int $seconds): string
-    {
-        if ($seconds < 60) {
-            return "{$seconds}s";
-        }
-
-        if ($seconds < 3600) {
-            $minutes = floor($seconds / 60);
-
-            return "{$minutes}m";
-        }
-
-        if ($seconds < 86400) {
-            $hours = floor($seconds / 3600);
-            $minutes = floor(($seconds % 3600) / 60);
-
-            return "{$hours}h {$minutes}m";
-        }
-
-        $days = floor($seconds / 86400);
-        $hours = floor(($seconds % 86400) / 3600);
-
-        return "{$days}d {$hours}h";
-    }
-
 }
