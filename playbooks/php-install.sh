@@ -92,26 +92,26 @@ install_composer() {
 # Configure PHP-FPM for the installed version
 
 configure_php_fpm() {
-	echo "→ Configuring PHP-FPM..."
+	echo "→ Configuring PHP-FPM for PHP ${DEPLOYER_PHP_VERSION}..."
 
 	local pool_config="/etc/php/${DEPLOYER_PHP_VERSION}/fpm/pool.d/www.conf"
 
-	# Set socket ownership so Caddy can access it
-	if ! run_cmd sed -i 's/^;listen.owner = .*/listen.owner = caddy/' "$pool_config"; then
+	# Set socket ownership for Nginx (www-data user)
+	if ! run_cmd sed -i 's/^;*listen\.owner = .*/listen.owner = www-data/' "$pool_config"; then
 		echo "Error: Failed to set PHP-FPM socket owner" >&2
 		exit 1
 	fi
-	if ! run_cmd sed -i 's/^;listen.group = .*/listen.group = caddy/' "$pool_config"; then
+	if ! run_cmd sed -i 's/^;*listen\.group = .*/listen.group = www-data/' "$pool_config"; then
 		echo "Error: Failed to set PHP-FPM socket group" >&2
 		exit 1
 	fi
-	if ! run_cmd sed -i 's/^;listen.mode = .*/listen.mode = 0660/' "$pool_config"; then
+	if ! run_cmd sed -i 's/^;*listen\.mode = .*/listen.mode = 0660/' "$pool_config"; then
 		echo "Error: Failed to set PHP-FPM socket mode" >&2
 		exit 1
 	fi
 
 	# Enable PHP-FPM status page
-	if ! run_cmd sed -i 's/^;pm.status_path = .*/pm.status_path = \/fpm-status/' "$pool_config"; then
+	if ! run_cmd sed -i 's/^;*pm\.status_path = .*/pm.status_path = \/fpm-status/' "$pool_config"; then
 		echo "Error: Failed to enable PHP-FPM status page" >&2
 		exit 1
 	fi
@@ -183,77 +183,79 @@ set_as_default() {
 }
 
 #
-# Caddy Configuration
+# Nginx Configuration
 # ----
 
 #
-# Update Caddy localhost configuration with PHP-FPM endpoint
+# Add PHP-FPM status endpoint to Nginx stub_status config
 
-update_caddy_config() {
-	if ! [[ -f /etc/caddy/conf.d/localhost.caddy ]]; then
-		echo "Warning: localhost.caddy not found, skipping Caddy configuration"
+update_nginx_config() {
+	local stub_status="/etc/nginx/sites-available/stub_status"
+
+	if ! [[ -f "$stub_status" ]]; then
+		echo "Warning: stub_status config not found, skipping Nginx configuration"
 		return 0
 	fi
 
 	# Check if this PHP version's endpoint already exists
-	if grep -q "handle_path /php${DEPLOYER_PHP_VERSION}/" /etc/caddy/conf.d/localhost.caddy 2> /dev/null; then
+	if grep -q "location /php${DEPLOYER_PHP_VERSION}/" "$stub_status" 2> /dev/null; then
+		echo "→ PHP ${DEPLOYER_PHP_VERSION} status endpoint already configured"
 		return 0
 	fi
 
-	echo "→ Updating Caddy localhost configuration..."
+	echo "→ Adding PHP ${DEPLOYER_PHP_VERSION} status endpoint to Nginx..."
 
-	# Check if the marker exists (file should be created by server-install.sh)
-	if ! grep -q "#### DEPLOYER-PHP CONFIG, WARRANTY VOID IF REMOVED :) ####" /etc/caddy/conf.d/localhost.caddy 2> /dev/null; then
-		echo "Error: localhost.caddy marker not found. File may have been modified manually." >&2
+	# Check if the marker exists
+	if ! grep -q "#### DEPLOYER-PHP CONFIG ####" "$stub_status" 2> /dev/null; then
+		echo "Error: stub_status marker not found. File may have been modified manually." >&2
 		exit 1
 	fi
 
-	# Create temporary file with the new handle block
-	local temp_handle
-	temp_handle=$(mktemp)
+	# Create the new location block
+	local php_block="
+        # PHP ${DEPLOYER_PHP_VERSION} FPM Status
+        location /php${DEPLOYER_PHP_VERSION}/fpm-status {
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME /fpm-status;
+            fastcgi_pass unix:/run/php/php${DEPLOYER_PHP_VERSION}-fpm.sock;
+            access_log off;
+            allow 127.0.0.1;
+            deny all;
+        }
+"
 
-	cat > "$temp_handle" <<- EOF
-
-		handle_path /php${DEPLOYER_PHP_VERSION}/* {
-			reverse_proxy unix//run/php/php${DEPLOYER_PHP_VERSION}-fpm.sock {
-				transport fastcgi {
-					env SCRIPT_FILENAME /fpm-status
-					env SCRIPT_NAME /fpm-status
-				}
-			}
-		}
-	EOF
-
-	# Insert the handle block after the marker
+	# Insert before the marker using awk
 	local temp_config
 	temp_config=$(mktemp)
 
-	if ! awk -v handle="$(cat "$temp_handle")" '
-		/#### DEPLOYER-PHP CONFIG, WARRANTY VOID IF REMOVED :\) ####/ {
-			print
-			print handle
-			next
+	if ! awk -v block="$php_block" '
+		/#### DEPLOYER-PHP CONFIG ####/ {
+			print block
 		}
 		{ print }
-	' /etc/caddy/conf.d/localhost.caddy > "$temp_config"; then
-		rm -f "$temp_handle" "$temp_config"
-		echo "Error: Failed to update Caddy configuration" >&2
+	' "$stub_status" > "$temp_config"; then
+		rm -f "$temp_config"
+		echo "Error: Failed to generate Nginx configuration" >&2
 		exit 1
 	fi
 
-	# Replace the original file
-	if ! run_cmd cp "$temp_config" /etc/caddy/conf.d/localhost.caddy; then
-		rm -f "$temp_handle" "$temp_config"
-		echo "Error: Failed to write Caddy configuration" >&2
+	if ! run_cmd cp "$temp_config" "$stub_status"; then
+		rm -f "$temp_config"
+		echo "Error: Failed to write Nginx configuration" >&2
 		exit 1
 	fi
 
-	rm -f "$temp_handle" "$temp_config"
+	rm -f "$temp_config"
 
-	# Reload Caddy to apply changes
-	if systemctl is-active --quiet caddy 2> /dev/null; then
-		if ! run_cmd systemctl reload caddy 2> /dev/null; then
-			echo "Warning: Failed to reload Caddy configuration"
+	# Test and reload Nginx
+	if ! run_cmd nginx -t 2>&1; then
+		echo "Error: Nginx configuration test failed" >&2
+		exit 1
+	fi
+
+	if systemctl is-active --quiet nginx 2> /dev/null; then
+		if ! run_cmd systemctl reload nginx 2> /dev/null; then
+			echo "Warning: Failed to reload Nginx configuration"
 		fi
 	fi
 }
@@ -269,7 +271,7 @@ main() {
 	config_logrotate
 	set_as_default
 	install_composer
-	update_caddy_config
+	update_nginx_config
 
 	# Write output YAML
 	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then

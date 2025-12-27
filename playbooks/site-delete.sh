@@ -3,8 +3,8 @@
 #
 # Site Delete
 #
-# Removes site directory, Caddy configuration, cron entries, and supervisor
-# programs, then reloads affected services.
+# Removes site directory, Nginx configuration, SSL certificates, cron entries,
+# and supervisor programs, then reloads affected services.
 #
 # Output:
 #   status: success
@@ -180,36 +180,87 @@ delete_supervisor_logs() {
 }
 
 # ----
-# Caddy Cleanup Functions
+# Nginx Cleanup Functions
 # ----
 
 #
-# Delete Caddy vhost configuration
+# Delete Nginx virtual host configuration
 
-delete_caddy_vhost() {
+delete_nginx_vhost() {
 	local domain=$1
-	local vhost_file="/etc/caddy/conf.d/sites/${domain}.caddy"
+	local vhost_file="/etc/nginx/sites-available/${domain}"
+	local enabled_link="/etc/nginx/sites-enabled/${domain}"
 
+	# Remove enabled symlink first (disables the site)
+	if run_cmd test -L "$enabled_link"; then
+		echo "→ Disabling site ${domain}..."
+		if ! run_cmd rm -f "$enabled_link"; then
+			echo "Error: Failed to disable site" >&2
+			exit 1
+		fi
+	fi
+
+	# Remove vhost configuration file
 	if run_cmd test -f "$vhost_file"; then
-		echo "→ Deleting Caddy configuration for ${domain}..."
+		echo "→ Deleting Nginx configuration for ${domain}..."
 		if ! run_cmd rm -f "$vhost_file"; then
-			echo "Error: Failed to delete Caddy configuration" >&2
+			echo "Error: Failed to delete Nginx configuration" >&2
 			exit 1
 		fi
 	fi
 }
 
 #
-# Reload Caddy service
+# Delete SSL certificate and Certbot configuration
 
-reload_caddy() {
-	if systemctl is-active --quiet caddy 2> /dev/null; then
-		echo "→ Reloading Caddy..."
-		if ! run_cmd systemctl reload caddy; then
-			echo "Error: Failed to reload Caddy" >&2
-			exit 1
+delete_ssl_certificate() {
+	local domain=$1
+
+	# Check if certificate exists (could be under domain or www.domain)
+	local cert_exists=false
+
+	if run_cmd test -d "/etc/letsencrypt/live/${domain}"; then
+		cert_exists=true
+		echo "→ Revoking SSL certificate for ${domain}..."
+		# --non-interactive: Don't prompt for confirmation
+		# --cert-name: Specify certificate by name
+		run_cmd certbot delete --cert-name "$domain" --non-interactive 2> /dev/null || true
+	fi
+
+	if run_cmd test -d "/etc/letsencrypt/live/www.${domain}"; then
+		cert_exists=true
+		echo "→ Revoking SSL certificate for www.${domain}..."
+		run_cmd certbot delete --cert-name "www.${domain}" --non-interactive 2> /dev/null || true
+	fi
+
+	if [[ "$cert_exists" == "false" ]]; then
+		echo "→ No SSL certificate found for ${domain} (HTTPS may not have been enabled)"
+	fi
+
+	# Clean up any orphaned renewal configs (belt and suspenders)
+	run_cmd rm -f "/etc/letsencrypt/renewal/${domain}.conf" 2> /dev/null || true
+	run_cmd rm -f "/etc/letsencrypt/renewal/www.${domain}.conf" 2> /dev/null || true
+}
+
+#
+# Reload Nginx to apply configuration changes
+
+reload_nginx() {
+	# Test configuration before reload
+	if ! run_cmd nginx -t 2>&1; then
+		echo "Warning: Nginx configuration test failed - manual intervention may be required" >&2
+		return 1
+	fi
+
+	if systemctl is-active --quiet nginx 2> /dev/null; then
+		echo "→ Reloading Nginx..."
+		if ! run_cmd systemctl reload nginx; then
+			echo "Warning: Failed to reload Nginx" >&2
+			return 1
 		fi
 	fi
+
+	return 0
 }
 
 # ----
@@ -239,17 +290,24 @@ delete_site_files() {
 main() {
 	local domain=$DEPLOYER_SITE_DOMAIN
 
-	# Clean up crons (entries + logs)
+	# Clean up cron entries
 	delete_cron_entries "$domain"
 	delete_cron_logs "$domain"
 
-	# Clean up supervisors (stop programs + remove configs + logs)
+	# Clean up supervisor programs
 	delete_supervisor_programs "$domain"
 	delete_supervisor_logs "$domain"
 
-	# Clean up Caddy and site files
-	delete_caddy_vhost "$domain"
-	reload_caddy
+	# Clean up Nginx configuration
+	delete_nginx_vhost "$domain"
+
+	# Clean up SSL certificate and Certbot config
+	delete_ssl_certificate "$domain"
+
+	# Reload Nginx to apply changes
+	reload_nginx
+
+	# Delete site files (last, after all configs removed)
 	delete_site_files "$domain"
 
 	# Write output YAML

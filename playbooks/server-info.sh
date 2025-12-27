@@ -18,13 +18,13 @@
 #     versions:
 #       - version: "8.4"
 #         extensions: [cli, fpm, mysql, curl]
-#   caddy:
+#   nginx:
 #     available: true
-#     version: v2.9.1
+#     version: 1.24.0
 #     sites_count: 2
 #   ports:
 #     22: sshd
-#     80: caddy
+#     80: nginx
 #   ufw_installed: true
 #   ufw_active: true
 #   ufw_rules: [22/tcp, 80/tcp, 443/tcp]
@@ -239,64 +239,69 @@ detect_php_extensions() {
 # ----
 
 #
-# Caddy Metrics
+# Nginx Metrics
 # ----
 
-get_caddy_metrics() {
-	# Check if Caddy admin API is available on port 2019
-	if ! curl -sf --max-time 2 http://localhost:2019/config/ > /dev/null 2>&1; then
-		return 0
+get_nginx_metrics() {
+	# Check if Nginx is available
+	if ! command -v nginx > /dev/null 2>&1; then
+		echo "false"  # Not installed
+		return
+	fi
+
+	# Check if Nginx is running
+	if ! systemctl is-active --quiet nginx 2> /dev/null; then
+		echo "true\tunknown\t0\t0\t0\t0"  # Installed but not running
+		return
 	fi
 
 	# Get version
 	local version
-	version=$(caddy version 2> /dev/null | head -n1 | awk '{print $1}')
+	version=$(nginx -v 2>&1 | sed 's/nginx version: nginx\///' | head -n1)
 	[[ -z $version ]] && version="unknown"
 
-	# Get config to count sites and extract domains
-	local config sites_count domains
-	config=$(curl -sf --max-time 2 http://localhost:2019/config/apps/http/servers 2> /dev/null || echo "{}")
-
-	# Count configured sites (count server entries)
-	sites_count=$(echo "$config" | grep -c '"listen"' 2> /dev/null)
-	[[ -z $sites_count ]] && sites_count="0"
-
-	# Extract listening addresses/domains (simplified - gets host matchers)
-	domains=$(echo "$config" | grep -o '"host":\s*\["[^"]*"\]' | sed 's/"host":\s*\["\([^"]*\)"\]/\1/g' | tr '\n' ',' | sed 's/,$//' || echo "")
-
-	# Get uptime from process (Caddy process start time)
-	local uptime_seconds caddy_pid
-	if caddy_pid=$(pgrep -x caddy 2> /dev/null | head -n1); then
-		uptime_seconds=$(ps -p "$caddy_pid" -o etimes= 2> /dev/null | tr -d ' ')
+	# Get uptime from process
+	local uptime_seconds=0
+	local nginx_pid
+	if nginx_pid=$(pgrep -x nginx | head -n1 2> /dev/null); then
+		uptime_seconds=$(ps -p "$nginx_pid" -o etimes= 2> /dev/null | tr -d ' ')
 		[[ -z $uptime_seconds ]] && uptime_seconds="0"
-	else
-		uptime_seconds="0"
 	fi
 
-	# Get basic metrics from admin API
-	local metrics active_requests total_requests
-	metrics=$(curl -sf --max-time 2 http://localhost:2019/metrics 2> /dev/null || echo "")
+	# Query stub_status for metrics
+	local active_connections=0
+	local requests=0
 
-	# Parse Prometheus metrics for useful stats
-	# Active requests: sum of caddy_http_requests_in_flight (across all handlers)
-	active_requests=$(echo "$metrics" | grep '^caddy_http_requests_in_flight{' | awk '{sum+=$2} END {print sum+0}')
-	[[ -z $active_requests ]] && active_requests="0"
+	local stub_status
+	stub_status=$(curl -sf --max-time 2 http://127.0.0.1:8080/nginx_status 2> /dev/null || echo "")
 
-	# Total requests: sum across all handlers
-	total_requests=$(echo "$metrics" | grep '^caddy_http_requests_total{' | awk '{sum+=$2} END {print sum+0}')
-	[[ -z $total_requests ]] && total_requests="0"
+	if [[ -n $stub_status ]]; then
+		# Parse: Active connections: N
+		active_connections=$(echo "$stub_status" | grep 'Active connections:' | awk '{print $3}')
+		[[ -z $active_connections ]] && active_connections="0"
 
-	# Memory usage (process RSS in MB)
-	local memory_mb
-	if [[ -n $caddy_pid ]]; then
-		memory_mb=$(ps -p "$caddy_pid" -o rss= 2> /dev/null | awk '{printf "%.1f", $1/1024}')
+		# Parse server statistics line (format: "accepts handled requests")
+		local stats_line
+		stats_line=$(echo "$stub_status" | sed -n '3p' | tr -s ' ')
+		requests=$(echo "$stats_line" | awk '{print $3}')
+		[[ -z $requests ]] && requests="0"
+	fi
+
+	# Count configured sites (excluding stub_status)
+	local sites_count=0
+	if [[ -d /etc/nginx/sites-enabled ]]; then
+		sites_count=$(find /etc/nginx/sites-enabled -maxdepth 1 -type l ! -name 'stub_status' 2> /dev/null | wc -l)
+	fi
+
+	# Memory usage (master process RSS in MB)
+	local memory_mb=0
+	if [[ -n $nginx_pid ]]; then
+		memory_mb=$(ps -p "$nginx_pid" -o rss= 2> /dev/null | awk '{printf "%.1f", $1/1024}')
 		[[ -z $memory_mb ]] && memory_mb="0"
-	else
-		memory_mb="0"
 	fi
 
-	# Output as tab-separated values (tabs can't appear in version/domain strings)
-	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$version" "$sites_count" "$domains" "$uptime_seconds" "$active_requests" "$total_requests" "$memory_mb"
+	# Output: available version sites_count uptime_seconds active_connections requests
+	printf 'true\t%s\t%s\t%s\t%s\t%s\n' "$version" "$sites_count" "$uptime_seconds" "$active_connections" "$requests"
 }
 
 #
@@ -306,14 +311,14 @@ get_caddy_metrics() {
 get_php_fpm_metrics() {
 	local php_version=$1
 
-	# Check if PHP-FPM status endpoint is available for this version
-	if ! curl -sf --max-time 2 "http://localhost:9001/php${php_version}/fpm-status" > /dev/null 2>&1; then
+	# Check if PHP-FPM status endpoint is available for this version (via Nginx stub_status)
+	if ! curl -sf --max-time 2 "http://127.0.0.1:8080/php${php_version}/fpm-status" > /dev/null 2>&1; then
 		return 0
 	fi
 
 	# Get status in JSON format
 	local status
-	status=$(curl -sf --max-time 2 "http://localhost:9001/php${php_version}/fpm-status?json" 2> /dev/null || echo "{}")
+	status=$(curl -sf --max-time 2 "http://127.0.0.1:8080/php${php_version}/fpm-status?json" 2> /dev/null || echo "{}")
 
 	# Parse JSON fields using grep/sed (simple parsing without jq dependency)
 	local pool process_manager start_since accepted_conn
@@ -418,56 +423,47 @@ get_ufw_rules() {
 # ----
 
 get_sites_config() {
-	local sites_dir="/etc/caddy/conf.d/sites"
+	local sites_dir="/etc/nginx/sites-available"
 
 	if [[ ! -d "$sites_dir" ]]; then
 		return
 	fi
 
-	for config_file in "$sites_dir"/*.caddy; do
+	for config_file in "$sites_dir"/*; do
 		[[ -f "$config_file" ]] || continue
 
-		local domain
-		domain=$(basename "$config_file" .caddy)
+		local filename
+		filename=$(basename "$config_file")
 
-		# Read file content
+		# Skip non-site configs
+		[[ $filename == "stub_status" ]] && continue
+		[[ $filename == "default" ]] && continue
+
+		local domain=$filename
 		local content
-		content=$(cat "$config_file")
+		content=$(cat "$config_file" 2> /dev/null)
 
-		# PHP Version
+		# PHP Version - extract from fastcgi_pass directive
 		local php_version="unknown"
 		if [[ $content =~ php([0-9]+\.[0-9]+)-fpm\.sock ]]; then
 			php_version="${BASH_REMATCH[1]}"
 		fi
 
-		# WWW Mode
+		# WWW Mode - detect from comments or redirect patterns
 		local www_mode="unknown"
-		if [[ $content =~ "Redirect www -> root" ]]; then
+		if echo "$content" | grep -q "Redirect www -> root"; then
 			www_mode="redirect-to-root"
-		elif [[ $content =~ "Redirect root -> www" ]]; then
+		elif echo "$content" | grep -q "Redirect root -> www"; then
 			www_mode="redirect-to-www"
 		fi
 
-		# HTTPS Status
-		local https_enabled="true"
-
-		# IP-based HTTP-only site (e.g., status page listening on http://:80)
-		if [[ $content =~ http://:80 ]]; then
-			https_enabled="false"
-		elif [[ $www_mode == "redirect-to-root" ]]; then
-			if [[ $content =~ http://${domain} ]]; then
-				https_enabled="false"
-			fi
-		elif [[ $www_mode == "redirect-to-www" ]]; then
-			if [[ $content =~ http://www.${domain} ]]; then
-				https_enabled="false"
-			fi
-		else
-			if [[ $content =~ http://${domain} || $content =~ http://www.${domain} ]]; then
-				https_enabled="false"
-			fi
+		# HTTPS Status - check for SSL configuration
+		local https_enabled="false"
+		if echo "$content" | grep -q "listen.*443.*ssl"; then
+			https_enabled="true"
 		fi
 
+		# Output: domain php_version www_mode https_enabled
 		printf '%s\t%s\t%s\t%s\n' "$domain" "$php_version" "$www_mode" "$https_enabled"
 	done
 }
@@ -500,15 +496,12 @@ main() {
 	php_versions=$(detect_php_versions)
 	php_default=$(detect_php_default)
 
-	echo "→ Checking Caddy status..."
-	local caddy_metrics caddy_available="false"
-	local caddy_version caddy_sites caddy_domains caddy_uptime caddy_active_req caddy_total_req caddy_memory
-	caddy_metrics=$(get_caddy_metrics)
+	echo "→ Checking Nginx status..."
+	local nginx_info
+	nginx_info=$(get_nginx_metrics)
 
-	if [[ -n $caddy_metrics ]]; then
-		caddy_available="true"
-		IFS=$'\t' read -r caddy_version caddy_sites caddy_domains caddy_uptime caddy_active_req caddy_total_req caddy_memory <<< "$caddy_metrics"
-	fi
+	local nginx_available nginx_version nginx_sites nginx_uptime nginx_active nginx_requests
+	IFS=$'\t' read -r nginx_available nginx_version nginx_sites nginx_uptime nginx_active nginx_requests <<< "$nginx_info"
 
 	echo "→ Checking PHP-FPM status..."
 	local php_fpm_yaml="" has_fpm_metrics=false
@@ -591,20 +584,18 @@ main() {
 		fi
 	fi
 
-	# Continue with Caddy and PHP-FPM sections
+	# Continue with Nginx and PHP-FPM sections
 	if ! cat >> "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
-		caddy:
-		  available: $caddy_available
-		  version: ${caddy_version:-unknown}
-		  sites_count: ${caddy_sites:-0}
-		  domains: ${caddy_domains:-}
-		  uptime_seconds: ${caddy_uptime:-0}
-		  active_requests: ${caddy_active_req:-0}
-		  total_requests: ${caddy_total_req:-0}
-		  memory_mb: ${caddy_memory:-0}
+		nginx:
+		  available: ${nginx_available:-false}
+		  version: ${nginx_version:-unknown}
+		  sites_count: ${nginx_sites:-0}
+		  uptime_seconds: ${nginx_uptime:-0}
+		  active_connections: ${nginx_active:-0}
+		  requests: ${nginx_requests:-0}
 		php_fpm:
 	EOF
-		echo "Error: Failed to write Caddy metrics to $DEPLOYER_OUTPUT_FILE" >&2
+		echo "Error: Failed to write Nginx metrics to $DEPLOYER_OUTPUT_FILE" >&2
 		exit 1
 	fi
 

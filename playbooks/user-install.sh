@@ -42,32 +42,22 @@ setup_deployer() {
 	# Configure group memberships
 	# ----
 
-	# Add caddy user to deployer group for file access
-	if id -u caddy > /dev/null 2>&1; then
-		if ! id -nG caddy 2> /dev/null | grep -qw deployer; then
-			echo "→ Adding caddy user to deployer group..."
-			if ! run_cmd usermod -aG deployer caddy; then
-				echo "Error: Failed to add caddy to deployer group" >&2
-				exit 1
-			fi
-
-			if systemctl is-active --quiet caddy 2> /dev/null; then
-				echo "→ Restarting Caddy to apply group membership..."
-				if ! run_cmd systemctl restart caddy; then
-					echo "Error: Failed to restart Caddy" >&2
-					exit 1
-				fi
-			fi
-		fi
-	fi
-
-	# Add www-data (PHP-FPM user) to deployer group for file access
+	# Add www-data (Nginx/PHP-FPM user) to deployer group for file access
+	# This allows Nginx to read files owned by deployer user
 	if id -u www-data > /dev/null 2>&1; then
 		if ! id -nG www-data 2> /dev/null | grep -qw deployer; then
-			echo "→ Adding www-data user to deployer group..."
+			echo "→ Adding www-data to deployer group..."
 			if ! run_cmd usermod -aG deployer www-data; then
 				echo "Error: Failed to add www-data to deployer group" >&2
 				exit 1
+			fi
+
+			# Restart Nginx to apply group membership
+			if systemctl is-active --quiet nginx 2> /dev/null; then
+				echo "→ Restarting Nginx to apply group membership..."
+				if ! run_cmd systemctl restart nginx; then
+					echo "Warning: Failed to restart Nginx"
+				fi
 			fi
 
 			# Restart all active PHP-FPM services to apply group membership
@@ -75,11 +65,9 @@ setup_deployer() {
 			fpm_services=$(systemctl list-units --type=service --state=active 'php*-fpm.service' --no-legend 2> /dev/null | awk '{print $1}')
 
 			if [[ -n $fpm_services ]]; then
-				echo "→ Restarting PHP-FPM services to apply group membership..."
+				echo "→ Restarting PHP-FPM services..."
 				while IFS= read -r service; do
-					if ! run_cmd systemctl restart "$service"; then
-						echo "Warning: Failed to restart $service"
-					fi
+					run_cmd systemctl restart "$service" || echo "Warning: Failed to restart $service"
 				done <<< "$fpm_services"
 			fi
 		fi
