@@ -45,6 +45,7 @@ use DeployerPHP\Console\Site\SiteCreateCommand;
 use DeployerPHP\Console\Site\SiteDeleteCommand;
 use DeployerPHP\Console\Site\SiteDeployCommand;
 use DeployerPHP\Console\Site\SiteHttpsCommand;
+use DeployerPHP\Console\Site\SiteRollbackCommand;
 use DeployerPHP\Console\Site\SiteSharedPullCommand;
 use DeployerPHP\Console\Site\SiteSharedPushCommand;
 use DeployerPHP\Console\Site\SiteSshCommand;
@@ -187,10 +188,11 @@ final class SymfonyApp extends SymfonyApplication
 
             SiteCreateCommand::class,
             SiteDeleteCommand::class,
-            SiteHttpsCommand::class,
-            SiteSharedPushCommand::class,
-            SiteSharedPullCommand::class,
             SiteDeployCommand::class,
+            SiteHttpsCommand::class,
+            SiteRollbackCommand::class,
+            SiteSharedPullCommand::class,
+            SiteSharedPushCommand::class,
             SiteSshCommand::class,
 
             //
