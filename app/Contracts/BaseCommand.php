@@ -300,6 +300,28 @@ abstract class BaseCommand extends Command
     }
 
     /**
+     * Get the appropriate executable path for command replay.
+     *
+     * Detects whether deployer is running from a global Composer install
+     * or a project-level vendor directory.
+     */
+    protected function getExecutablePath(): string
+    {
+        /** @var string $scriptFilename */
+        $scriptFilename = $_SERVER['SCRIPT_FILENAME'] ?? '';
+        $scriptPath = realpath($scriptFilename);
+        $vendorBinPath = realpath(getcwd() . '/vendor/bin');
+
+        // If script is in project's vendor/bin, use relative path
+        if (false !== $scriptPath && false !== $vendorBinPath && str_starts_with($scriptPath, $vendorBinPath . '/')) {
+            return 'vendor/bin/deployer';
+        }
+
+        // Global install - just use the command name
+        return 'deployer';
+    }
+
+    /**
      * Display a command replay hint showing how to run non-interactively.
      *
      * @param array<string, mixed> $options Array of option name => value pairs
@@ -316,7 +338,7 @@ abstract class BaseCommand extends Command
             $option = $definition->hasOption($optionName) ? $definition->getOption($optionName) : null;
 
             if (is_bool($value)) {
-                if ($option !== null && $option->isNegatable()) {
+                if (null !== $option && $option->isNegatable()) {
                     $parts[] = $value ? '--'.$optionName : '--no-'.$optionName;
                 } elseif ($value) {
                     $parts[] = '--'.$optionName;
@@ -325,7 +347,7 @@ abstract class BaseCommand extends Command
                 continue;
             }
 
-            if ($value === null || $value === '') {
+            if (null === $value || '' === $value) {
                 continue;
             }
 
@@ -339,11 +361,14 @@ abstract class BaseCommand extends Command
         //
         // Display command hint
 
+        $executable = $this->getExecutablePath();
         $hasParts = count($parts) >= 1;
 
         $this->io->write([
             '<fg=gray>',
-            "\$> vendor/bin/deployer {$commandName} " . ($hasParts ? ' \\' : ''),
+            'Non-interactive command replay:',
+            '────────────────────────────────────────────────────────────────────────────',
+            "\$> {$executable} {$commandName} " . ($hasParts ? ' \\' : ''),
         ], true);
 
         foreach ($parts as $index => $part) {

@@ -251,7 +251,7 @@ class ServerDeleteCommand extends BaseCommand
         // Either we failed to destroy the server or the user provisioned their server manually somewhere else
         if (!$destroyed) {
             $this->warn('Your server may still be running and incurring costs');
-            $this->out('Check with your cloud provider to ensure it is fully terminated');
+            $this->warn('Check with your cloud provider to ensure it is fully terminated');
         }
 
         //

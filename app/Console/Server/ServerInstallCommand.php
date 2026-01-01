@@ -150,7 +150,7 @@ class ServerInstallCommand extends BaseCommand
             '',
             '<fg=yellow>' . $deployPublicKey . '</>',
             '',
-            '↑ IMPORTANT: Add the public key to your Git provider to enable deployments'
+            '↑ IMPORTANT: Add this public key to your Git provider to enable access to your repositories.'
         ], true);
 
         //
@@ -225,7 +225,8 @@ class ServerInstallCommand extends BaseCommand
                         'generate' => 'Use server-generated key pair',
                         'custom' => 'Use your own key pair',
                     ],
-                    default: 'generate'
+                    default: 'generate',
+                    hint: 'Used to access your repositories'
                 );
 
                 $deployKeyPath = ($choice === 'generate')
