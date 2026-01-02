@@ -1,13 +1,14 @@
 # Getting Started
 
-This guide will walk you through setting up a new server and deploying your first application with DeployerPHP.
+DeployerPHP streamlines the process of managing, installing, and deploying your servers and sites.
+
+This guide will walk you through setting up a new server and deploying your first site.
 
 - [Installation](#installation)
 - [Requirements](#requirements)
 - [Where Everything Is](#where-everything-is)
 - [Setting Up A New Server](#setting-up-new-server)
     - [Step 1: Add The New Server To Inventory](#add-new-server)
-    - [Delete A Server From Inventory](#delete-server)
     - [Step 2: Install The New Server](#install-new-server)
 
 <a name="installation"></a>
@@ -16,12 +17,12 @@ This guide will walk you through setting up a new server and deploying your firs
 
 You can install DeployerPHP via Composer as either a global dependency or a per-project dependency:
 
-```bash
+```shell
 # Global installation (recommended)
-composer global require loadinglucian/your-project
+composer global require loadinglucian/deployer-php
 
 # Or as a project dependency
-composer require loadinglucian/your-project
+composer require loadinglucian/deployer-php
 ```
 
 > [!NOTE]
@@ -29,13 +30,13 @@ composer require loadinglucian/your-project
 
 If installed globally, you can run DeployerPHP from anywhere:
 
-```bash
+```shell
 deployer list
 ```
 
 If installed as a project dependency, you can run DeployerPHP via the vendor bin inside your project:
 
-```bash
+```shell
 ./vendor/bin/deployer list
 ```
 
@@ -59,9 +60,9 @@ Your target servers should be running a supported Linux distribution:
 
 DeployerPHP is organized into several command groups.
 
-You've got your `server:*` commands that deal with server stuff:
+The `server:*` commands manage server operations:
 
-```bash
+```shell
 deployer server:add         # Add The New Server To Inventory
          server:delete      # Delete a server from inventory
          server:firewall    # Manage UFW firewall rules on the server
@@ -72,9 +73,9 @@ deployer server:add         # Add The New Server To Inventory
          server:ssh         # SSH into a server
 ```
 
-You've got your `site:*` commands that deal with site stuff:
+The `site:*` commands manage site operations:
 
-```bash
+```shell
 deployer site:create        # Create a new site on a server and add it to inventory
          site:delete        # Delete a site from a server and remove it from inventory
          site:deploy        # Deploy a site by running the deployment playbook and hooks
@@ -86,13 +87,13 @@ deployer site:create        # Create a new site on a server and add it to invent
          site:ssh           # SSH into a site directory
 ```
 
-And then you've got your service commands like `scaffold:*`, `cron:*`, `supervisor:*`, `nginx:*`, `php:*`, your database commands like `mariadb:*`, `mysql:*` and `postgresql:*`, your cache commands like `memcached:*`, `redis:*` and `valkey:*` and then you've got your `pro:*` commands for third-party API integrations with popular hosting providers.
+Other commands include `scaffold:*`, `cron:*`, `supervisor:*`, `nginx:*`, and `php:*` for managing various services. You'll also find database commands like `mariadb:*`, `mysql:*`, and `postgresql:*`, along with cache commands like `memcached:*`, `redis:*`, and `valkey:*`.
 
-Don't worry about what everything does right now.
+The `pro:*` commands provide convenient integration features with third-party cloud providers like AWS, DigitalOcean and others.
 
-This is just so you know where everything is.
+Don't worry about what everything does right now—this is just so you know where everything is.
 
-<a name="setting-up-server"></a>
+<a name="setting-up-new-server"></a>
 
 ## Setting Up A New Server
 
@@ -102,7 +103,7 @@ This is just so you know where everything is.
 
 First, add your new server to the inventory by running the `server:add` command:
 
-```bash
+```shell
 deployer server:add
 ```
 
@@ -122,7 +123,7 @@ DeployerPHP will prompt you for:
 
 DeployerPHP will then confirm the connection and add your server to the inventory:
 
-```bash
+```shell
 ❯ deployer server:add
 
 ▒ ▶ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -174,9 +175,9 @@ $> deployer server:add  \
 ```
 
 > [!NOTE]
-> DeployerPHP displays a copy-paste-ready, non-interactive command replay with all the prompts you entered. This lets you automate or repeat the operation if you need to.
+> DeployerPHP shows a non-interactive command replay that includes all the prompts you entered, allowing you to easily repeat or automate the operation as needed.
 
-> [!PRO]
+> [!NOTE]
 > You can use the `pro:aws:provision` or `pro:do:provision` commands to automatically provision and add a new EC2 instance or droplet to your inventory. It's super convenient if you want to spin up servers on the fly in your automation pipelines.
 
 #### Delete A Server From Inventory
@@ -189,7 +190,7 @@ DeployerPHP will prompt you for:
 - **Confirmation** - Type the server name to confirm deletion
 - **Final confirmation** - Confirm you want to proceed with deletion
 
-```bash
+```shell
 ▒ ▶ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ▒ Ver: dev-main
 ▒ Env: /Users/lucian/Developer/deployer-php/.env
@@ -234,8 +235,8 @@ $> deployer server:delete  \
 > [!NOTE]
 > You are responsible for making sure the server is no longer running or incurring costs with your hosting provider.
 
-> [!PRO]
-> If you used the `pro:aws:provision` or `pro:do:provision` commands to provision the server, the `server:delete` command will automatically destroy the EC2 instance or droplet for you. It's super convenient if you want to spin down servers on the fly after your automation pipelines finish.
+> [!NOTE]
+> If you used the `pro:aws:provision` or `pro:do:provision` commands to provision the server, the `server:delete` command will automatically destroy the cloud instance for you. It's super convenient if you want to spin up and spin down servers on the fly after your automation pipelines finish.
 
 <a name="install-new-server"></a>
 
@@ -243,7 +244,7 @@ $> deployer server:delete  \
 
 Second, install and configure your new server by running the `server:install` command:
 
-```bash
+```shell
 deployer server:install
 ```
 
@@ -257,7 +258,7 @@ DeployerPHP will prompt you for:
 - **PHP extensions** - The PHP extensions you want to install
 - **Deploy key** - The SSH private key used to access your repositories
 
-```bash
+```shell
 deployer server:install
 
 ▒ ▶ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -373,7 +374,9 @@ $> deployer server:install  \
 > [!NOTE]
 > After installation, add the highlighted public key to your Git provider to gain access to your repositories.
 
-Don't worry about what PHP version or extensions you choose to install. You can always run the command again at any time (even after deploying multiple sites) to install extra PHP versions and extensions, they'll all work in parallel.
+#### Install Multiple PHP Versions
+
+You can install multiple PHP versions, each with its own set of extensions, by running the `server:install` command again at any time, even after deploying multiple sites.
 
 > [!NOTE]
-> You can select which version of PHP you want to use for each individual site you deploy.
+> When you install multiple PHP versions, you can pick which one should be the default CLI version for your server, and then choose which version each site should use when you deploy it.

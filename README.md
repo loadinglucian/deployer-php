@@ -8,44 +8,43 @@
 [![PHP Version](https://img.shields.io/badge/php-%5E8.2-blue.svg)](https://php.net)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## Why does this exist?
+- [Introduction](#introduction)
+- [Features](#features)
+- [License](#license)
+- [Documentation](#documentation)
 
-```
-I built DeployerPHP because I wanted my server, deployment, and build configs
-to live in a repository, next to the code, instead of in a dashboard. That way,
-it can all be documented just like any other code and everybody on the team can
-see (and open a PR to update) how everything is built and deployed.
+<a name="introduction"></a>
 
-I wanted a tool that would let me install as many servers and deploy as many
-sites as I wanted, wherever I wanted. I didn't want to be limited by arbitrary
-subscription limits or tied to a single hosting provider.
+## Introduction
 
-I wanted a tool with composable commands so I could build automation pipelines
-to spin up and install servers, deploy sites or run workflows on demand.
+DeployerPHP allows you to easily manage, install, and deploy your servers and sites with configurations and build scripts stored directly in your repository, making everything documentable and PR-reviewable. You can install as many servers and deploy as many sites as you need.
 
-Finally, I wanted this tool to be written completely in PHP so it fits in with
-the rest of my code and tools I use day to day. I built it for myself because
-I want to use it but I hope you find it useful too!
+As a native PHP/Composer package, it integrates seamlessly into your existing toolchain and workflows.
 
--Lucian
-```
+<a name="features"></a>
 
-## Full disclosure
+## Features
 
-DeployerPHP will never limit you on what you can do: you'll always be able to manage all your servers and sites however you want, without restrictions or limitations. DeployerPHP doesn't belong to any corporation, and it's distributed under the MIT License -- that means it's completely free for you to use or modify however you want, for personal or commercial projects.
+- **Unlimited servers and sites** - No limits, restrictions or vendor lock-in
+- **Repository-driven configuration** - Configs and build scripts live with the rest of your code
+- **End-to-end server management** - Provision cloud instances, install services, and manage operations
+- **Composable commands** - Easily build automation pipelines to spin up servers, deploy sites, or run workflows on demand
 
-Now, DeployerPHP does have a set of "pro" features that revolve around small conveniences and third-party API integrations with popular hosting providers.
+**Pro Features:** DeployerPHP offers convenient integration features with third-party cloud providers like AWS, DigitalOcean and others. These features are free to use, although a modest subscription option may be introduced in the future to support development. The core server, site, and service management features will always remain free and unlimited.
 
-Even those are completetly free to use, but I am thinking of adding a nag-screen/WinRAR-style license for a modest subscription fee (or something like that), at some point.
+## License
 
-Eey, rent ain't free, am I right? Fuggedaboutit!
+DeployerPHP is open-source software distributed under the [MIT License](./LICENSE).
+
+You're free to use it however you want—personal or commercial projects, no restrictions.
 
 ## Documentation
 
 - [Getting Started](docs/getting-started.md)
     - [Installation](docs/getting-started.md#installation)
     - [Requirements](docs/getting-started.md#requirements)
-    - [Your First Deployment](docs/getting-started.md#your-first-deployment)
+    - [Where Everything Is](docs/getting-started.md#where-everything-is)
+    - [Setting Up A New Server](docs/getting-started.md#setting-up-new-server)
 - [Server Management](docs/servers.md)
     - [Adding a Server](docs/servers.md#adding-a-server)
     - [Installing a Server](docs/servers.md#installing-a-server)
