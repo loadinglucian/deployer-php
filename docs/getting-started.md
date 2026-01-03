@@ -6,7 +6,7 @@ This guide will walk you through setting up a new server and deploying your firs
 
 - [Installation](#installation)
 - [Requirements](#requirements)
-- [Where Everything Is](#where-everything-is)
+- [How Commands Are Organized](#how-commands-are-organized)
 - [Step 1: Adding a Server](#add-new-server)
 - [Step 2: Installing a Server](#install-new-server)
 
@@ -53,44 +53,20 @@ Your target servers should be running a supported Linux distribution:
 - Debian 11 or newer
 - Ubuntu 22.04 LTS or newer
 
-<a name="where-everything-is"></a>
+<a name="how-commands-are-organized"></a>
 
-## Where Everything Is
+## How Commands Are Organized
 
-DeployerPHP is organized into several command groups.
+DeployerPHP commands are grouped by what they manage:
 
-The `server:*` commands manage server operations:
-
-```shell
-deployer server:add         # Add The New Server To Inventory
-         server:delete      # Delete a server from inventory
-         server:firewall    # Manage UFW firewall rules on the server
-         server:info        # Display server information
-         server:install     # Install the server so it can host PHP applications
-         server:logs        # View server logs (system, services, sites, and supervisors)
-         server:run         # Run arbitrary command on a server
-         server:ssh         # SSH into a server
-```
-
-The `site:*` commands manage site operations:
-
-```shell
-deployer site:create        # Create a new site on a server and add it to inventory
-         site:delete        # Delete a site from a server and remove it from inventory
-         site:deploy        # Deploy a site by running the deployment playbook and hooks
-         site:https         # Enable HTTPS for a site using Certbot
-         site:logs          # View site logs (access, crons, and supervisors)
-         site:rollback      # Learn about forward-only deployments
-         site:shared:pull   # Download a file from a site's shared directory
-         site:shared:push   # Upload a file into a site's shared directory
-         site:ssh           # SSH into a site directory
-```
-
-Other commands include `scaffold:*`, `cron:*`, `supervisor:*`, `nginx:*`, and `php:*` for managing various services. You'll also find database commands like `mariadb:*`, `mysql:*`, and `postgresql:*`, along with cache commands like `memcached:*`, `redis:*`, and `valkey:*`.
-
-The `pro:*` commands provide convenient integration features with third-party cloud providers like AWS, DigitalOcean and others.
-
-Don't worry about what everything does right now—this is just so you know where everything is.
+- **`server:*`** — Add, install, delete, and SSH into servers
+- **`site:*`** — Create, deploy, delete, and manage sites
+- **`scaffold:*`** — Generate cron, hook, and supervisor config files
+- **`cron:*`** and **`supervisor:*`** — Scheduled tasks and background processes
+- **`nginx:*`** and **`php:*`** — Web server and PHP-FPM control
+- **`mariadb:*`**, **`mysql:*`**, **`postgresql:*`** — Database services
+- **`memcached:*`**, **`redis:*`**, **`valkey:*`** — Cache services
+- **`pro:*`** — Cloud provider integrations (AWS, DigitalOcean)
 
 <a name="add-new-server"></a>
 
