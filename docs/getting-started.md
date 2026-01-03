@@ -7,9 +7,8 @@ This guide will walk you through setting up a new server and deploying your firs
 - [Installation](#installation)
 - [Requirements](#requirements)
 - [Where Everything Is](#where-everything-is)
-- [Setting Up A New Server](#setting-up-new-server)
-    - [Step 1: Add The New Server To Inventory](#add-new-server)
-    - [Step 2: Install The New Server](#install-new-server)
+- [Step 1: Adding a Server](#add-new-server)
+- [Step 2: Installing a Server](#install-new-server)
 
 <a name="installation"></a>
 
@@ -93,13 +92,9 @@ The `pro:*` commands provide convenient integration features with third-party cl
 
 Don't worry about what everything does right now—this is just so you know where everything is.
 
-<a name="setting-up-new-server"></a>
-
-## Setting Up A New Server
-
 <a name="add-new-server"></a>
 
-### Step 1: Add The New Server To Inventory
+## Step 1: Adding a Server
 
 First, add your new server to the inventory by running the `server:add` command:
 
@@ -180,7 +175,7 @@ $> deployer server:add  \
 > [!NOTE]
 > You can use the `pro:aws:provision` or `pro:do:provision` commands to automatically provision and add a new EC2 instance or droplet to your inventory. It's super convenient if you want to spin up servers on the fly in your automation pipelines.
 
-#### Delete A Server From Inventory
+### Delete A Server From Inventory
 
 To delete a server from the inventory run the `server:delete` command.
 
@@ -240,7 +235,7 @@ $> deployer server:delete  \
 
 <a name="install-new-server"></a>
 
-### Step 2: Install The New Server
+## Step 2: Installing a Server
 
 Second, install and configure your new server by running the `server:install` command:
 
@@ -374,7 +369,7 @@ $> deployer server:install  \
 > [!NOTE]
 > After installation, add the highlighted public key to your Git provider to gain access to your repositories.
 
-#### Install Multiple PHP Versions
+### Install Multiple PHP Versions
 
 You can install multiple PHP versions, each with its own set of extensions, by running the `server:install` command again at any time, even after deploying multiple sites.
 
