@@ -91,7 +91,7 @@ deployer server:install \
 ```
 
 > [!NOTE]
-> After installation, the command displays the server's public deploy key. Add this key to your Git provider to allow deployments.
+> After installation, the command displays the server's public key. Add this key to your Git provider to enable access to your repositories.
 
 <a name="server-information"></a>
 
