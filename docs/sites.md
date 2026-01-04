@@ -54,13 +54,12 @@ You'll be prompted for:
 | `--server`      | Server from your inventory      |
 | `--domain`      | Site domain (e.g., example.com) |
 | `--php-version` | PHP version for this site       |
-| `--www`         | WWW handling mode               |
+| `--www-mode`    | WWW handling mode               |
 
 WWW handling options:
 
-- **none** - Only serve the exact domain
-- **www** - Redirect non-www to www
-- **non-www** - Redirect www to non-www
+- **redirect-to-root** - Redirect www to non-www
+- **redirect-to-www** - Redirect non-www to www
 
 For automation:
 
@@ -69,7 +68,7 @@ deployer site:create \
     --server=production \
     --domain=example.com \
     --php-version=8.3 \
-    --www=non-www
+    --www-mode=redirect-to-root
 ```
 
 This creates the directory structure at `/home/deployer/sites/example.com/`:
@@ -96,17 +95,19 @@ deployer site:deploy
 
 Options:
 
-| Option     | Description        |
-| ---------- | ------------------ |
-| `--site`   | Site domain        |
-| `--repo`   | Git repository URL |
-| `--branch` | Branch to deploy   |
+| Option            | Description                             |
+| ----------------- | --------------------------------------- |
+| `--domain`        | Site domain                             |
+| `--repo`          | Git repository URL                      |
+| `--branch`        | Branch to deploy                        |
+| `--keep-releases` | Number of releases to keep (default: 5) |
+| `--yes`, `-y`     | Skip confirmation prompt                |
 
 Example:
 
 ```bash
 deployer site:deploy \
-    --site=example.com \
+    --domain=example.com \
     --repo=git@github.com:user/app.git \
     --branch=main
 ```
@@ -164,7 +165,7 @@ The `shared/` directory contains files that persist across releases (like `.env`
 The `site:https` command installs an SSL certificate using Certbot:
 
 ```bash
-deployer site:https --site=example.com
+deployer site:https --domain=example.com
 ```
 
 This:
@@ -190,10 +191,25 @@ Shared files persist across deployments. Common examples include `.env` files, u
 The `site:shared:push` command uploads files to the shared directory:
 
 ```bash
-deployer site:shared:push --site=example.com
+deployer site:shared:push --domain=example.com
 ```
 
-You'll be prompted to select files from your local directory. Selected files are uploaded to `/home/deployer/sites/example.com/shared/`.
+Options:
+
+| Option     | Description                           |
+| ---------- | ------------------------------------- |
+| `--domain` | Site domain                           |
+| `--local`  | Local file path to upload             |
+| `--remote` | Remote filename (relative to shared/) |
+
+For automation:
+
+```bash
+deployer site:shared:push \
+    --domain=example.com \
+    --local=.env.production \
+    --remote=.env
+```
 
 <a name="pulling-files"></a>
 
@@ -202,10 +218,27 @@ You'll be prompted to select files from your local directory. Selected files are
 The `site:shared:pull` command downloads files from the shared directory:
 
 ```bash
-deployer site:shared:pull --site=example.com
+deployer site:shared:pull --domain=example.com
 ```
 
-This is useful for backing up configuration or syncing environment files.
+Options:
+
+| Option     | Description                           |
+| ---------- | ------------------------------------- |
+| `--domain` | Site domain                           |
+| `--remote` | Remote filename (relative to shared/) |
+| `--local`  | Local destination file path           |
+| `--yes`    | Skip overwrite confirmation           |
+
+For automation:
+
+```bash
+deployer site:shared:pull \
+    --domain=example.com \
+    --remote=.env \
+    --local=.env.backup \
+    --yes
+```
 
 <a name="viewing-logs"></a>
 
@@ -214,15 +247,31 @@ This is useful for backing up configuration or syncing environment files.
 The `site:logs` command displays site-specific logs:
 
 ```bash
-deployer site:logs --site=example.com --lines=100
+deployer site:logs --domain=example.com
 ```
+
+Options:
+
+| Option      | Description                                                      |
+| ----------- | ---------------------------------------------------------------- |
+| `--domain`  | Site domain                                                      |
+| `--lines`   | Number of lines to retrieve (default: 50)                        |
+| `--service` | Service(s) to view (comma-separated: access, crons, supervisors) |
 
 This shows:
 
 - Nginx access logs for the domain
-- Nginx error logs
-- Cron job output
-- Supervisor process output
+- Cron job output (if crons configured)
+- Supervisor process output (if supervisors configured)
+
+For automation:
+
+```bash
+deployer site:logs \
+    --domain=example.com \
+    --lines=100 \
+    --service=access,crons
+```
 
 <a name="ssh-access"></a>
 
@@ -231,7 +280,7 @@ This shows:
 The `site:ssh` command opens an SSH session in the site's directory:
 
 ```bash
-deployer site:ssh --site=example.com
+deployer site:ssh --domain=example.com
 ```
 
 You'll be logged in as the `deployer` user in `/home/deployer/sites/example.com/current/`.
@@ -243,10 +292,10 @@ You'll be logged in as the `deployer` user in `/home/deployer/sites/example.com/
 DeployerPHP follows a forward-only deployment philosophy:
 
 ```bash
-deployer site:rollback --site=example.com
+deployer site:rollback
 ```
 
-Rather than reverting to a previous release, this command provides guidance on fixing issues and redeploying. The reasoning is:
+Rather than reverting to a previous release, this command explains why forward-only deployments are preferred:
 
 - Rollbacks can leave databases in inconsistent states
 - Forward-only encourages proper testing before deployment
@@ -261,7 +310,7 @@ If you need to revert code, revert in Git and redeploy.
 The `site:delete` command removes a site:
 
 ```bash
-deployer site:delete --site=example.com
+deployer site:delete --domain=example.com
 ```
 
 Safety features:
@@ -273,9 +322,9 @@ Options:
 
 | Option             | Description                      |
 | ------------------ | -------------------------------- |
-| `--site`           | Site domain to delete            |
-| `--force`          | Skip type-to-confirm             |
-| `--yes`            | Skip Yes/No confirmation         |
+| `--domain`         | Site domain to delete            |
+| `--force`, `-f`    | Skip type-to-confirm             |
+| `--yes`, `-y`      | Skip Yes/No confirmation         |
 | `--inventory-only` | Only remove from local inventory |
 
 > [!WARNING]
@@ -285,7 +334,7 @@ Options:
 
 ## Cron Jobs
 
-Cron jobs run scheduled tasks for your site. DeployerPHP manages cron definitions in your repository and syncs them to the server.
+Cron jobs run scheduled tasks for your site. DeployerPHP manages cron scripts in your repository's `.deployer/crons/` directory and syncs them to the server.
 
 <a name="creating-cron-jobs"></a>
 
@@ -294,54 +343,49 @@ Cron jobs run scheduled tasks for your site. DeployerPHP manages cron definition
 The `cron:create` command adds a cron job to a site:
 
 ```bash
-deployer cron:create --site=example.com
+deployer cron:create --domain=example.com
 ```
 
-You'll be prompted for:
+Options:
 
-- **Name** - Identifier for the cron job
-- **Schedule** - Cron expression (e.g., `* * * * *` for every minute)
-- **Command** - The command to run
-- **User** - User to run as (default: deployer)
+| Option       | Description                                    |
+| ------------ | ---------------------------------------------- |
+| `--domain`   | Site domain                                    |
+| `--script`   | Cron script path within `.deployer/crons/`     |
+| `--schedule` | Cron schedule expression (e.g., `*/5 * * * *`) |
 
-For Laravel scheduled tasks:
+You'll be prompted to select a script from `.deployer/crons/` and provide a schedule.
+
+For automation:
 
 ```bash
 deployer cron:create \
-    --site=example.com \
-    --name=scheduler \
-    --schedule="* * * * *" \
-    --command="php artisan schedule:run"
+    --domain=example.com \
+    --script=scheduler.sh \
+    --schedule="* * * * *"
 ```
+
+> [!NOTE]
+> Run `scaffold:crons` to create example cron scripts in your repository.
 
 <a name="syncing-cron-jobs"></a>
 
 ### Syncing Cron Jobs
 
-The `cron:sync` command syncs cron definitions from your repository to the server:
+The `cron:sync` command syncs cron definitions from inventory to the server:
 
 ```bash
-deployer cron:sync --site=example.com
-```
-
-Define crons in `.deployer/crons.yml`:
-
-```yaml
-scheduler:
-    schedule: '* * * * *'
-    command: 'php artisan schedule:run'
-
-cleanup:
-    schedule: '0 3 * * *'
-    command: 'php artisan cleanup:old-records'
+deployer cron:sync --domain=example.com
 ```
 
 <a name="viewing-cron-logs"></a>
 
 ### Viewing Cron Logs
 
+The `cron:logs` command displays cron service and script logs for all sites on a server:
+
 ```bash
-deployer cron:logs --site=example.com --lines=100
+deployer cron:logs --server=production --lines=100
 ```
 
 <a name="deleting-cron-jobs"></a>
@@ -349,14 +393,23 @@ deployer cron:logs --site=example.com --lines=100
 ### Deleting Cron Jobs
 
 ```bash
-deployer cron:delete --site=example.com --name=cleanup
+deployer cron:delete --domain=example.com --script=cleanup.sh
 ```
+
+Options:
+
+| Option          | Description                            |
+| --------------- | -------------------------------------- |
+| `--domain`      | Site domain                            |
+| `--script`      | Cron script to delete                  |
+| `--force`, `-f` | Skip typing the script name to confirm |
+| `--yes`, `-y`   | Skip Yes/No confirmation               |
 
 <a name="supervisor-processes"></a>
 
 ## Supervisor Processes
 
-Supervisor manages long-running processes like queue workers, WebSocket servers, or custom daemons.
+Supervisor manages long-running processes like queue workers, WebSocket servers, or custom daemons. DeployerPHP manages supervisor scripts in your repository's `.deployer/supervisors/` directory.
 
 <a name="creating-processes"></a>
 
@@ -365,69 +418,69 @@ Supervisor manages long-running processes like queue workers, WebSocket servers,
 The `supervisor:create` command adds a supervised process:
 
 ```bash
-deployer supervisor:create --site=example.com
+deployer supervisor:create --domain=example.com
 ```
 
-You'll be prompted for:
+Options:
 
-- **Name** - Process identifier
-- **Command** - The command to run
-- **Processes** - Number of parallel processes
-- **User** - User to run as
+| Option           | Description                                |
+| ---------------- | ------------------------------------------ |
+| `--domain`       | Site domain                                |
+| `--program`      | Process name identifier                    |
+| `--script`       | Script in `.deployer/supervisors/`         |
+| `--autostart`    | Start on supervisord start (default: true) |
+| `--autorestart`  | Restart on exit (default: true)            |
+| `--stopwaitsecs` | Seconds to wait for stop (default: 3600)   |
+| `--numprocs`     | Number of process instances (default: 1)   |
 
-For Laravel queue workers:
+For automation:
 
 ```bash
 deployer supervisor:create \
-    --site=example.com \
-    --name=queue-worker \
-    --command="php artisan queue:work --sleep=3 --tries=3" \
-    --processes=2
+    --domain=example.com \
+    --program=queue-worker \
+    --script=queue.sh \
+    --numprocs=2
 ```
+
+> [!NOTE]
+> Run `scaffold:supervisors` to create example supervisor scripts in your repository.
 
 <a name="managing-processes"></a>
 
 ### Managing Processes
 
+The supervisor service commands operate at the server level, controlling the supervisord daemon:
+
 ```bash
-# Start a process
-deployer supervisor:start --site=example.com --name=queue-worker
+# Start supervisord service
+deployer supervisor:start --server=production
 
-# Stop a process
-deployer supervisor:stop --site=example.com --name=queue-worker
+# Stop supervisord service
+deployer supervisor:stop --server=production
 
-# Restart a process (useful after deployments)
-deployer supervisor:restart --site=example.com --name=queue-worker
+# Restart supervisord service (useful after deployments)
+deployer supervisor:restart --server=production
 ```
 
 <a name="syncing-processes"></a>
 
 ### Syncing Processes
 
-The `supervisor:sync` command syncs process definitions from your repository:
+The `supervisor:sync` command syncs process definitions from inventory to the server:
 
 ```bash
-deployer supervisor:sync --site=example.com
-```
-
-Define supervisors in `.deployer/supervisors.yml`:
-
-```yaml
-queue-worker:
-    command: 'php artisan queue:work --sleep=3 --tries=3'
-    processes: 2
-
-websocket:
-    command: 'php artisan websockets:serve'
-    processes: 1
+deployer supervisor:sync --domain=example.com
 ```
 
 <a name="viewing-supervisor-logs"></a>
 
 ### Viewing Supervisor Logs
 
+The `supervisor:logs` command displays supervisor service and program logs for all sites on a server:
+
 ```bash
-deployer supervisor:logs --site=example.com --name=queue-worker --lines=100
+deployer supervisor:logs --server=production --lines=100
 ```
 
 <a name="deleting-processes"></a>
@@ -435,14 +488,23 @@ deployer supervisor:logs --site=example.com --name=queue-worker --lines=100
 ### Deleting Processes
 
 ```bash
-deployer supervisor:delete --site=example.com --name=queue-worker
+deployer supervisor:delete --domain=example.com --program=queue-worker
 ```
+
+Options:
+
+| Option          | Description                             |
+| --------------- | --------------------------------------- |
+| `--domain`      | Site domain                             |
+| `--program`     | Supervisor program to delete            |
+| `--force`, `-f` | Skip typing the program name to confirm |
+| `--yes`, `-y`   | Skip Yes/No confirmation                |
 
 <a name="scaffolding"></a>
 
 ## Scaffolding
 
-Scaffolding commands generate the `.deployer/` directory structure in your project.
+Scaffolding commands generate the `.deployer/` directory structure in your project. All scaffold commands accept a `--destination` option to specify the project root directory (defaults to current directory).
 
 <a name="scaffolding-hooks"></a>
 
@@ -472,7 +534,14 @@ Templates are pre-filled for common PHP/Laravel workflows.
 deployer scaffold:crons
 ```
 
-This creates `.deployer/crons.yml` with example cron definitions.
+This creates `.deployer/crons/` with example cron scripts:
+
+```
+.deployer/
+└── crons/
+    ├── messenger.sh
+    └── scheduler.sh
+```
 
 <a name="scaffolding-supervisors"></a>
 
@@ -482,4 +551,11 @@ This creates `.deployer/crons.yml` with example cron definitions.
 deployer scaffold:supervisors
 ```
 
-This creates `.deployer/supervisors.yml` with example supervisor definitions.
+This creates `.deployer/supervisors/` with example supervisor scripts:
+
+```
+.deployer/
+└── supervisors/
+    ├── messenger.sh
+    └── queue-worker.sh
+```
