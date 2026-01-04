@@ -10,6 +10,7 @@
 
 - [Introduction](#introduction)
 - [Features](#features)
+- [Contributing](#contributing)
 - [License](#license)
 - [Documentation](#documentation)
 
@@ -31,6 +32,10 @@ As a native PHP/Composer package, it integrates seamlessly into your existing to
 - **Composable commands** - Easily build automation pipelines to spin up servers, deploy sites, or run workflows on demand
 
 **Pro Features:** DeployerPHP offers convenient integration features with third-party cloud providers like AWS, DigitalOcean and others. These features are free to use, although a modest subscription option may be introduced in the future to support development. The core server, site, and service management features will always remain free and unlimited.
+
+## Contributing
+
+Thank you for considering contributing to DeployerPHP! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
