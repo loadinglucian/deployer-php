@@ -41,7 +41,7 @@ Thank you for considering contributing to DeployerPHP! Please see [CONTRIBUTING.
 
 DeployerPHP is open-source software distributed under the [MIT License](./LICENSE).
 
-You're free to use it however you want—personal or commercial projects, no restrictions.
+You can use it freely for personal or commercial projects, without any restrictions.
 
 ## Documentation
 
