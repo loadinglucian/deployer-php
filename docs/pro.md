@@ -55,12 +55,21 @@ Required IAM permissions:
 - `ec2:RunInstances`
 - `ec2:DescribeInstances`
 - `ec2:TerminateInstances`
+- `ec2:DescribeInstanceTypes`
 - `ec2:CreateKeyPair`
 - `ec2:DeleteKeyPair`
 - `ec2:DescribeKeyPairs`
+- `ec2:DescribeImages`
+- `ec2:DescribeVpcs`
+- `ec2:DescribeSubnets`
+- `ec2:CreateSecurityGroup`
+- `ec2:AuthorizeSecurityGroupIngress`
+- `ec2:DescribeSecurityGroups`
 - `ec2:AllocateAddress`
 - `ec2:ReleaseAddress`
 - `ec2:AssociateAddress`
+- `ec2:DisassociateAddress`
+- `sts:GetCallerIdentity`
 
 <a name="aws-ssh-keys"></a>
 
@@ -70,28 +79,39 @@ Before provisioning, upload your SSH public key to AWS:
 
 ```bash
 # List existing keys
-deployer aws:key:list
+deployer pro:aws:key:list
 
 # Add a new key
-deployer aws:key:add
+deployer pro:aws:key:add
 
 # Delete a key
-deployer aws:key:delete
+deployer pro:aws:key:delete
 ```
+
+#### Listing Keys
+
+The `pro:aws:key:list` command displays all EC2 key pairs in your configured AWS region. It shows each key's name along with a truncated fingerprint for identification.
+
+This command has no options beyond the standard `--env` and `--inventory` flags.
 
 #### Adding Keys
 
 When adding a key, you'll be prompted for:
 
-- **Key name** - Identifier in AWS
-- **Public key path** - Path to your `.pub` file
+- **Public key path** - Path to your `.pub` file (leave empty to auto-detect `~/.ssh/id_ed25519.pub` or `~/.ssh/id_rsa.pub`)
+- **Key pair name** - Identifier in AWS (default: `deployer-key`)
+
+| Option              | Description          | Default        |
+| ------------------- | -------------------- | -------------- |
+| `--public-key-path` | SSH public key path  | Auto-detected  |
+| `--name`            | Key pair name in AWS | `deployer-key` |
 
 Example:
 
 ```bash
-deployer aws:key:add \
-    --name=deployer-key \
-    --public-key-path=~/.ssh/id_rsa.pub
+deployer pro:aws:key:add \
+    --public-key-path=~/.ssh/id_ed25519.pub \
+    --name=deployer-key
 ```
 
 #### Deleting Keys
@@ -111,7 +131,7 @@ When deleting a key, you'll be prompted for:
 Example:
 
 ```bash
-deployer aws:key:delete \
+deployer pro:aws:key:delete \
     --key=deployer-key \
     --force \
     --yes
@@ -121,10 +141,10 @@ deployer aws:key:delete \
 
 ### Provisioning Servers
 
-The `aws:provision` command creates a new EC2 instance:
+The `pro:aws:provision` command creates a new EC2 instance:
 
 ```bash
-deployer aws:provision
+deployer pro:aws:provision
 ```
 
 You'll be prompted for server details, instance configuration, and network settings. The command supports two approaches for instance type selection:
@@ -132,13 +152,13 @@ You'll be prompted for server details, instance configuration, and network setti
 **Direct instance type:**
 
 ```bash
-deployer aws:provision --instance-type=t3.large
+deployer pro:aws:provision --instance-type=t3.large
 ```
 
 **Two-step selection (family + size):**
 
 ```bash
-deployer aws:provision --instance-family=t3 --instance-size=large
+deployer pro:aws:provision --instance-family=t3 --instance-size=large
 ```
 
 #### Options
@@ -161,7 +181,7 @@ deployer aws:provision --instance-family=t3 --instance-size=large
 #### Example
 
 ```bash
-deployer aws:provision \
+deployer pro:aws:provision \
     --name=production \
     --instance-type=t3.small \
     --ami=ami-0123456789abcdef0 \
@@ -175,11 +195,15 @@ deployer aws:provision \
 
 DeployerPHP will:
 
-1. Launch an EC2 instance with the selected OS
-2. Configure a security group for SSH access
-3. Allocate an Elastic IP address
-4. Wait for the instance to be ready
-5. Add the server to your local inventory
+1. Verify your instance type is available in the selected region
+2. Create or reuse a "deployer" security group with SSH (22), HTTP (80), and HTTPS (443) rules
+3. Launch an EC2 instance with the selected OS and configuration
+4. Wait for the instance to reach the running state
+5. Allocate a new Elastic IP address and associate it with the instance
+6. Verify SSH connectivity to the new server
+7. Add the server to your local inventory
+
+If any step fails after the instance is created, DeployerPHP automatically rolls back by releasing the Elastic IP and terminating the instance.
 
 After provisioning, install the server:
 
@@ -220,28 +244,33 @@ Generate an API token at [https://cloud.digitalocean.com/account/api/tokens](htt
 
 ```bash
 # List existing keys
-deployer do:key:list
+deployer pro:do:key:list
 
 # Add a new key
-deployer do:key:add
+deployer pro:do:key:add
 
 # Delete a key
-deployer do:key:delete
+deployer pro:do:key:delete
 ```
 
 #### Adding Keys
 
 When adding a key, you'll be prompted for:
 
-- **Key name** - Identifier in DigitalOcean
-- **Public key path** - Path to your `.pub` file
+- **Public key path** - Path to your `.pub` file (leave empty to auto-detect `~/.ssh/id_ed25519.pub` or `~/.ssh/id_rsa.pub`)
+- **Key name** - Identifier in DigitalOcean (default: `deployer-key`)
+
+| Option              | Description                      | Default        |
+| ------------------- | -------------------------------- | -------------- |
+| `--public-key-path` | SSH public key path              | Auto-detected  |
+| `--name`            | Key name in DigitalOcean account | `deployer-key` |
 
 Example:
 
 ```bash
-deployer do:key:add \
-    --name=deployer-key \
-    --public-key-path=~/.ssh/id_rsa.pub
+deployer pro:do:key:add \
+    --public-key-path=~/.ssh/id_ed25519.pub \
+    --name=deployer-key
 ```
 
 #### Deleting Keys
@@ -261,7 +290,7 @@ When deleting a key, you'll be prompted for:
 Example:
 
 ```bash
-deployer do:key:delete \
+deployer pro:do:key:delete \
     --key=12345678 \
     --force \
     --yes
@@ -271,10 +300,10 @@ deployer do:key:delete \
 
 ### Provisioning Droplets
 
-The `do:provision` command creates a new Droplet:
+The `pro:do:provision` command creates a new Droplet:
 
 ```bash
-deployer do:provision
+deployer pro:do:provision
 ```
 
 You'll be prompted for server details, droplet configuration, and optional features.
@@ -300,7 +329,7 @@ You'll be prompted for server details, droplet configuration, and optional featu
 #### Example
 
 ```bash
-deployer do:provision \
+deployer pro:do:provision \
     --name=production \
     --region=nyc3 \
     --size=s-1vcpu-2gb \
@@ -353,4 +382,4 @@ Common Droplet sizes:
 | `s-2vcpu-4gb`        | 2 vCPU, 4GB, 80GB   | $24     |
 | `s-4vcpu-8gb`        | 4 vCPU, 8GB, 160GB  | $48     |
 
-Use `deployer do:provision` interactively to see all available options.
+Use `deployer pro:do:provision` interactively to see all available options.
