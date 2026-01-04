@@ -10,6 +10,10 @@ Thank you for considering contributing to DeployerPHP! We welcome contributions 
 
 For significant changes, please open an issue first to discuss your approach.
 
+## Using Claude Code
+
+If you use [Claude Code](https://docs.anthropic.com/en/docs/claude-code), check out my [dotclaude](https://github.com/loadinglucian/dotclaude) repository for rules, commands and agents that I've used to streamline my workflow while working on DeployerPHP.
+
 ## Code of Conduct
 
 We are committed to providing a welcoming and harassment-free experience for everyone, regardless of background or identity.
