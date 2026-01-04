@@ -79,6 +79,8 @@ deployer aws:key:add
 deployer aws:key:delete
 ```
 
+#### Adding Keys
+
 When adding a key, you'll be prompted for:
 
 - **Key name** - Identifier in AWS
@@ -92,6 +94,29 @@ deployer aws:key:add \
     --public-key-path=~/.ssh/id_rsa.pub
 ```
 
+#### Deleting Keys
+
+When deleting a key, you'll be prompted for:
+
+- **Key** - The AWS key pair name to delete
+- **Type-to-confirm** - Type the key name to confirm deletion
+- **Yes/No confirmation** - Final confirmation before deletion
+
+| Option           | Description                         |
+| ---------------- | ----------------------------------- |
+| `--key`          | AWS key pair name                   |
+| `--force` / `-f` | Skip typing the key name to confirm |
+| `--yes` / `-y`   | Skip Yes/No confirmation prompt     |
+
+Example:
+
+```bash
+deployer aws:key:delete \
+    --key=deployer-key \
+    --force \
+    --yes
+```
+
 <a name="aws-provisioning"></a>
 
 ### Provisioning Servers
@@ -102,31 +127,59 @@ The `aws:provision` command creates a new EC2 instance:
 deployer aws:provision
 ```
 
-You'll be prompted for:
+You'll be prompted for server details, instance configuration, and network settings. The command supports two approaches for instance type selection:
 
-| Option            | Description                    |
-| ----------------- | ------------------------------ |
-| `--name`          | Server name for your inventory |
-| `--region`        | AWS region (e.g., us-east-1)   |
-| `--instance-type` | Instance size (e.g., t3.micro) |
-| `--key-name`      | SSH key name in AWS            |
+**Direct instance type:**
 
-Example:
+```bash
+deployer aws:provision --instance-type=t3.large
+```
+
+**Two-step selection (family + size):**
+
+```bash
+deployer aws:provision --instance-family=t3 --instance-size=large
+```
+
+#### Options
+
+| Option               | Description                                             |
+| -------------------- | ------------------------------------------------------- |
+| `--name`             | Server name for your inventory                          |
+| `--instance-type`    | Full instance type (e.g., t3.large) - skips family/size |
+| `--instance-family`  | Instance family (e.g., t3, m6i, c7g)                    |
+| `--instance-size`    | Instance size (e.g., micro, large, xlarge)              |
+| `--ami`              | AMI ID for the OS image                                 |
+| `--key-pair`         | AWS key pair name for SSH access                        |
+| `--private-key-path` | Path to your SSH private key                            |
+| `--vpc`              | VPC ID for network isolation                            |
+| `--subnet`           | Subnet ID (determines availability zone)                |
+| `--disk-size`        | Root disk size in GB (default: 8)                       |
+| `--monitoring`       | Enable detailed CloudWatch monitoring (extra cost)      |
+| `--no-monitoring`    | Disable detailed monitoring                             |
+
+#### Example
 
 ```bash
 deployer aws:provision \
     --name=production \
-    --region=us-east-1 \
     --instance-type=t3.small \
-    --key-name=deployer-key
+    --ami=ami-0123456789abcdef0 \
+    --key-pair=deployer-key \
+    --private-key-path=~/.ssh/id_rsa \
+    --vpc=vpc-12345678 \
+    --subnet=subnet-12345678 \
+    --disk-size=20 \
+    --monitoring
 ```
 
 DeployerPHP will:
 
-1. Launch an EC2 instance with Ubuntu
-2. Allocate an Elastic IP address
-3. Wait for the instance to be ready
-4. Add the server to your local inventory
+1. Launch an EC2 instance with the selected OS
+2. Configure a security group for SSH access
+3. Allocate an Elastic IP address
+4. Wait for the instance to be ready
+5. Add the server to your local inventory
 
 After provisioning, install the server:
 
@@ -176,12 +229,42 @@ deployer do:key:add
 deployer do:key:delete
 ```
 
+#### Adding Keys
+
+When adding a key, you'll be prompted for:
+
+- **Key name** - Identifier in DigitalOcean
+- **Public key path** - Path to your `.pub` file
+
 Example:
 
 ```bash
 deployer do:key:add \
     --name=deployer-key \
     --public-key-path=~/.ssh/id_rsa.pub
+```
+
+#### Deleting Keys
+
+When deleting a key, you'll be prompted for:
+
+- **Key** - The DigitalOcean SSH key ID to delete
+- **Type-to-confirm** - Type the key ID to confirm deletion
+- **Yes/No confirmation** - Final confirmation before deletion
+
+| Option           | Description                       |
+| ---------------- | --------------------------------- |
+| `--key`          | DigitalOcean public SSH key ID    |
+| `--force` / `-f` | Skip typing the key ID to confirm |
+| `--yes` / `-y`   | Skip Yes/No confirmation prompt   |
+
+Example:
+
+```bash
+deployer do:key:delete \
+    --key=12345678 \
+    --force \
+    --yes
 ```
 
 <a name="do-provisioning"></a>
@@ -194,29 +277,44 @@ The `do:provision` command creates a new Droplet:
 deployer do:provision
 ```
 
-You'll be prompted for:
+You'll be prompted for server details, droplet configuration, and optional features.
 
-| Option      | Description                      |
-| ----------- | -------------------------------- |
-| `--name`    | Server name for your inventory   |
-| `--region`  | DigitalOcean region (e.g., nyc1) |
-| `--size`    | Droplet size (e.g., s-1vcpu-1gb) |
-| `--ssh-key` | SSH key name in DigitalOcean     |
+#### Options
 
-Example:
+| Option               | Description                            |
+| -------------------- | -------------------------------------- |
+| `--name`             | Server name for your inventory         |
+| `--region`           | DigitalOcean region (e.g., nyc3, sfo3) |
+| `--size`             | Droplet size (e.g., s-1vcpu-1gb)       |
+| `--image`            | OS image (e.g., ubuntu-24-04-x64)      |
+| `--ssh-key-id`       | SSH key ID in DigitalOcean             |
+| `--private-key-path` | Path to your SSH private key           |
+| `--vpc-uuid`         | VPC UUID for network isolation         |
+| `--backups`          | Enable automatic backups (extra cost)  |
+| `--no-backups`       | Disable automatic backups              |
+| `--monitoring`       | Enable monitoring metrics (free)       |
+| `--no-monitoring`    | Disable monitoring                     |
+| `--ipv6`             | Enable IPv6 address (free)             |
+| `--no-ipv6`          | Disable IPv6                           |
+
+#### Example
 
 ```bash
 deployer do:provision \
     --name=production \
-    --region=nyc1 \
+    --region=nyc3 \
     --size=s-1vcpu-2gb \
-    --ssh-key=deployer-key
+    --image=ubuntu-24-04-x64 \
+    --ssh-key-id=12345678 \
+    --private-key-path=~/.ssh/id_rsa \
+    --monitoring \
+    --ipv6
 ```
 
 DeployerPHP will:
 
-1. Create a Droplet with Ubuntu
-2. Wait for the Droplet to be ready
+1. Create a Droplet with the selected OS
+2. Wait for the Droplet to become active
 3. Add the server to your local inventory
 
 After provisioning:
