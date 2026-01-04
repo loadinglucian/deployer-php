@@ -30,6 +30,18 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Clone dotclaude configuration
+        run: |
+          git clone https://github.com/loadinglucian/dotclaude.git dotclaude
+
+      - name: Setup Claude configuration symlinks
+        run: |
+          # Link global ~/.claude to dotclaude/
+          ln -s "$GITHUB_WORKSPACE/dotclaude" "$HOME/.claude"
+
+          # Link project .claude to dotclaude/deployer-php
+          ln -s "$GITHUB_WORKSPACE/dotclaude/deployer-php" "$GITHUB_WORKSPACE/.claude"
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1

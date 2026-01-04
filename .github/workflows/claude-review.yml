@@ -1,0 +1,120 @@
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    # Optional: Only run on specific file changes
+    # paths:
+    #   - "src/**/*.ts"
+    #   - "src/**/*.tsx"
+    #   - "src/**/*.js"
+    #   - "src/**/*.jsx"
+
+jobs:
+  claude-review:
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Clone dotclaude configuration
+        run: |
+          git clone https://github.com/loadinglucian/dotclaude.git dotclaude
+
+      - name: Setup Claude configuration symlinks
+        run: |
+          # Link global ~/.claude to dotclaude/
+          ln -s "$GITHUB_WORKSPACE/dotclaude" "$HOME/.claude"
+
+          # Link project .claude to dotclaude/deployer-php
+          ln -s "$GITHUB_WORKSPACE/dotclaude/deployer-php" "$GITHUB_WORKSPACE/.claude"
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            <context>
+            Repository: ${{ github.repository }}
+            Pull Request: #${{ github.event.pull_request.number }}
+            Title: ${{ github.event.pull_request.title }}
+
+            You have access to custom agents via the Task tool, including `trace-agent` for deep static analysis.
+            Follow CLAUDE.md for project conventions and quality standards.
+            </context>
+
+            <protocol>
+
+              <step name="get-modified-files">
+                Use `gh pr diff` to get the list of modified files in this PR.
+                Categorize files:
+                - Code files: *.php, *.js, *.ts, *.sh
+                - Command files: app/Console/**/*Command.php
+              </step>
+
+              <step name="trace-analysis">
+                For each modified code file, spawn trace-agent using the Task tool:
+                - subagent_type: trace-agent
+                - prompt: "Analyze {filepath} for bugs and issues"
+
+                Run analyses in parallel where possible.
+              </step>
+
+              <step name="docs-check">
+                For each modified command file (app/Console/**/*Command.php), spawn docs-agent:
+                - subagent_type: docs-agent
+                - prompt: "Check if documentation for {command_name} needs updating based on changes in {filepath}"
+
+                Run in parallel with trace-analysis where possible.
+              </step>
+
+              <step name="summarize">
+                Compile findings into a high-level summary:
+                - Group code issues by severity (Critical, High, Medium, Low)
+                - List documentation gaps for modified commands
+                - Note files that passed analysis with no issues
+              </step>
+
+              <step name="report">
+                Post a PR comment using `gh pr comment` with this structure:
+
+                ## Code Review: Static Analysis
+
+                ### Summary
+                {X issues found across Y files analyzed}
+
+                ### Critical/High Priority
+                {List or "None found"}
+
+                ### Medium/Low Priority
+                {List or "None found"}
+
+                ### Documentation Status
+                {List commands with doc updates needed, or "All docs up to date"}
+
+                ### Files Analyzed
+                {Bullet list of files with pass/fail status}
+              </step>
+
+            </protocol>
+
+            Begin by getting the list of modified files from the PR.
+
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options
+          claude_args: '--allowed-tools "Task,Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
