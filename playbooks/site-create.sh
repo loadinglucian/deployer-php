@@ -165,33 +165,33 @@ configure_nginx_vhost() {
 
     # Handle requests
     location / {
-        try_files \\\$uri \\\$uri/ /index.php?\\\$query_string;
+        try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
     # PHP handling
-    location ~ \\\\.php\\\$ {
-        try_files \\\$uri =404;
-        fastcgi_split_path_info ^(.+\\\\.php)(/.+)\\\$;
+    location ~ \\.php\$ {
+        try_files \$uri =404;
+        fastcgi_split_path_info ^(.+\\.php)(/.+)\$;
         fastcgi_pass unix:${php_fpm_socket};
         fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME \\\$realpath_root\\\$fastcgi_script_name;
+        fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
         include fastcgi_params;
         fastcgi_hide_header X-Powered-By;
         fastcgi_read_timeout 300;
     }
 
     # Deny access to hidden files (except .well-known for ACME challenges)
-    location ~ /\\\\.(?!well-known).* {
+    location ~ /\\.(?!well-known).* {
         deny all;
     }
 
     # Deny access to sensitive files
-    location ~* (?:^|/)\\\\.env\\\$ {
+    location ~* (?:^|/)\\.env\$ {
         deny all;
     }
 
     # Static file caching
-    location ~* \\\\.(?:css|js|jpg|jpeg|gif|png|ico|cur|gz|svg|svgz|mp4|ogg|ogv|webm|htc|woff|woff2)\\\$ {
+    location ~* \\.(?:css|js|jpg|jpeg|gif|png|ico|cur|gz|svg|svgz|mp4|ogg|ogv|webm|htc|woff|woff2)\$ {
         expires 1M;
         access_log off;
         add_header Cache-Control \"public\";
@@ -211,7 +211,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name www.${domain};
-    return 301 http://${domain}\\\$request_uri;
+    return 301 http://${domain}\$request_uri;
 }
 
 server {
@@ -230,7 +230,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name ${domain};
-    return 301 http://www.${domain}\\\$request_uri;
+    return 301 http://www.${domain}\$request_uri;
 }
 
 server {
