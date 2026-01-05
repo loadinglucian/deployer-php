@@ -50,11 +50,13 @@ class DoAccountService extends BaseDoService
     }
 
     /**
-     * Get available droplet sizes.
+     * Get available droplet sizes, optionally filtered by region.
+     *
+     * @param string|null $region Region slug to filter sizes by availability
      *
      * @return array<string, string> Array of size slug => description
      */
-    public function getAvailableSizes(): array
+    public function getAvailableSizes(?string $region = null): array
     {
         $client = $this->getAPI();
 
@@ -65,18 +67,25 @@ class DoAccountService extends BaseDoService
             $sizeData = [];
             foreach ($sizes as $size) {
                 /** @var SizeEntity $size */
-                if ($size->available) {
-                    $vcpus = $size->vcpus;
-                    $memory = $size->memory / 1024; // Convert MB to GB
-                    $disk = $size->disk;
-                    $price = $size->priceMonthly;
-
-                    $sizeData[] = [
-                        'slug' => $size->slug,
-                        'price' => $price,
-                        'label' => "{$size->slug} - {$vcpus} vCPU, {$memory}GB RAM, {$disk}GB SSD (\${$price}/mo)",
-                    ];
+                if (!$size->available) {
+                    continue;
                 }
+
+                // Filter by region if specified
+                if (null !== $region && !in_array($region, $size->regions, true)) {
+                    continue;
+                }
+
+                $vcpus = $size->vcpus;
+                $memory = $size->memory / 1024; // Convert MB to GB
+                $disk = $size->disk;
+                $price = $size->priceMonthly;
+
+                $sizeData[] = [
+                    'slug' => $size->slug,
+                    'price' => $price,
+                    'label' => "{$size->slug} - {$vcpus} vCPU, {$memory}GB RAM, {$disk}GB SSD (\${$price}/mo)",
+                ];
             }
 
             // Sort by price ascending

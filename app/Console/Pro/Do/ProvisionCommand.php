@@ -116,7 +116,7 @@ class ProvisionCommand extends BaseCommand
     /**
      * Fetch DigitalOcean account data.
      *
-     * @return array{keys: array<int|string, string>, regions: array<string, string>, sizes: array<string, string>, images: array<string, string>}|int
+     * @return array{keys: array<int|string, string>, regions: array<string, string>, images: array<string, string>}|int
      */
     protected function fetchAccountData(): array|int
     {
@@ -125,7 +125,6 @@ class ProvisionCommand extends BaseCommand
                 fn () => [
                     'keys' => $this->do->account->getPublicKeys(),
                     'regions' => $this->do->account->getAvailableRegions(),
-                    'sizes' => $this->do->account->getAvailableSizes(),
                     'images' => $this->do->account->getAvailableImages(),
                 ],
                 'Retrieving account information...'
@@ -244,7 +243,7 @@ class ProvisionCommand extends BaseCommand
     /**
      * Gather provisioning details from user input or CLI options.
      *
-     * @param array{keys: array<int|string, string>, regions: array<string, string>, sizes: array<string, string>, images: array<string, string>} $accountData
+     * @param array{keys: array<int|string, string>, regions: array<string, string>, images: array<string, string>} $accountData
      *
      * @return array{name: string, region: string, size: string, image: string, sshKeyId: int, sshKeyIds: array<int, int>, privateKeyPath: string, backups: bool, monitoring: bool, ipv6: bool, vpcUuid: string|null, vpcUuidDisplay: string}|int
      */
@@ -276,7 +275,7 @@ class ProvisionCommand extends BaseCommand
     /**
      * Validate that required account data is available.
      *
-     * @param array{keys: array<int|string, string>, regions: array<string, string>, sizes: array<string, string>, images: array<string, string>} $accountData
+     * @param array{keys: array<int|string, string>, regions: array<string, string>, images: array<string, string>} $accountData
      *
      * @throws ValidationException
      */
@@ -284,10 +283,6 @@ class ProvisionCommand extends BaseCommand
     {
         if (0 === count($accountData['regions'])) {
             throw new ValidationException('No regions available in your DigitalOcean account');
-        }
-
-        if (0 === count($accountData['sizes'])) {
-            throw new ValidationException('No droplet sizes available');
         }
 
         if (0 === count($accountData['images'])) {
@@ -298,7 +293,7 @@ class ProvisionCommand extends BaseCommand
     /**
      * Gather core provisioning details (name, region, size, image, SSH key, private key path).
      *
-     * @param array{keys: array<int|string, string>, regions: array<string, string>, sizes: array<string, string>, images: array<string, string>} $accountData
+     * @param array{keys: array<int|string, string>, regions: array<string, string>, images: array<string, string>} $accountData
      *
      * @return array{name: string, region: string, size: string, image: string, sshKeyId: int, sshKeyIds: array<int, int>, privateKeyPath: string}|int
      */
@@ -330,18 +325,28 @@ class ProvisionCommand extends BaseCommand
             fn ($value) => $this->validateDoRegion($value, $accountData['regions'])
         );
 
+        /** @var array<string, string> $sizes */
+        $sizes = $this->io->promptSpin(
+            fn () => $this->do->account->getAvailableSizes($region),
+            'Fetching available sizes for region...'
+        );
+
+        if (0 === count($sizes)) {
+            throw new \RuntimeException("No droplet sizes available in region '{$region}'");
+        }
+
         /** @var string $size */
         $size = $this->io->getValidatedOptionOrPrompt(
             'size',
             fn ($validate) => $this->io->promptSelect(
                 label: 'Select droplet size:',
-                options: $accountData['sizes'],
+                options: $sizes,
                 hint: 'Choose CPU, RAM, and storage',
                 default: '',
                 scroll: 15,
                 validate: $validate
             ),
-            fn ($value) => $this->validateDoDropletSize($value, $accountData['sizes'])
+            fn ($value) => $this->validateDoDropletSize($value, $sizes)
         );
 
         /** @var string $image */
