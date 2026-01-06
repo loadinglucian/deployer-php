@@ -22,9 +22,6 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'server:logs',
     description: 'View server logs (system, services, sites, and supervisors)'
 )]
-/**
- * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
- */
 class ServerLogsCommand extends BaseCommand
 {
     use LogsTrait;

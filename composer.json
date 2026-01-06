@@ -32,7 +32,6 @@
         "laravel/pint": "^1.26",
         "pestphp/pest": "^2.0",
         "pestphp/pest-plugin-arch": "^2.7",
-        "phpmd/phpmd": "^2.15",
         "phpstan/phpstan": "^2.1",
         "rector/rector": "^2.3"
     },
@@ -51,16 +50,13 @@
     ],
     "scripts": {
         "pall": [
-            "composer pint && composer pstan && composer phpmd && composer rect && composer pest"
+            "composer pint && composer pstan && composer rect && composer pest"
         ],
         "pest": [
             "vendor/bin/pest --parallel --coverage"
         ],
         "pint": [
             "vendor/bin/pint --parallel"
-        ],
-        "phpmd": [
-            "vendor/bin/phpmd app,bin text phpmd.xml"
         ],
         "pstan": [
             "vendor/bin/phpstan analyse --memory-limit=2G"
