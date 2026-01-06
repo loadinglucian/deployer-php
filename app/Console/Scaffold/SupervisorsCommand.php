@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DeployerPHP\Console;
+namespace DeployerPHP\Console\Scaffold;
 
 use DeployerPHP\Contracts\BaseCommand;
 use DeployerPHP\Traits\ScaffoldsTrait;
@@ -14,7 +14,7 @@ use Symfony\Component\Console\Output\OutputInterface;
     name: 'scaffold:supervisors',
     description: 'Scaffold supervisor program scripts from templates'
 )]
-class ScaffoldSupervisorsCommand extends BaseCommand
+class SupervisorsCommand extends BaseCommand
 {
     use ScaffoldsTrait;
 

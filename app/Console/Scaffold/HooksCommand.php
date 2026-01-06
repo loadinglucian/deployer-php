@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DeployerPHP\Console;
+namespace DeployerPHP\Console\Scaffold;
 
 use DeployerPHP\Contracts\BaseCommand;
 use DeployerPHP\Traits\ScaffoldsTrait;
@@ -11,10 +11,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'scaffold:crons',
-    description: 'Scaffold cron job scripts from templates'
+    name: 'scaffold:hooks',
+    description: 'Scaffold deployment hooks from templates'
 )]
-class ScaffoldCronsCommand extends BaseCommand
+class HooksCommand extends BaseCommand
 {
     use ScaffoldsTrait;
 
@@ -35,9 +35,8 @@ class ScaffoldCronsCommand extends BaseCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         parent::execute($input, $output);
+        $this->h1('Scaffold Deployment Hooks');
 
-        $this->h1('Scaffold Cron Scripts');
-
-        return $this->scaffoldFiles('crons');
+        return $this->scaffoldFiles('hooks');
     }
 }

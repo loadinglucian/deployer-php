@@ -11,7 +11,13 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
- * Reusable scaffold file copying helpers.
+ * Reusable scaffold file copying helpers using template method pattern.
+ *
+ * Commands can override hooks to customize behavior:
+ * - resolveScaffoldContext(): Add extra prompts (e.g., agent selection)
+ * - buildTargetPath(): Custom destination structure
+ * - buildTemplatePath(): Custom source directory
+ * - buildReplayOptions(): Extra command replay options
  *
  * @property FilesystemService $fs
  * @property IoService $io
@@ -26,7 +32,7 @@ trait ScaffoldsTrait
     use PathOperationsTrait;
 
     // ----
-    // Helpers
+    // Configuration
     // ----
 
     /**
@@ -37,70 +43,151 @@ trait ScaffoldsTrait
         $this->addOption('destination', null, InputOption::VALUE_REQUIRED, 'Project root directory');
     }
 
+    // ----
+    // Template Method - Main Workflow
+    // ----
+
     /**
-     * Scaffold files from templates to destination.
+     * Execute the scaffold workflow.
      *
-     * @param string $type Scaffold type (e.g., 'crons', 'hooks')
+     * @param string $type Scaffold type identifier
      */
     protected function scaffoldFiles(string $type): int
     {
-        // Get destination directory
+        // Step 1: Get validated destination directory
         try {
-            /** @var string $destinationDir */
-            $destinationDir = $this->io->getValidatedOptionOrPrompt(
-                'destination',
-                fn ($validate) => $this->io->promptText(
-                    label: 'Destination directory:',
-                    placeholder: $this->fs->getCwd(),
-                    default: $this->fs->getCwd(),
-                    required: true,
-                    validate: $validate
-                ),
-                fn ($value) => $this->validatePathInput($value)
-            );
+            $destinationDir = $this->promptDestinationDirectory();
         } catch (ValidationException $e) {
             $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }
 
-        // Convert relative path to absolute if needed
-        if (! str_starts_with($destinationDir, '/')) {
-            $destinationDir = $this->fs->joinPaths($this->fs->getCwd(), $destinationDir);
+        // Step 2: Hook for commands needing extra prompts (e.g., agent selection)
+        $context = $this->resolveScaffoldContext($destinationDir, $type);
+        if (null === $context) {
+            return Command::FAILURE;
         }
 
-        $targetDir = $this->fs->joinPaths($destinationDir, '.deployer', $type);
+        // Step 3: Build target path using context
+        $targetDir = $this->buildTargetPath($destinationDir, $type, $context);
 
-        // Copy templates
+        // Step 4: Copy templates
         try {
-            $this->copyScaffoldTemplates($type, $targetDir);
+            $status = $this->copyTemplates($type, $targetDir, $context);
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }
 
-        $this->yay('Finished scaffolding '.$type);
-
-        $this->commandReplay('scaffold:'.$type, [
-            'destination' => $destinationDir,
-        ]);
+        // Step 5: Display results and replay
+        $this->displayDeets($status);
+        $this->yay('Finished scaffolding ' . $type);
+        $this->commandReplay(
+            'scaffold:' . $type,
+            $this->buildReplayOptions($destinationDir, $context)
+        );
 
         return Command::SUCCESS;
     }
 
+    // ----
+    // Overridable Hooks
+    // ----
+
     /**
-     * Copy scaffold templates to destination directory.
+     * Resolve additional context needed for scaffolding.
+     * Override this to add extra prompts (e.g., agent selection).
      *
-     * @throws \RuntimeException If templates not found or file operations fail
+     * @return array<string, mixed>|null Context data, or null to abort
      */
-    private function copyScaffoldTemplates(string $type, string $destination): void
+    protected function resolveScaffoldContext(string $destinationDir, string $type): ?array
     {
-        if (! $this->fs->isDirectory($destination)) {
-            $this->fs->mkdir($destination);
+        return [];
+    }
+
+    /**
+     * Build the target directory path.
+     * Override this for custom destination structures.
+     *
+     * @param array<string, mixed> $context
+     */
+    protected function buildTargetPath(string $destinationDir, string $type, array $context): string
+    {
+        return $this->fs->joinPaths($destinationDir, '.deployer', $type);
+    }
+
+    /**
+     * Build path to template source directory.
+     * Override for custom template locations.
+     *
+     * @param array<string, mixed> $context
+     */
+    protected function buildTemplatePath(string $type, array $context): string
+    {
+        return $this->fs->joinPaths(dirname(__DIR__, 2), 'scaffolds', $type);
+    }
+
+    /**
+     * Build options for command replay.
+     * Override this to add extra options.
+     *
+     * @param array<string, mixed> $context
+     * @return array<string, mixed>
+     */
+    protected function buildReplayOptions(string $destinationDir, array $context): array
+    {
+        return ['destination' => $destinationDir];
+    }
+
+    // ----
+    // Helpers
+    // ----
+
+    /**
+     * Prompt for and validate destination directory.
+     *
+     * @throws ValidationException
+     */
+    protected function promptDestinationDirectory(): string
+    {
+        /** @var string $destinationDir */
+        $destinationDir = $this->io->getValidatedOptionOrPrompt(
+            'destination',
+            fn ($validate) => $this->io->promptText(
+                label: 'Destination directory:',
+                placeholder: $this->fs->getCwd(),
+                default: $this->fs->getCwd(),
+                required: true,
+                validate: $validate
+            ),
+            fn ($value) => $this->validatePathInput($value)
+        );
+
+        // Expand tilde and convert relative path to absolute if needed
+        $destinationDir = $this->fs->expandPath($destinationDir);
+        if (! str_starts_with((string) $destinationDir, '/')) {
+            $destinationDir = $this->fs->joinPaths($this->fs->getCwd(), $destinationDir);
         }
 
-        $scaffoldsPath = $this->fs->joinPaths(dirname(__DIR__, 2), 'scaffolds', $type);
+        return $destinationDir;
+    }
+
+    /**
+     * Copy template files to destination.
+     *
+     * @param array<string, mixed> $context
+     * @return array<string, string> Status map (filename => 'created'|'skipped')
+     * @throws \RuntimeException If templates not found or file operations fail
+     */
+    protected function copyTemplates(string $type, string $targetDir, array $context): array
+    {
+        if (! $this->fs->isDirectory($targetDir)) {
+            $this->fs->mkdir($targetDir);
+        }
+
+        $scaffoldsPath = $this->buildTemplatePath($type, $context);
         if (! $this->fs->isDirectory($scaffoldsPath)) {
             throw new \RuntimeException("Templates directory not found: {$scaffoldsPath}");
         }
@@ -110,22 +197,20 @@ trait ScaffoldsTrait
 
         foreach ($entries as $entry) {
             $source = $this->fs->joinPaths($scaffoldsPath, $entry);
-            $target = $this->fs->joinPaths($destination, $entry);
+            $target = $this->fs->joinPaths($targetDir, $entry);
 
             if ($this->fs->isDirectory($source)) {
                 continue;
             }
 
-            $skipped = true;
-            if (! $this->fs->exists($target) && ! $this->fs->isLink($target)) {
-                $contents = $this->fs->readFile($source);
-                $this->fs->dumpFile($target, $contents);
-                $skipped = false;
+            if ($this->fs->exists($target) || $this->fs->isLink($target)) {
+                $status[$entry] = 'skipped';
+            } else {
+                $this->fs->dumpFile($target, $this->fs->readFile($source));
+                $status[$entry] = 'created';
             }
-
-            $status[$entry] = $skipped ? 'skipped' : 'created';
         }
 
-        $this->displayDeets($status);
+        return $status;
     }
 }
