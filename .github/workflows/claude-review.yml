@@ -53,6 +53,7 @@ jobs:
             Repository: ${{ github.repository }}
             Pull Request: #${{ github.event.pull_request.number }}
             Title: ${{ github.event.pull_request.title }}
+            Commit SHA: ${{ github.event.pull_request.head.sha }}
 
             You have access to custom agents via the Task tool, including `trace-agent` for deep static analysis.
             Follow CLAUDE.md for project conventions and quality standards.
@@ -70,7 +71,13 @@ jobs:
               <step name="trace-analysis">
                 For each modified code file, spawn trace-agent using the Task tool:
                 - subagent_type: trace-agent
-                - prompt: "Analyze {filepath} for bugs and issues"
+                - prompt: "Analyze {filepath} for bugs and issues. Return findings as JSON:
+                  {
+                    \"findings\": [
+                      {\"path\": \"relative/file/path.php\", \"line\": 42, \"severity\": \"high|medium|low\", \"message\": \"Description\"}
+                    ],
+                    \"general\": [\"Issues without specific line numbers\"]
+                  }"
 
                 Run analyses in parallel where possible.
               </step>
@@ -83,32 +90,46 @@ jobs:
                 Run in parallel with trace-analysis where possible.
               </step>
 
-              <step name="summarize">
-                Compile findings into a high-level summary:
-                - Group code issues by severity (Critical, High, Medium, Low)
-                - List documentation gaps for modified commands
-                - Note files that passed analysis with no issues
+              <step name="collect-findings">
+                Aggregate all findings from trace-agent results into:
+                1. inline_comments: Array of {path, line, severity, message} for issues with specific locations
+                2. general_issues: Array of strings for issues without line numbers
+                3. doc_updates: Array of documentation findings from docs-agent
               </step>
 
-              <step name="report">
-                Post a PR comment using `gh pr comment` with this structure:
+              <step name="submit-review">
+                Submit a GitHub code review with inline comments using the API.
 
-                ## Code Review: Static Analysis
+                1. Build the review summary body:
+                   ## Code Review Summary
 
-                ### Summary
-                {X issues found across Y files analyzed}
+                   **{X} inline comments** on {Y} files
 
-                ### Critical/High Priority
-                {List or "None found"}
+                   ### General Issues
+                   {List general_issues, or "None"}
 
-                ### Medium/Low Priority
-                {List or "None found"}
+                   ### Documentation
+                   {List doc_updates, or "All docs up to date"}
 
-                ### Documentation Status
-                {List commands with doc updates needed, or "All docs up to date"}
+                2. Build the comments array for inline comments. Each needs:
+                   - path: relative file path
+                   - line: line number in the file
+                   - side: "RIGHT" (for additions/changes)
+                   - body: severity emoji + message (🔴 high, 🟡 medium, 🟢 low)
 
-                ### Files Analyzed
-                {Bullet list of files with pass/fail status}
+                3. Submit the review using --input to pass JSON via stdin:
+                   gh api -X POST repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --input - <<'EOF'
+                   {
+                     "commit_id": "${{ github.event.pull_request.head.sha }}",
+                     "body": "SUMMARY_TEXT",
+                     "event": "COMMENT",
+                     "comments": [JSON_ARRAY]
+                   }
+                   EOF
+
+                4. If no inline comments but general issues exist, submit review with just summary body.
+
+                5. If no issues at all, submit: "✅ No issues found in this PR."
               </step>
 
             </protocol>
@@ -117,4 +138,4 @@ jobs:
 
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
-          claude_args: '--allowed-tools "Task,Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+          claude_args: '--allowed-tools "Task,Bash(gh api:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
