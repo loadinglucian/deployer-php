@@ -54,6 +54,7 @@ You can use it freely for personal or commercial projects, without any restricti
     - [Step 3: Creating a Site](docs/getting-started.md#create-new-site)
     - [Step 4: Deploying a Site](docs/getting-started.md#deploy-site)
     - [Step 5: Enabling HTTPS](docs/getting-started.md#enable-https)
+    - [AI Rules for Debugging](docs/getting-started.md#scaffold-ai-rules)
 - [Server Management](docs/servers.md)
     - [Adding a Server](docs/servers.md#adding-a-server)
     - [Installing a Server](docs/servers.md#installing-a-server)

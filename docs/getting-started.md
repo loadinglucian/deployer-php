@@ -12,6 +12,7 @@ This guide will walk you through setting up a new server and deploying your firs
 - [Step 3: Creating a Site](#create-new-site)
 - [Step 4: Deploying a Site](#deploy-site)
 - [Step 5: Enabling HTTPS](#enable-https)
+- [AI Rules for Debugging](#scaffold-ai-rules)
 
 <a name="installation"></a>
 
@@ -64,7 +65,7 @@ DeployerPHP commands are grouped by what they manage:
 
 - **`server:*`** — Add, install, delete, and SSH into servers
 - **`site:*`** — Create, deploy, delete, and manage sites
-- **`scaffold:*`** — Generate cron, hook, and supervisor config files
+- **`scaffold:*`** — Generate cron, hook, supervisor, and AI rules config files
 - **`cron:*`** and **`supervisor:*`** — Scheduled tasks and background processes
 - **`nginx:*`** and **`php:*`** — Web server and PHP-FPM control
 - **`mariadb:*`**, **`mysql:*`**, **`postgresql:*`** — Database services
@@ -275,3 +276,36 @@ DeployerPHP will prompt you to select a site, then automatically:
 > Make sure your DNS records are properly configured and have propagated before running this command. Let's Encrypt validates domain ownership by making HTTP requests to your server, which will fail if DNS isn't pointing to your server yet.
 
 After HTTPS is enabled, your site will automatically redirect HTTP traffic to HTTPS.
+
+<a name="scaffold-ai-rules"></a>
+
+## AI Rules for Debugging
+
+If you use AI tools like Claude, Cursor, or Codex, you can create a rules file that guides agents on safely interacting with your DeployerPHP-managed servers. This is useful when debugging issues with your application in production. Agents can read logs or execute remote, non-destructive commands on your server to investigate and resolve problems.
+
+> [!WARNING]
+> **Use at your own risk!** Granting AI agents access to production servers can be risky. Always review generated rules and monitor AI-initiated actions. You are solely responsible for any changes, data loss, or issues arising from AI-assisted debugging.
+
+Run the `scaffold:ai` command from your project directory:
+
+```shell
+deployer scaffold:ai
+```
+
+DeployerPHP will prompt you to select your AI agent:
+
+- **Claude** — Creates rules in `.claude/rules/`
+- **Cursor** — Creates rules in `.cursor/rules/`
+- **Codex** — Creates rules in `.codex/rules/`
+
+> [!NOTE]
+> If an existing AI agent directory is detected in your project, DeployerPHP will automatically use it. If multiple are found, you'll be prompted to choose one.
+
+The generated rules file provides your AI assistant with:
+
+- **Inventory context** — Understanding of your `deployer.yml` structure
+- **Deployment layout** — Knowledge of the release directory structure
+- **Safe debugging commands** — Commands for viewing logs, checking status, and reading files
+- **Guardrails** — Explicit restrictions preventing destructive operations like deployments, service restarts, or configuration changes
+
+This ensures your AI assistant can help troubleshoot issues on your servers without accidentally running commands that could affect production stability.
