@@ -12,11 +12,8 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Skip automated PRs from bots
+    if: github.actor != 'dependabot[bot]'
 
     runs-on: ubuntu-latest
     permissions:
@@ -61,20 +58,36 @@ jobs:
 
             <protocol>
 
-              <step name="get-modified-files">
-                Use `gh pr diff` to get the list of modified files in this PR.
-                Categorize files:
-                - Code files: *.php, *.js, *.ts, *.sh
-                - Command files: app/Console/**/*Command.php
+              <step name="get-diff-context">
+                Use `gh pr diff` to get the full diff for this PR.
+
+                Extract and store:
+                1. List of modified files (code files: *.php, *.js, *.ts, *.sh)
+                2. Command files: app/Console/**/*Command.php
+                3. For each file, the specific line ranges that were added or modified
+                   - Parse diff hunks to identify changed line numbers
+                   - Store as: {filepath: [changed_lines]}
               </step>
 
               <step name="trace-analysis">
                 For each modified code file, spawn trace-agent using the Task tool:
                 - subagent_type: trace-agent
-                - prompt: "Analyze {filepath} for bugs and issues. Return findings as JSON:
+                - prompt: "Analyze {filepath} for bugs and issues.
+
+                  IMPORTANT: This file was modified in a PR. The following lines were changed:
+                  {list of changed line numbers from step 1}
+
+                  Categorize each finding as:
+                  - 'new': Issue is ON or DIRECTLY CAUSED BY a changed line
+                  - 'pre-existing': Issue is on unchanged code, not caused by PR changes
+
+                  Return findings as JSON:
                   {
-                    \"findings\": [
+                    \"new_issues\": [
                       {\"path\": \"relative/file/path.php\", \"line\": 42, \"severity\": \"high|medium|low\", \"message\": \"Description\"}
+                    ],
+                    \"pre_existing\": [
+                      {\"path\": \"relative/file/path.php\", \"line\": 10, \"severity\": \"medium\", \"message\": \"Description\"}
                     ],
                     \"general\": [\"Issues without specific line numbers\"]
                   }"
@@ -92,9 +105,10 @@ jobs:
 
               <step name="collect-findings">
                 Aggregate all findings from trace-agent results into:
-                1. inline_comments: Array of {path, line, severity, message} for issues with specific locations
-                2. general_issues: Array of strings for issues without line numbers
-                3. doc_updates: Array of documentation findings from docs-agent
+                1. new_inline: Array of {path, line, severity, message} for NEW issues on changed lines
+                2. pre_existing_inline: Array of {path, line, severity, message} for pre-existing issues
+                3. general_issues: Array of strings for issues without line numbers
+                4. doc_updates: Array of documentation findings from docs-agent
               </step>
 
               <step name="submit-review">
@@ -103,7 +117,20 @@ jobs:
                 1. Build the review summary body:
                    ## Code Review Summary
 
+                   ### Issues from PR Changes
                    **{X} inline comments** on {Y} files
+                   {Or "✅ No new issues introduced by this PR"}
+
+                   ### Pre-existing Issues
+                   <details>
+                   <summary>{N} pre-existing issues found (not caused by this PR)</summary>
+
+                   | File | Line | Severity | Issue |
+                   |------|------|----------|-------|
+                   {table rows for pre_existing_inline}
+
+                   </details>
+                   {Or "None detected"}
 
                    ### General Issues
                    {List general_issues, or "None"}
@@ -111,11 +138,13 @@ jobs:
                    ### Documentation
                    {List doc_updates, or "All docs up to date"}
 
-                2. Build the comments array for inline comments. Each needs:
+                2. Build the comments array for NEW issues only (inline comments). Each needs:
                    - path: relative file path
                    - line: line number in the file
                    - side: "RIGHT" (for additions/changes)
                    - body: severity emoji + message (🔴 high, 🟡 medium, 🟢 low)
+
+                   Note: Pre-existing issues go in the summary table, NOT as inline comments.
 
                 3. Submit the review using --input to pass JSON via stdin:
                    gh api -X POST repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --input - <<'EOF'
@@ -127,7 +156,7 @@ jobs:
                    }
                    EOF
 
-                4. If no inline comments but general issues exist, submit review with just summary body.
+                4. If no new inline comments but other findings exist, submit review with just summary body.
 
                 5. If no issues at all, submit: "✅ No issues found in this PR."
               </step>
