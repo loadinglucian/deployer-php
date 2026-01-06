@@ -6,17 +6,31 @@ namespace DeployerPHP;
 
 use DeployerPHP\Console\Cron\CronCreateCommand;
 use DeployerPHP\Console\Cron\CronDeleteCommand;
+use DeployerPHP\Console\Cron\CronLogsCommand;
 use DeployerPHP\Console\Cron\CronSyncCommand;
 use DeployerPHP\Console\Mariadb\MariadbInstallCommand;
 use DeployerPHP\Console\Mariadb\MariadbLogsCommand;
 use DeployerPHP\Console\Mariadb\MariadbRestartCommand;
 use DeployerPHP\Console\Mariadb\MariadbStartCommand;
 use DeployerPHP\Console\Mariadb\MariadbStopCommand;
+use DeployerPHP\Console\Memcached\MemcachedInstallCommand;
+use DeployerPHP\Console\Memcached\MemcachedLogsCommand;
+use DeployerPHP\Console\Memcached\MemcachedRestartCommand;
+use DeployerPHP\Console\Memcached\MemcachedStartCommand;
+use DeployerPHP\Console\Memcached\MemcachedStopCommand;
 use DeployerPHP\Console\Mysql\MysqlInstallCommand;
 use DeployerPHP\Console\Mysql\MysqlLogsCommand;
 use DeployerPHP\Console\Mysql\MysqlRestartCommand;
 use DeployerPHP\Console\Mysql\MysqlStartCommand;
 use DeployerPHP\Console\Mysql\MysqlStopCommand;
+use DeployerPHP\Console\Nginx\NginxLogsCommand;
+use DeployerPHP\Console\Nginx\NginxRestartCommand;
+use DeployerPHP\Console\Nginx\NginxStartCommand;
+use DeployerPHP\Console\Nginx\NginxStopCommand;
+use DeployerPHP\Console\Php\PhpLogsCommand;
+use DeployerPHP\Console\Php\PhpRestartCommand;
+use DeployerPHP\Console\Php\PhpStartCommand;
+use DeployerPHP\Console\Php\PhpStopCommand;
 use DeployerPHP\Console\Postgresql\PostgresqlInstallCommand;
 use DeployerPHP\Console\Postgresql\PostgresqlLogsCommand;
 use DeployerPHP\Console\Postgresql\PostgresqlRestartCommand;
@@ -30,6 +44,11 @@ use DeployerPHP\Console\Pro\Do\KeyAddCommand as DoKeyAddCommand;
 use DeployerPHP\Console\Pro\Do\KeyDeleteCommand as DoKeyDeleteCommand;
 use DeployerPHP\Console\Pro\Do\KeyListCommand as DoKeyListCommand;
 use DeployerPHP\Console\Pro\Do\ProvisionCommand as DoProvisionCommand;
+use DeployerPHP\Console\Redis\RedisInstallCommand;
+use DeployerPHP\Console\Redis\RedisLogsCommand;
+use DeployerPHP\Console\Redis\RedisRestartCommand;
+use DeployerPHP\Console\Redis\RedisStartCommand;
+use DeployerPHP\Console\Redis\RedisStopCommand;
 use DeployerPHP\Console\Scaffold\AiCommand as ScaffoldAiCommand;
 use DeployerPHP\Console\Scaffold\CronsCommand as ScaffoldCronsCommand;
 use DeployerPHP\Console\Scaffold\HooksCommand as ScaffoldHooksCommand;
@@ -46,6 +65,7 @@ use DeployerPHP\Console\Site\SiteCreateCommand;
 use DeployerPHP\Console\Site\SiteDeleteCommand;
 use DeployerPHP\Console\Site\SiteDeployCommand;
 use DeployerPHP\Console\Site\SiteHttpsCommand;
+use DeployerPHP\Console\Site\SiteLogsCommand;
 use DeployerPHP\Console\Site\SiteRollbackCommand;
 use DeployerPHP\Console\Site\SiteSharedPullCommand;
 use DeployerPHP\Console\Site\SiteSharedPushCommand;
@@ -57,6 +77,11 @@ use DeployerPHP\Console\Supervisor\SupervisorRestartCommand;
 use DeployerPHP\Console\Supervisor\SupervisorStartCommand;
 use DeployerPHP\Console\Supervisor\SupervisorStopCommand;
 use DeployerPHP\Console\Supervisor\SupervisorSyncCommand;
+use DeployerPHP\Console\Valkey\ValkeyInstallCommand;
+use DeployerPHP\Console\Valkey\ValkeyLogsCommand;
+use DeployerPHP\Console\Valkey\ValkeyRestartCommand;
+use DeployerPHP\Console\Valkey\ValkeyStartCommand;
+use DeployerPHP\Console\Valkey\ValkeyStopCommand;
 use DeployerPHP\Services\VersionService;
 use Symfony\Component\Console\Application as SymfonyApplication;
 use Symfony\Component\Console\Command\Command;
@@ -193,6 +218,7 @@ final class SymfonyApp extends SymfonyApplication
             SiteDeployCommand::class,
             SiteHttpsCommand::class,
             SiteRollbackCommand::class,
+            SiteLogsCommand::class,
             SiteSharedPullCommand::class,
             SiteSharedPushCommand::class,
             SiteSshCommand::class,
@@ -202,6 +228,7 @@ final class SymfonyApp extends SymfonyApplication
 
             CronCreateCommand::class,
             CronDeleteCommand::class,
+            CronLogsCommand::class,
             CronSyncCommand::class,
 
             //
@@ -241,6 +268,49 @@ final class SymfonyApp extends SymfonyApplication
             PostgresqlRestartCommand::class,
             PostgresqlStartCommand::class,
             PostgresqlStopCommand::class,
+
+            //
+            // Nginx management
+
+            NginxLogsCommand::class,
+            NginxRestartCommand::class,
+            NginxStartCommand::class,
+            NginxStopCommand::class,
+
+            //
+            // PHP-FPM management
+
+            PhpLogsCommand::class,
+            PhpRestartCommand::class,
+            PhpStartCommand::class,
+            PhpStopCommand::class,
+
+            //
+            // Redis management
+
+            RedisInstallCommand::class,
+            RedisLogsCommand::class,
+            RedisRestartCommand::class,
+            RedisStartCommand::class,
+            RedisStopCommand::class,
+
+            //
+            // Valkey management
+
+            ValkeyInstallCommand::class,
+            ValkeyLogsCommand::class,
+            ValkeyRestartCommand::class,
+            ValkeyStartCommand::class,
+            ValkeyStopCommand::class,
+
+            //
+            // Memcached management
+
+            MemcachedInstallCommand::class,
+            MemcachedLogsCommand::class,
+            MemcachedRestartCommand::class,
+            MemcachedStartCommand::class,
+            MemcachedStopCommand::class,
         ];
 
         foreach ($commands as $command) {
