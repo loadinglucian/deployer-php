@@ -69,6 +69,7 @@ class ServerLogsCommand extends BaseCommand
         parent::configure();
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
+        $this->addOption('site', null, InputOption::VALUE_REQUIRED, 'Filter logs to a specific site');
         $this->addOption('lines', 'n', InputOption::VALUE_REQUIRED, 'Number of lines to retrieve');
         $this->addOption('service', 's', InputOption::VALUE_REQUIRED, 'Service(s) to view (comma-separated)');
     }
@@ -94,10 +95,27 @@ class ServerLogsCommand extends BaseCommand
         }
 
         //
+        // Validate site filter
+        // ----
+
+        /** @var string|null $siteFilter */
+        $siteFilter = $this->io->getOptionValue('site');
+
+        if (null !== $siteFilter) {
+            $error = $this->validateSiteFilter($siteFilter, $server);
+
+            if (null !== $error) {
+                $this->nay($error);
+
+                return Command::FAILURE;
+            }
+        }
+
+        //
         // Build log options
         // ----
 
-        $options = $this->buildLogOptions($server);
+        $options = $this->buildLogOptions($server, $siteFilter);
 
         //
         // Get user input
@@ -134,13 +152,15 @@ class ServerLogsCommand extends BaseCommand
         }
 
         //
-        // Normalize services input
+        // Normalize and expand services input
         // ----
 
         /** @var list<string> $serviceKeys */
         $serviceKeys = is_string($services)
             ? array_filter(array_map(trim(...), explode(',', $services)))
             : $services;
+
+        $serviceKeys = $this->expandGroupSelections($serviceKeys, $server);
 
         //
         // Display logs
@@ -152,11 +172,17 @@ class ServerLogsCommand extends BaseCommand
         // Command replay
         // ----
 
-        $this->commandReplay('server:logs', [
+        $replayOptions = [
             'server' => $server->name,
             'lines' => $lines,
             'service' => implode(',', $serviceKeys),
-        ]);
+        ];
+
+        if (null !== $siteFilter) {
+            $replayOptions['site'] = $siteFilter;
+        }
+
+        $this->commandReplay('server:logs', $replayOptions);
 
         return Command::SUCCESS;
     }
@@ -170,11 +196,16 @@ class ServerLogsCommand extends BaseCommand
      *
      * @return array<string, string>
      */
-    protected function buildLogOptions(ServerDTO $server): array
+    protected function buildLogOptions(ServerDTO $server, ?string $siteFilter = null): array
     {
         /** @var array<string, mixed> $info */
         $info = $server->info;
         $options = [];
+
+        // When filtering by site, only show that site's logs
+        if (null !== $siteFilter) {
+            return $this->buildSiteFilteredOptions($server, $siteFilter);
+        }
 
         // Static sources (always available)
         foreach (self::STATIC_SOURCES as $key => $source) {
@@ -188,12 +219,66 @@ class ServerLogsCommand extends BaseCommand
         $this->addPhpFpmOptions($info, $options);
 
         // Sites (Nginx access logs)
-        $this->addSiteOptions($info, $options);
+        $sites = $this->addSiteOptions($info, $options);
 
         // Per-site resources (from inventory)
-        $this->addSiteResourceOptions($server, $options);
+        [$hasCrons, $hasSupervisors] = $this->addSiteResourceOptions($server, $options);
+
+        // Group shortcuts
+        $this->addGroupOptions($options, $sites, $hasCrons, $hasSupervisors);
 
         return $options;
+    }
+
+    /**
+     * Build options filtered to a single site.
+     *
+     * @return array<string, string>
+     */
+    private function buildSiteFilteredOptions(ServerDTO $server, string $siteFilter): array
+    {
+        $options = [];
+
+        // Site access log
+        $options[$siteFilter] = "Site: {$siteFilter}";
+
+        // Site's crons and supervisors
+        $site = $this->sites->findByDomain($siteFilter);
+
+        if (null !== $site) {
+            foreach ($site->crons as $cron) {
+                $key = "cron:{$site->domain}/{$cron->script}";
+                $options[$key] = "Cron: {$site->domain}/{$cron->script}";
+            }
+
+            foreach ($site->supervisors as $supervisor) {
+                $key = "supervisor:{$site->domain}/{$supervisor->program}";
+                $options[$key] = "Supervisor: {$site->domain}/{$supervisor->program}";
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Add group selection shortcuts.
+     *
+     * @param array<string, string> $options
+     * @param list<string> $sites
+     */
+    private function addGroupOptions(array &$options, array $sites, bool $hasCrons, bool $hasSupervisors): void
+    {
+        if ([] !== $sites) {
+            $options['all-sites'] = 'All site access logs';
+        }
+
+        if ($hasCrons) {
+            $options['all-crons'] = 'Cron service + all script logs';
+        }
+
+        if ($hasSupervisors) {
+            $options['all-supervisors'] = 'Supervisor service + all program logs';
+        }
     }
 
     /**
@@ -273,36 +358,50 @@ class ServerLogsCommand extends BaseCommand
      *
      * @param array<string, mixed> $info
      * @param array<string, string> $options
+     * @return list<string> List of site domains
      */
-    private function addSiteOptions(array $info, array &$options): void
+    private function addSiteOptions(array $info, array &$options): array
     {
         if (!isset($info['sites_config']) || !is_array($info['sites_config'])) {
-            return;
+            return [];
         }
 
+        $sites = [];
+
         foreach (array_keys($info['sites_config']) as $domain) {
+            $sites[] = (string) $domain;
             $options[(string) $domain] = "Site: {$domain}";
         }
+
+        return $sites;
     }
 
     /**
      * Add per-site resource options (crons, supervisors).
      *
      * @param array<string, string> $options
+     * @return array{bool, bool} [hasCrons, hasSupervisors]
      */
-    private function addSiteResourceOptions(ServerDTO $server, array &$options): void
+    private function addSiteResourceOptions(ServerDTO $server, array &$options): array
     {
+        $hasCrons = false;
+        $hasSupervisors = false;
+
         foreach ($this->sites->findByServer($server->name) as $site) {
             foreach ($site->crons as $cron) {
                 $key = "cron:{$site->domain}/{$cron->script}";
                 $options[$key] = "Cron: {$site->domain}/{$cron->script}";
+                $hasCrons = true;
             }
 
             foreach ($site->supervisors as $supervisor) {
                 $key = "supervisor:{$site->domain}/{$supervisor->program}";
                 $options[$key] = "Supervisor: {$site->domain}/{$supervisor->program}";
+                $hasSupervisors = true;
             }
         }
+
+        return [$hasCrons, $hasSupervisors];
     }
 
     /**
@@ -500,5 +599,72 @@ class ServerLogsCommand extends BaseCommand
         }
 
         return null;
+    }
+
+    /**
+     * Validate site filter exists and belongs to the server.
+     */
+    protected function validateSiteFilter(string $site, ServerDTO $server): ?string
+    {
+        $siteDto = $this->sites->findByDomain($site);
+
+        if (null === $siteDto) {
+            return "Site '{$site}' not found in inventory";
+        }
+
+        if ($siteDto->server !== $server->name) {
+            return "Site '{$site}' is not on server '{$server->name}'";
+        }
+
+        return null;
+    }
+
+    /**
+     * Expand group selections into individual log keys.
+     *
+     * @param list<string> $selected
+     * @return list<string>
+     */
+    protected function expandGroupSelections(array $selected, ServerDTO $server): array
+    {
+        /** @var array<string, mixed> $info */
+        $info = $server->info ?? [];
+        $expanded = [];
+
+        // Collect site domains
+        $sites = isset($info['sites_config']) && is_array($info['sites_config'])
+            ? array_map(strval(...), array_keys($info['sites_config']))
+            : [];
+
+        // Collect cron and supervisor keys
+        $cronKeys = [];
+        $supervisorKeys = [];
+
+        foreach ($this->sites->findByServer($server->name) as $site) {
+            foreach ($site->crons as $cron) {
+                $cronKeys[] = "cron:{$site->domain}/{$cron->script}";
+            }
+
+            foreach ($site->supervisors as $supervisor) {
+                $supervisorKeys[] = "supervisor:{$site->domain}/{$supervisor->program}";
+            }
+        }
+
+        // Expand group selections
+        foreach ($selected as $key) {
+            if ('all-sites' === $key) {
+                $expanded = array_merge($expanded, $sites);
+            } elseif ('all-crons' === $key) {
+                $expanded[] = 'cron';
+                $expanded = array_merge($expanded, $cronKeys);
+            } elseif ('all-supervisors' === $key) {
+                $expanded[] = 'supervisor';
+                $expanded = array_merge($expanded, $supervisorKeys);
+            } else {
+                $expanded[] = $key;
+            }
+        }
+
+        return array_values(array_unique($expanded));
     }
 }
