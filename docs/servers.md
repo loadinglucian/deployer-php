@@ -192,6 +192,9 @@ The `server:ssh` command opens an interactive SSH session:
 deployer server:ssh
 ```
 
+> [!NOTE]
+> This command is also available as `pro:server:ssh`. The `server:ssh` alias is provided for convenience.
+
 Before connecting, DeployerPHP displays the server's connection details and any sites configured on that server. You're then dropped into a terminal session on the remote server. Use `exit` to return to your local machine.
 
 Options:
@@ -215,6 +218,9 @@ The `server:logs` command is the unified interface for viewing all logs on a ser
 ```bash
 deployer server:logs --server=production
 ```
+
+> [!NOTE]
+> This command is also available as `pro:server:logs`. The `server:logs` alias is provided for convenience.
 
 When run interactively, you'll see a multiselect prompt with all available log sources. You can select multiple sources at once to view logs from different services in a single command.
 

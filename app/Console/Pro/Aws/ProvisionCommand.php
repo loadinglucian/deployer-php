@@ -18,7 +18,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'pro:aws:provision',
+    name: 'pro:aws:provision|aws:provision',
     description: 'Provision a new AWS EC2 instance and add it to inventory'
 )]
 class ProvisionCommand extends BaseCommand

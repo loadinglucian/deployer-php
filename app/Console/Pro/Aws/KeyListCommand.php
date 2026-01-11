@@ -12,7 +12,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'pro:aws:key:list',
+    name: 'pro:aws:key:list|aws:key:list',
     description: 'List EC2 key pairs in AWS'
 )]
 class KeyListCommand extends BaseCommand

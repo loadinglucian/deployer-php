@@ -18,7 +18,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'pro:do:provision',
+    name: 'pro:do:provision|do:provision',
     description: 'Provision a new DigitalOcean droplet and add it to inventory'
 )]
 class ProvisionCommand extends BaseCommand

@@ -13,7 +13,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'pro:aws:key:delete',
+    name: 'pro:aws:key:delete|aws:key:delete',
     description: 'Delete a key pair from AWS'
 )]
 class KeyDeleteCommand extends BaseCommand

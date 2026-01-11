@@ -80,7 +80,15 @@ Hooks receive environment variables:
 deployer server:logs --server=production --service=nginx,php8.3-fpm --lines=100
 ```
 
-Available sources: system, nginx, php-fpm, mysql, mariadb, postgresql, redis, supervisor, cron, and per-site logs.
+Options:
+- `--server` - Server name
+- `--site` - Filter to a single site's logs (site access, its crons, its supervisors)
+- `--service` / `-s` - Log source(s) to view (comma-separated)
+- `--lines` / `-n` - Number of lines (default: 50)
+
+Available sources: system, nginx, php-fpm (per version), mysql, mariadb, postgresql, redis, valkey, memcached, supervisor, cron, per-site access logs, per-site cron scripts (`cron:domain/script`), per-site supervisor programs (`supervisor:domain/program`).
+
+Group shortcuts: `all-sites`, `all-crons`, `all-supervisors`.
 
 ### Check Service Status (read-only)
 
@@ -112,7 +120,25 @@ deployer server:run --server=production --command="ps aux | grep php"
 ## Command Reference
 
 Run `deployer list` for all commands. For debugging, use only:
-- `server:logs` - View logs (safe)
+- `server:logs` - View logs (safe) — alias for `pro:server:logs`
 - `server:run` - Run read-only commands (safe if you only READ)
 
 **Do NOT use**: `site:deploy`, `server:install`, or any service control commands.
+
+### Pro Commands
+
+Commands in the `pro:*` namespace require server connectivity. All have shorter aliases:
+
+| Primary Command | Alias | Description |
+|-----------------|-------|-------------|
+| `pro:server:logs` | `server:logs` | View server logs |
+| `pro:server:ssh` | `server:ssh` | SSH into a server |
+| `pro:site:ssh` | `site:ssh` | SSH into a site directory |
+| `pro:aws:provision` | `aws:provision` | Provision AWS EC2 instance |
+| `pro:aws:key:add` | `aws:key:add` | Add SSH key to AWS |
+| `pro:aws:key:delete` | `aws:key:delete` | Delete SSH key from AWS |
+| `pro:aws:key:list` | `aws:key:list` | List AWS key pairs |
+| `pro:do:provision` | `do:provision` | Provision DigitalOcean droplet |
+| `pro:do:key:add` | `do:key:add` | Add SSH key to DigitalOcean |
+| `pro:do:key:delete` | `do:key:delete` | Delete SSH key from DigitalOcean |
+| `pro:do:key:list` | `do:key:list` | List DigitalOcean SSH keys |

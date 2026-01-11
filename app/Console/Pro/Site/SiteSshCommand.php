@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace DeployerPHP\Console\Server;
+namespace DeployerPHP\Console\Pro\Site;
 
 use DeployerPHP\Contracts\BaseCommand;
 use DeployerPHP\Traits\PlaybooksTrait;
 use DeployerPHP\Traits\ServersTrait;
+use DeployerPHP\Traits\SitesTrait;
 use DeployerPHP\Traits\SshTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -15,13 +16,14 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'server:ssh',
-    description: 'SSH into a server'
+    name: 'pro:site:ssh|site:ssh',
+    description: 'SSH into a site directory'
 )]
-class ServerSshCommand extends BaseCommand
+class SiteSshCommand extends BaseCommand
 {
     use PlaybooksTrait;
     use ServersTrait;
+    use SitesTrait;
     use SshTrait;
 
     // ----
@@ -32,7 +34,7 @@ class ServerSshCommand extends BaseCommand
     {
         parent::configure();
 
-        $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
+        $this->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain');
     }
 
     // ----
@@ -43,29 +45,55 @@ class ServerSshCommand extends BaseCommand
     {
         parent::execute($input, $output);
 
-        $this->h1('SSH into Server');
+        $this->h1('SSH into Site');
 
         //
-        // Select server
+        // Select site
         // ----
 
-        $server = $this->selectServerDeets();
+        $site = $this->selectSiteDeets();
+
+        if (is_int($site)) {
+            return $site;
+        }
+
+        //
+        // Get server for site
+        // ----
+
+        $server = $this->getServerForSite($site);
 
         if (is_int($server)) {
             return $server;
         }
 
         //
-        // Build SSH command
+        // Validate site is added on server
+        // ----
+
+        $validationResult = $this->ensureSiteExists($server, $site);
+
+        if (is_int($validationResult)) {
+            return $validationResult;
+        }
+
+        //
+        // Resolve SSH binary
         // ----
 
         $sshBinary = $this->findSshBinary();
 
         if (null === $sshBinary) {
-            $this->nay('Could not find ssh in PATH');
+            $this->nay('SSH binary not found in PATH');
 
             return Command::FAILURE;
         }
+
+        //
+        // Build SSH command arguments
+        // ----
+
+        $siteRoot = $this->getSiteRootPath($site);
 
         $sshArgs = [
             '-o', 'StrictHostKeyChecking=accept-new',
@@ -85,6 +113,7 @@ class ServerSshCommand extends BaseCommand
         }
 
         $sshArgs[] = "{$server->username}@{$server->host}";
+        $sshArgs[] = 'cd ' . escapeshellarg($siteRoot) . ' && exec $SHELL -l';
 
         //
         // Replace PHP process with SSH

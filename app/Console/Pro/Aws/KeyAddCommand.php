@@ -15,7 +15,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'pro:aws:key:add',
+    name: 'pro:aws:key:add|aws:key:add',
     description: 'Add a local SSH public key to AWS'
 )]
 class KeyAddCommand extends BaseCommand

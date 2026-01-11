@@ -272,6 +272,9 @@ The `site:ssh` command opens an SSH session in the site's directory:
 deployer site:ssh --domain=example.com
 ```
 
+> [!NOTE]
+> This command is also available as `pro:site:ssh`. The `site:ssh` alias is provided for convenience.
+
 You'll be logged in as the `deployer` user in `/home/deployer/sites/example.com/current/`.
 
 <a name="rollbacks"></a>

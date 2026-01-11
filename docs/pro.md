@@ -1,6 +1,11 @@
 # Pro
 
 - [Introduction](#introduction)
+- [Server Access](#server-access)
+    - [SSH Access](#server-ssh)
+    - [Viewing Logs](#server-logs)
+- [Site Access](#site-access)
+    - [SSH Access](#site-ssh)
 - [AWS EC2](#aws-ec2)
     - [Configuration](#aws-configuration)
     - [Managing SSH Keys](#aws-ssh-keys)
@@ -23,6 +28,107 @@ Currently supported providers:
 
 > [!NOTE]
 > Pro features require API credentials from your cloud provider. These credentials are stored locally and never transmitted to third parties.
+
+<a name="server-access"></a>
+
+## Server Access
+
+Pro commands for accessing and monitoring your servers.
+
+<a name="server-ssh"></a>
+
+### SSH Access
+
+The `pro:server:ssh` command opens an interactive SSH session to a server:
+
+```bash
+deployer pro:server:ssh
+```
+
+You'll be prompted to select a server from your inventory, then dropped into a terminal session on the remote server. Use `exit` to return to your local machine.
+
+| Option     | Description |
+| ---------- | ----------- |
+| `--server` | Server name |
+
+For automation:
+
+```bash
+deployer pro:server:ssh --server=production
+```
+
+> [!NOTE]
+> This command is also available as `server:ssh` for convenience.
+
+<a name="server-logs"></a>
+
+### Viewing Logs
+
+The `pro:server:logs` command provides a unified interface for viewing all logs on a server:
+
+```bash
+deployer pro:server:logs --server=production
+```
+
+When run interactively, you'll see a multiselect prompt with all available log sources. You can select multiple sources at once to view logs from different services in a single command.
+
+Available log sources include:
+
+- **System logs** - General system logs via journalctl
+- **Service logs** - Nginx, SSH, PHP-FPM (per version), MySQL, MariaDB, PostgreSQL, Redis, Valkey, Memcached
+- **Site access logs** - Per-site Nginx access logs
+- **Cron script logs** - Output from individual cron scripts
+- **Supervisor program logs** - Output from supervisor programs
+
+| Option          | Description                            | Default    |
+| --------------- | -------------------------------------- | ---------- |
+| `--server`      | Server name                            | (prompted) |
+| `--site`        | Filter logs to a specific site         | (none)     |
+| `--service, -s` | Service(s) to view (comma-separated)   | (prompted) |
+| `--lines, -n`   | Number of lines to retrieve per source | 50         |
+
+For automation:
+
+```bash
+deployer pro:server:logs \
+    --server=production \
+    --service=nginx,php8.3-fpm,mysql \
+    --lines=100
+```
+
+> [!NOTE]
+> This command is also available as `server:logs` for convenience. For detailed documentation, see the [Viewing Logs](/docs/servers#viewing-logs) section in server management.
+
+<a name="site-access"></a>
+
+## Site Access
+
+Pro commands for accessing your sites.
+
+<a name="site-ssh"></a>
+
+### SSH Access
+
+The `pro:site:ssh` command opens an SSH session directly in a site's directory:
+
+```bash
+deployer pro:site:ssh
+```
+
+You'll be prompted to select a site from your inventory. The session opens in the site's current release directory (`/home/deployer/sites/{domain}/current/`) as the `deployer` user.
+
+| Option     | Description |
+| ---------- | ----------- |
+| `--domain` | Site domain |
+
+For automation:
+
+```bash
+deployer pro:site:ssh --domain=example.com
+```
+
+> [!NOTE]
+> This command is also available as `site:ssh` for convenience.
 
 <a name="aws-ec2"></a>
 

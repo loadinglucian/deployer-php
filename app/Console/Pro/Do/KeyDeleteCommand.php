@@ -13,7 +13,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'pro:do:key:delete',
+    name: 'pro:do:key:delete|do:key:delete',
     description: 'Delete a public SSH key from DigitalOcean'
 )]
 class KeyDeleteCommand extends BaseCommand
