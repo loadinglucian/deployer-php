@@ -20,9 +20,10 @@ DeployerPHP can install and manage various services on your servers. Each servic
 - `<service>:start` - Start the service
 - `<service>:stop` - Stop the service
 - `<service>:restart` - Restart the service
-- `<service>:logs` - View service logs
 
 All commands accept a `--server` option to specify the target server, or will prompt you to select one interactively.
+
+To view logs for any service, use the unified `server:logs` command. See the [Viewing Logs](/docs/servers#viewing-logs) section for details.
 
 <a name="mysql"></a>
 
@@ -70,10 +71,9 @@ deployer mysql:stop --server=production
 
 # Restart the service
 deployer mysql:restart --server=production
-
-# View logs (-n is shorthand for --lines)
-deployer mysql:logs --server=production -n 100
 ```
+
+To view MySQL logs, use `server:logs --server=production --service=mysqld`.
 
 <a name="mariadb"></a>
 
@@ -116,8 +116,9 @@ If saving to a file fails, DeployerPHP will automatically fall back to displayin
 deployer mariadb:start --server=production
 deployer mariadb:stop --server=production
 deployer mariadb:restart --server=production
-deployer mariadb:logs --server=production --lines=100
 ```
+
+To view MariaDB logs, use `server:logs --server=production --service=mariadb`.
 
 > [!NOTE]
 > MySQL and MariaDB are mutually exclusive. Install only one on each server.
@@ -144,26 +145,7 @@ deployer postgresql:stop --server=production
 deployer postgresql:restart --server=production
 ```
 
-### Viewing Logs
-
-The `postgresql:logs` command retrieves logs from two sources: the systemd journal and the PostgreSQL error log file.
-
-```bash
-deployer postgresql:logs
-```
-
-Options:
-
-| Option          | Description                 | Default |
-| --------------- | --------------------------- | ------- |
-| `--server`      | Server name                 |         |
-| `--lines`, `-n` | Number of lines to retrieve | 50      |
-
-For automation:
-
-```bash
-deployer postgresql:logs --server=production --lines=100
-```
+To view PostgreSQL logs, use `server:logs --server=production --service=postgres`.
 
 <a name="redis"></a>
 
@@ -198,8 +180,9 @@ During installation, DeployerPHP:
 deployer redis:start --server=production
 deployer redis:stop --server=production
 deployer redis:restart --server=production
-deployer redis:logs --server=production --lines=50
 ```
+
+To view Redis logs, use `server:logs --server=production --service=redis-server`.
 
 <a name="memcached"></a>
 
@@ -219,8 +202,9 @@ deployer memcached:install --server=production
 deployer memcached:start --server=production
 deployer memcached:stop --server=production
 deployer memcached:restart --server=production
-deployer memcached:logs --server=production --lines=100
 ```
+
+To view Memcached logs, use `server:logs --server=production --service=memcached`.
 
 <a name="valkey"></a>
 
@@ -255,8 +239,9 @@ During installation, DeployerPHP:
 deployer valkey:start --server=production
 deployer valkey:stop --server=production
 deployer valkey:restart --server=production
-deployer valkey:logs --server=production --lines=100
 ```
+
+To view Valkey logs, use `server:logs --server=production --service=valkey-server`.
 
 > [!NOTE]
 > Valkey and Redis are mutually exclusive. Install only one on each server.
@@ -278,22 +263,9 @@ deployer nginx:stop --server=production
 
 # Restart Nginx (use after configuration changes)
 deployer nginx:restart --server=production
-
-# View Nginx logs
-deployer nginx:logs --server=production --lines=100
 ```
 
-### Viewing Nginx Logs
-
-The `nginx:logs` command displays two types of logs:
-
-- **Nginx service logs** - Systemd journal logs for the Nginx service (startup, errors, warnings)
-- **Site access logs** - Per-site access logs for each site deployed on the server
-
-| Option          | Description                 |
-| --------------- | --------------------------- |
-| `--server`      | Server name                 |
-| `--lines`, `-n` | Number of lines to retrieve |
+To view Nginx service logs, use `server:logs --server=production --service=nginx`. For site-specific access logs, select the site domain from the log sources or use `--service=example.com`.
 
 > [!NOTE]
 > Site-specific Nginx configurations are managed automatically by `site:create` and `site:delete`.
@@ -315,9 +287,6 @@ deployer php:stop --server=production
 
 # Restart PHP-FPM (use after php.ini changes)
 deployer php:restart --server=production
-
-# View PHP-FPM logs
-deployer php:logs --server=production --lines=100
 ```
 
 You can target a specific PHP version with any of the service commands:
@@ -326,8 +295,9 @@ You can target a specific PHP version with any of the service commands:
 deployer php:start --server=production --version=8.3
 deployer php:stop --server=production --version=8.3
 deployer php:restart --server=production --version=8.3
-deployer php:logs --server=production --version=8.3 --lines=100
 ```
+
+To view PHP-FPM logs, use `server:logs --server=production --service=php8.3-fpm` (replace `8.3` with your installed version).
 
 ### Installing Additional PHP Versions
 

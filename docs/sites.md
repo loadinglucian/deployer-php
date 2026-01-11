@@ -16,13 +16,11 @@
 - [Cron Jobs](#cron-jobs)
     - [Creating Cron Jobs](#creating-cron-jobs)
     - [Syncing Cron Jobs](#syncing-cron-jobs)
-    - [Viewing Cron Logs](#viewing-cron-logs)
     - [Deleting Cron Jobs](#deleting-cron-jobs)
 - [Supervisor Processes](#supervisor-processes)
     - [Creating Processes](#creating-processes)
     - [Managing Processes](#managing-processes)
     - [Syncing Processes](#syncing-processes)
-    - [Viewing Supervisor Logs](#viewing-supervisor-logs)
     - [Deleting Processes](#deleting-processes)
 - [Scaffolding](#scaffolding)
     - [Scaffolding Hooks](#scaffolding-hooks)
@@ -244,34 +242,25 @@ deployer site:shared:pull \
 
 ## Viewing Logs
 
-The `site:logs` command displays site-specific logs:
+To view logs for a specific site, use the unified `server:logs` command with the `--site` option:
 
 ```bash
-deployer site:logs --domain=example.com
+deployer server:logs --server=production --site=example.com
 ```
 
-Options:
+This filters the available log sources to only show that site's logs:
 
-| Option      | Description                                                      |
-| ----------- | ---------------------------------------------------------------- |
-| `--domain`  | Site domain                                                      |
-| `--lines`   | Number of lines to retrieve (default: 50)                        |
-| `--service` | Service(s) to view (comma-separated: access, crons, supervisors) |
+- The site's Nginx access log
+- The site's cron script logs (if configured)
+- The site's supervisor program logs (if configured)
 
-This shows:
-
-- Nginx access logs for the domain
-- Cron job output (if crons configured)
-- Supervisor process output (if supervisors configured)
-
-For automation:
+You can also view all site access logs across the server:
 
 ```bash
-deployer site:logs \
-    --domain=example.com \
-    --lines=100 \
-    --service=access,crons
+deployer server:logs --server=production --service=all-sites
 ```
+
+For more details on available log sources and options, see the [Viewing Logs](/docs/servers#viewing-logs) section in server management.
 
 <a name="ssh-access"></a>
 
@@ -378,15 +367,7 @@ The `cron:sync` command syncs cron definitions from inventory to the server:
 deployer cron:sync --domain=example.com
 ```
 
-<a name="viewing-cron-logs"></a>
-
-### Viewing Cron Logs
-
-The `cron:logs` command displays cron service and script logs for all sites on a server:
-
-```bash
-deployer cron:logs --server=production --lines=100
-```
+To view cron logs, use `server:logs --server=production --service=all-crons` or select individual cron scripts from the log sources.
 
 <a name="deleting-cron-jobs"></a>
 
@@ -476,15 +457,7 @@ The `supervisor:sync` command syncs process definitions from inventory to the se
 deployer supervisor:sync --domain=example.com
 ```
 
-<a name="viewing-supervisor-logs"></a>
-
-### Viewing Supervisor Logs
-
-The `supervisor:logs` command displays supervisor service and program logs for all sites on a server:
-
-```bash
-deployer supervisor:logs --server=production --lines=100
-```
+To view supervisor logs, use `server:logs --server=production --service=all-supervisors` or select individual programs from the log sources.
 
 <a name="deleting-processes"></a>
 
