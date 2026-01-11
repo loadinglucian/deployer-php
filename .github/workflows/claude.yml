@@ -12,15 +12,27 @@ on:
 
 jobs:
   claude:
+    # Only allow trusted users (OWNER, MEMBER, COLLABORATOR) to trigger Claude
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (
+        (github.event_name == 'issue_comment' &&
+          contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+        (github.event_name == 'pull_request_review_comment' &&
+          contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+        (github.event_name == 'pull_request_review' &&
+          contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)) ||
+        (github.event_name == 'issues' &&
+          contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association))
+      ) && (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write # Required for @claude review to submit reviews
       issues: read
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
@@ -42,6 +54,17 @@ jobs:
           # Link project .claude to dotclaude/deployer-php
           ln -s "$GITHUB_WORKSPACE/dotclaude/deployer-php" "$GITHUB_WORKSPACE/.claude"
 
+      - name: Detect review command
+        id: detect-review
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body || '' }}
+        run: |
+          if echo "$COMMENT_BODY" | grep -iqE '@claude\s+review'; then
+            echo "is_review=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_review=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
@@ -52,11 +75,147 @@ jobs:
           additional_permissions: |
             actions: read
 
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
+          # When @claude review is triggered, use the code review protocol
+          prompt: ${{ steps.detect-review.outputs.is_review == 'true' && format('
+            <context>
+            Repository: {0}
+            Pull Request: #{1}
+            Title: {2}
+            Commit SHA: {3}
 
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr:*)'
+            You have access to custom agents via the Task tool, including `trace-agent` for deep static analysis.
+            Follow CLAUDE.md for project conventions and quality standards.
+            </context>
+
+            <protocol>
+
+              <step name="get-diff-context">
+                Use `gh pr diff` to get the full diff for this PR.
+
+                Extract and store:
+                1. List of modified files (code files: *.php, *.js, *.ts, *.sh)
+                2. Command files: app/Console/**/*Command.php
+                3. For each file, the specific line ranges that were added or modified
+                   - Parse diff hunks to identify changed line numbers
+                   - Store as: filepath -> [changed_lines]
+              </step>
+
+              <step name="trace-analysis">
+                For each modified code file, spawn trace-agent using the Task tool:
+                - subagent_type: trace-agent
+                - prompt: "Analyze filepath for bugs and issues.
+
+                  IMPORTANT: This file was modified in a PR. The following lines were changed:
+                  list of changed line numbers from step 1
+
+                  Categorize each finding as:
+                  - new: Issue is ON or DIRECTLY CAUSED BY a changed line
+                  - pre-existing: Issue is on unchanged code, not caused by PR changes
+
+                  Return findings as JSON:
+                  new_issues: [path, line, severity high|medium|low, message]
+                  pre_existing: [path, line, severity, message]
+                  general: [Issues without specific line numbers]"
+
+                Run analyses in parallel where possible.
+              </step>
+
+              <step name="docs-check">
+                For each modified command file (app/Console/**/*Command.php), spawn docs-agent:
+                - subagent_type: docs-agent
+                - prompt: "Check if documentation for command_name needs updating based on changes in filepath"
+
+                Run in parallel with trace-analysis where possible.
+              </step>
+
+              <step name="collect-findings">
+                Aggregate all findings from trace-agent results into:
+                1. new_inline: Array of path, line, severity, message for NEW issues on changed lines
+                2. pre_existing_inline: Array of path, line, severity, message for pre-existing issues
+                3. general_issues: Array of strings for issues without line numbers
+                4. doc_updates: Array of documentation findings from docs-agent
+              </step>
+
+              <step name="fetch-prior-comments">
+                Fetch existing review comments to avoid duplicates:
+                gh api repos/{0}/pulls/{1}/comments
+
+                Build lists:
+                1. claude_comments: Comments from claude[bot] (prior issues raised)
+                2. addressed_issues: Claude comments that have replies from PR author
+              </step>
+
+              <step name="deduplicate-findings">
+                Filter out duplicates before posting:
+                - DUPLICATE if: Same file AND line within 5 lines AND similar issue type
+                - If duplicate with no reply: Skip silently
+                - If addressed (has reply): Add to acknowledgment_queue
+
+                Result: filtered_new_inline (only new issues) and acknowledgment_queue
+              </step>
+
+              <step name="acknowledge-addressed">
+                For each addressed issue, post friendly reply to the thread:
+                gh api repos/{0}/pulls/{1}/comments -f body="MESSAGE" -F in_reply_to=COMMENT_ID
+
+                Use warm, specific acknowledgments like:
+                - "Makes sense! Thanks for the explanation"
+                - "Got it, the null check handles this. Thanks for clarifying!"
+                - "Fair enough! The pattern is idiomatic here. Withdrawn."
+
+                AVOID: "Ok", "Understood", "Noted" - too dismissive
+              </step>
+
+              <step name="submit-review">
+                Submit a GitHub code review using filtered_new_inline (after deduplication).
+
+                1. Build the review summary body:
+                   ## Code Review Summary
+
+                   ### Issues from PR Changes
+                   **X inline comments** on Y files
+                   Or "No new issues introduced by this PR"
+                   If duplicates skipped: "N issues from prior reviews not re-posted"
+
+                   ### Pre-existing Issues
+                   <details>
+                   <summary>N pre-existing issues found (not caused by this PR)</summary>
+
+                   | File | Line | Severity | Issue |
+                   |------|------|----------|-------|
+                   table rows for pre_existing_inline
+
+                   </details>
+                   Or "None detected"
+
+                   ### General Issues
+                   List general_issues, or "None"
+
+                   ### Documentation
+                   List doc_updates, or "All docs up to date"
+
+                2. Build comments array from filtered_new_inline only. Each needs:
+                   - path: relative file path
+                   - line: line number in the file
+                   - side: "RIGHT" (for additions/changes)
+                   - body: severity emoji + message
+
+                3. Submit the review using --input to pass JSON via stdin:
+                   gh api -X POST repos/{0}/pulls/{1}/reviews --input - with JSON body
+
+                4. If no new inline comments but other findings exist, submit review with just summary body.
+
+                5. If no issues at all AND no acknowledgments posted: "No issues found in this PR."
+
+                6. If only acknowledgments posted: "No new issues - responded to N prior comments above."
+              </step>
+
+            </protocol>
+
+            Begin by getting the list of modified files from the PR.
+            ', github.repository, github.event.issue.number, github.event.issue.title, github.event.pull_request.head.sha || ''
+          ) || '' }}
+
+          # When @claude review is triggered, restrict tools for review protocol
+          claude_args: ${{ steps.detect-review.outputs.is_review == 'true' && '--allowed-tools "Task,Bash(gh api:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"' || '' }}
 

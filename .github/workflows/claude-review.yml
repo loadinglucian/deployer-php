@@ -12,13 +12,16 @@ on:
 
 jobs:
   claude-review:
-    # Skip automated PRs from bots
-    if: github.actor != 'dependabot[bot]'
+    # Only auto-review PRs from trusted authors (OWNER, MEMBER, COLLABORATOR)
+    # External contributors can request review via @claude review comment
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
 
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write # Required to reply to comments
       issues: read
       id-token: write
 
@@ -111,8 +114,68 @@ jobs:
                 4. doc_updates: Array of documentation findings from docs-agent
               </step>
 
+              <step name="fetch-prior-comments">
+                Fetch all existing review comments on this PR to avoid duplicates:
+                gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments
+
+                For each comment, extract:
+                - id: Comment ID (for replying)
+                - path: File path
+                - line: Line number (original_line or line)
+                - body: Comment text
+                - user.login: Who posted it
+                - in_reply_to_id: If this is a reply to another comment
+
+                Build two lists:
+                1. claude_comments: Comments posted by claude[bot] - these are prior issues raised
+                2. addressed_issues: Claude comments that have a reply from the PR author (loadinglucian or PR opener)
+                   - An issue is "addressed" if the PR author replied to explain/acknowledge it
+              </step>
+
+              <step name="deduplicate-findings">
+                Before posting new comments, filter out duplicates:
+
+                For each finding in new_inline, check against claude_comments:
+                - DUPLICATE if: Same file AND line within ±5 lines AND similar issue type
+                  (e.g., both mention "null", both mention "validation", both mention same concept)
+                - If duplicate found: Remove from new_inline, do NOT post again
+
+                For addressed_issues (Claude comment + author reply):
+                - Do NOT re-post the issue
+                - Instead, add to acknowledgment_queue for friendly follow-up
+
+                Result:
+                - filtered_new_inline: Only genuinely new issues to post
+                - acknowledgment_queue: [{comment_id, author_reply, issue_summary}] for friendly replies
+              </step>
+
+              <step name="acknowledge-addressed">
+                Spawn `pr-comment` agents **IN PARALLEL** for all items in acknowledgment_queue.
+
+                **IMPORTANT:** Use a SINGLE message with MULTIPLE Task tool calls.
+
+                For each item, use the Task tool with `subagent_type: "pr-comment"`:
+
+                ````
+                Post a reply to this PR comment:
+
+                **PR:** ${{ github.repository }}#${{ github.event.pull_request.number }}
+                **Comment ID:** {comment_id}
+                **Type:** review_comment
+
+                **Context:** The PR author replied to our previous comment.
+                **Author's reply:** {author_reply}
+                **Original issue:** {issue_summary}
+
+                Reply with a friendly acknowledgment that shows we understood their explanation.
+                ````
+
+                After all agents complete, count total acknowledgments posted.
+              </step>
+
               <step name="submit-review">
                 Submit a GitHub code review with inline comments using the API.
+                IMPORTANT: Use filtered_new_inline (after deduplication), NOT new_inline.
 
                 1. Build the review summary body:
                    ## Code Review Summary
@@ -120,6 +183,9 @@ jobs:
                    ### Issues from PR Changes
                    **{X} inline comments** on {Y} files
                    {Or "✅ No new issues introduced by this PR"}
+
+                   {If any duplicates were skipped, add:}
+                   > ℹ️ {N} issues from prior reviews were not re-posted
 
                    ### Pre-existing Issues
                    <details>
@@ -138,13 +204,14 @@ jobs:
                    ### Documentation
                    {List doc_updates, or "All docs up to date"}
 
-                2. Build the comments array for NEW issues only (inline comments). Each needs:
+                2. Build the comments array from filtered_new_inline only (inline comments). Each needs:
                    - path: relative file path
                    - line: line number in the file
                    - side: "RIGHT" (for additions/changes)
                    - body: severity emoji + message (🔴 high, 🟡 medium, 🟢 low)
 
                    Note: Pre-existing issues go in the summary table, NOT as inline comments.
+                   Note: Duplicate/addressed issues are SKIPPED entirely - handled in acknowledge-addressed step.
 
                 3. Submit the review using --input to pass JSON via stdin:
                    gh api -X POST repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --input - <<'EOF'
@@ -158,7 +225,10 @@ jobs:
 
                 4. If no new inline comments but other findings exist, submit review with just summary body.
 
-                5. If no issues at all, submit: "✅ No issues found in this PR."
+                5. If no issues at all AND no acknowledgments were posted, submit: "✅ No issues found in this PR."
+
+                6. If only acknowledgments were posted (all new findings were duplicates), submit:
+                   "✅ No new issues - responded to {N} prior comments above."
               </step>
 
             </protocol>
