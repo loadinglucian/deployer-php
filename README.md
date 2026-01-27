@@ -1,103 +1,126 @@
-# DeployerPHP
-
-```
-▒ ≡ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-▒ The server and site deployment tool for PHP
-```
-
 [![PHP Version](https://img.shields.io/badge/php-%5E8.2-blue.svg)](https://php.net)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-- [Introduction](#introduction)
-- [Features](#features)
-- [Contributing](#contributing)
+Please visit the official documentation site at [https://deployerphp.com](https://deployerphp.com/)
+
+# Deployment Tools For PHP
+
+This is DeployerPHP, a set of command-line interface (CLI) tools for provisioning, installing, and deploying servers and sites using PHP. It serves as an open-source alternative to services such as Laravel Forge and Ploi.
+
+DeployerPHP allows you to easily:
+
+- configure servers for hosting PHP applications
+- manage servers and services from start to finish
+- set up and deploy your PHP applications
+- manage scheduled tasks and background processes
+- provision cloud instances and manage DNS
+
+<!-- toc -->
+
+- [Crash Course](#crash-course)
+- [Unlimited Servers & Sites](#unlimited-servers--sites)
+- [No Vendor Lock-In](#no-vendor-lock-in)
+- [End-To-End Management](#end-to-end-management)
+- [Composable Commands](#composable-commands)
+- [AI Automation](#ai-automation)
 - [License](#license)
-- [Documentation](#documentation)
+- [Contributing](#contributing)
 
-<a name="introduction"></a>
+<!-- /toc -->
 
-## Introduction
+<a name="crash-course"></a>
 
-DeployerPHP allows you to easily manage, install, and deploy your servers and sites with configurations and build scripts stored directly in your repository, making everything documentable and PR-reviewable. You can install as many servers and deploy as many sites as you need.
+## Crash Course
 
-As a native PHP/Composer package, it integrates seamlessly into your existing toolchain and workflows.
+Here's the crashiest of crash courses to start deploying immediately:
 
-<a name="features"></a>
+```shell
+# 1. Install as a dev dependency
+composer require --dev loadinglucian/deployer-php
 
-## Features
+# 2. Add an alias for convenience
+alias deployer="./vendor/bin/deployer"
 
-- **Unlimited servers and sites** - No limits, restrictions or vendor lock-in
-- **Repository-driven configuration** - Configs and build scripts live with the rest of your code
-- **End-to-end server management** - Provision cloud instances, install services, and manage operations
-- **Composable commands** - Easily build automation pipelines to spin up servers, deploy sites, or run workflows on demand
+# 3. Add your server to the inventory
+deployer server:add
 
-## Contributing
+# Replace server:add with your favorite provider
+# to provision an instance and automatically add
+# it as a server to your inventory:
+# deployer aws:provision
+# deployer do:provision
 
-Thank you for considering contributing to DeployerPHP! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+# 4. Install your preferred database service:
+# deployer mariadb:install
+# deployer mysql:install
+# deployer postgresql:install
+# deployer redis:install
+# deployer valkey:install
+# deployer memcached:install
+
+# 5. Install Nginx, PHP, Bun and generate a deploy key
+deployer server:install
+
+# 6. Create a site
+deployer site:create
+
+# 7. Generate deployment scripts (run from your project directory)
+deployer scaffold:scripts
+
+# 8. Upload your .env file to the server
+deployer site:shared:push
+
+# 9. Deploy your application
+deployer site:deploy
+
+# 10. Enable HTTPS (after DNS propagates)
+deployer site:https
+```
+
+<a name="unlimited-servers--sites"></a>
+
+## Unlimited Servers & Sites
+
+There aren't any limits or restrictions on how many servers and sites you can deploy or manage: provision, install, manage, and deploy as many as you want.
+
+<a name="no-vendor-lock-in"></a>
+
+## No Vendor Lock-In
+
+You can manage servers and deploy sites with any hosting or cloud provider. If your server runs Ubuntu LTS or Debian and you can SSH into it, you can deploy sites there using DeployerPHP.
+
+<a name="end-to-end-management"></a>
+
+## End-To-End Management
+
+With DeployerPHP, you can effortlessly provision cloud instances, install services, and manage deployments and operations directly from the command line.
+
+<a name="composable-commands"></a>
+
+## Composable Commands
+
+Atomic commands allow you to easily create automation pipelines for spinning up servers, installing services, deploying sites, or running custom workflows on demand.
+
+<a name="ai-automation"></a>
+
+## AI Automation
+
+Use your favorite AI agents to help you debug server and site issues, using DeployerPHP's composable commands and built-in agent skills.
+
+<a name="license"></a>
 
 ## License
 
-DeployerPHP is open-source software distributed under the [MIT License](./LICENSE).
+DeployerPHP is open-source software distributed under the [MIT License](/LICENSE).
 
 You can use it freely for personal or commercial projects, without any restrictions.
 
-## Documentation
+This also means there are no guarantees or warranties that apply. You are on your own.
 
-- [Getting Started](docs/getting-started.md)
-  - [TL;DR](docs/getting-started.md#tldr)
-  - [Installation](docs/getting-started.md#installation)
-  - [Requirements](docs/getting-started.md#requirements)
-  - [How Commands Are Organized](docs/getting-started.md#how-commands-are-organized)
-  - [Step 1: Adding a Server](docs/getting-started.md#add-new-server)
-  - [Step 2: Installing a Server](docs/getting-started.md#install-new-server)
-  - [Step 3: Creating a Site](docs/getting-started.md#create-new-site)
-  - [Step 4: Deploying a Site](docs/getting-started.md#deploy-site)
-  - [Step 5: Enabling HTTPS](docs/getting-started.md#enable-https)
-  - [AI Rules for Debugging](docs/getting-started.md#scaffold-ai-rules)
-- [Server Management](docs/servers.md)
-  - [Adding a Server](docs/servers.md#adding-a-server)
-  - [Installing a Server](docs/servers.md#installing-a-server)
-  - [Server Information](docs/servers.md#server-information)
-  - [Firewall Configuration](docs/servers.md#firewall-configuration)
-  - [Running Commands](docs/servers.md#running-commands)
-  - [SSH Access](docs/servers.md#ssh-access)
-  - [Viewing Logs](docs/servers.md#viewing-logs)
-  - [Deleting a Server](docs/servers.md#deleting-a-server)
-- [Services](docs/services.md)
-  - [MySQL](docs/services.md#mysql)
-  - [MariaDB](docs/services.md#mariadb)
-  - [PostgreSQL](docs/services.md#postgresql)
-  - [Redis](docs/services.md#redis)
-  - [Memcached](docs/services.md#memcached)
-  - [Valkey](docs/services.md#valkey)
-  - [Nginx](docs/services.md#nginx)
-  - [PHP-FPM](docs/services.md#php-fpm)
-- [Site Management](docs/sites.md)
-  - [Creating a Site](docs/sites.md#creating-a-site)
-  - [Deploying a Site](docs/sites.md#deploying-a-site)
-  - [Enabling HTTPS](docs/sites.md#enabling-https)
-  - [Shared Files](docs/sites.md#shared-files)
-  - [Viewing Logs](docs/sites.md#viewing-logs)
-  - [SSH Access](docs/sites.md#ssh-access)
-  - [Rollbacks](docs/sites.md#rollbacks)
-  - [Deleting a Site](docs/sites.md#deleting-a-site)
-  - [Cron Jobs](docs/sites.md#cron-jobs)
-  - [Supervisor Processes](docs/sites.md#supervisor-processes)
-  - [Scaffolding](docs/sites.md#scaffolding)
-- [Cloud Providers](docs/cloud.md)
-  - [AWS](docs/cloud.md#aws)
-    - [Configuration](docs/cloud.md#aws-configuration)
-    - [Managing SSH Keys](docs/cloud.md#aws-ssh-keys)
-    - [Provisioning Servers](docs/cloud.md#aws-provisioning)
-    - [Managing DNS Records](docs/cloud.md#aws-dns)
-  - [Cloudflare](docs/cloud.md#cloudflare)
-    - [Configuration](docs/cloud.md#cf-configuration)
-    - [Managing DNS Records](docs/cloud.md#cf-dns)
-  - [DigitalOcean](docs/cloud.md#digitalocean)
-    - [Configuration](docs/cloud.md#do-configuration)
-    - [Managing SSH Keys](docs/cloud.md#do-ssh-keys)
-    - [Provisioning Droplets](docs/cloud.md#do-provisioning)
-    - [Managing DNS Records](docs/cloud.md#do-dns)
-- [Automation](docs/automation.md)
-  - [Command Replay](docs/automation.md#command-replay)
-  - [Quiet Mode](docs/automation.md#quiet-mode)
+<a name="contributing"></a>
+
+## Contributing
+
+Thank you for considering contributing to DeployerPHP!
+
+Please see [CONTRIBUTING](/CONTRIBUTING.md) for details.
