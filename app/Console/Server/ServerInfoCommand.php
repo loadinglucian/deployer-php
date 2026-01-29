@@ -312,5 +312,7 @@ class ServerInfoCommand extends BaseCommand
                 $this->displayDeets(['Sites' => $sitesItems]);
             }
         }
+
+        $this->out('───');
     }
 }
