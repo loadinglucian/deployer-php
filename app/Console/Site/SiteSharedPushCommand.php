@@ -39,7 +39,9 @@ class SiteSharedPushCommand extends BaseCommand
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain')
             ->addOption('local', null, InputOption::VALUE_REQUIRED, 'Local file path to upload')
-            ->addOption('remote', null, InputOption::VALUE_REQUIRED, 'Remote filename (relative to shared/)');
+            ->addOption('remote', null, InputOption::VALUE_REQUIRED, 'Remote filename (relative to shared/)')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the filename to confirm')
+            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
     }
 
     // ----
@@ -88,6 +90,44 @@ class SiteSharedPushCommand extends BaseCommand
         $remoteDir = dirname($remotePath);
 
         //
+        // Check for existing file
+        // ----
+
+        if ($this->remoteFileExists($server, $remotePath)) {
+            $this->warn("Shared file '{$remoteRelative}' already exists");
+
+            /** @var bool $forceSkip */
+            $forceSkip = $input->getOption('force');
+
+            if (!$forceSkip) {
+                $typedName = $this->io->promptText(
+                    label: "Type the remote filename '{$remoteRelative}' to confirm overwrite:",
+                    required: true
+                );
+
+                if ($typedName !== $remoteRelative) {
+                    $this->nay('Filename does not match. Upload cancelled.');
+
+                    return Command::FAILURE;
+                }
+            }
+
+            $confirmed = $this->io->getBooleanOptionOrPrompt(
+                'yes',
+                fn (): bool => $this->io->promptConfirm(
+                    label: 'Are you sure?',
+                    default: false
+                )
+            );
+
+            if (!$confirmed) {
+                $this->warn('Upload cancelled.');
+
+                return Command::SUCCESS;
+            }
+        }
+
+        //
         // Upload file
         // ----
 
@@ -122,6 +162,8 @@ class SiteSharedPushCommand extends BaseCommand
             'domain' => $site->domain,
             'local' => $localPath,
             'remote' => $remoteRelative,
+            'force' => true,
+            'yes' => true,
         ]);
 
         return Command::SUCCESS;
@@ -190,5 +232,26 @@ class SiteSharedPushCommand extends BaseCommand
 
             throw new \RuntimeException($message);
         }
+    }
+
+    private function remoteFileExists(ServerDTO $server, string $remotePath): bool
+    {
+        $result = $this->ssh->executeCommand(
+            $server,
+            sprintf('test -f %s', escapeshellarg($remotePath))
+        );
+
+        if (0 === $result['exit_code']) {
+            return true;
+        }
+
+        if (1 === $result['exit_code']) {
+            return false;
+        }
+
+        $output = trim((string) $result['output']);
+        $message = '' === $output ? "Failed checking remote file: {$remotePath}" : $output;
+
+        throw new \RuntimeException($message);
     }
 }
