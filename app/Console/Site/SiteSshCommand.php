@@ -102,14 +102,16 @@ class SiteSshCommand extends BaseCommand
         ];
 
         if (null !== $server->privateKeyPath) {
-            if (!file_exists($server->privateKeyPath) || !is_readable($server->privateKeyPath)) {
+            $keyPath = $this->fs->expandPath($server->privateKeyPath);
+
+            if (!file_exists($keyPath) || !is_readable($keyPath)) {
                 $this->nay("SSH key not found or not readable: {$server->privateKeyPath}");
 
                 return Command::FAILURE;
             }
 
             $sshArgs[] = '-i';
-            $sshArgs[] = $server->privateKeyPath;
+            $sshArgs[] = $keyPath;
         }
 
         $sshArgs[] = "{$server->username}@{$server->host}";

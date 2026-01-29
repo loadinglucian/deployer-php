@@ -312,12 +312,14 @@ class SshService
     // ----
 
     /**
-     * Load and validate private key from resolved path.
+     * Load and validate private key from path (may contain ~).
      *
      * @throws \RuntimeException When key cannot be found, read, or parsed
      */
     private function loadPrivateKey(string $privateKeyPath): PrivateKey
     {
+        $privateKeyPath = $this->fs->expandPath($privateKeyPath);
+
         if (!$this->fs->exists($privateKeyPath)) {
             throw new \RuntimeException("Private SSH key does not exist: {$privateKeyPath}");
         }

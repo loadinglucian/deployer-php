@@ -90,8 +90,9 @@ trait KeysTrait
      * Prompt for deploy key pair path with validation.
      *
      * Validates both the private key and corresponding public key (.pub).
+     * Returns the original path (preserving ~) for portable storage.
      *
-     * @return string Expanded path to private key
+     * @return string Original path (may contain ~)
      *
      * @throws ValidationException When validation fails
      */
@@ -110,20 +111,21 @@ trait KeysTrait
             fn ($value) => $this->validateDeployKeyPairInput($value)
         );
 
-        return $this->fs->expandPath($path);
+        return $path;
     }
 
     /**
      * Prompt for private key path with validation and fallback resolution.
+     * Returns the original path (preserving ~) for portable storage.
      *
-     * @return string Resolved path
+     * @return string Original path (may contain ~)
      *
      * @throws ValidationException When validation or resolution fails
      */
     protected function promptPrivateKeyPath(): string
     {
-        /** @var string $pathRaw */
-        $pathRaw = $this->io->getValidatedOptionOrPrompt(
+        /** @var string $path */
+        $path = $this->io->getValidatedOptionOrPrompt(
             'private-key-path',
             fn ($validate) => $this->io->promptText(
                 label: 'Path to SSH private key (leave empty for default ~/.ssh/id_ed25519 or ~/.ssh/id_rsa):',
@@ -135,9 +137,9 @@ trait KeysTrait
             fn ($value) => $this->validatePrivateKeyPathInputAllowEmpty($value)
         );
 
-        $resolved = ('' === trim($pathRaw))
+        $resolved = ('' === trim($path))
             ? $this->resolvePrivateKeyPath('')
-            : $this->fs->expandPath($pathRaw);
+            : $path;
 
         if (null === $resolved) {
             throw new ValidationException('No default SSH key found. Create ~/.ssh/id_ed25519 or ~/.ssh/id_rsa, or specify a path.');

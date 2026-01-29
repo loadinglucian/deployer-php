@@ -216,10 +216,11 @@ final readonly class FilesystemService
 
     /**
      * Get first existing path from array of candidates.
-     * Automatically expands tilde paths before checking existence.
+     * Automatically expands tilde paths before checking existence,
+     * but returns the original path (preserving ~) for portable storage.
      *
      * @param array<int, string> $paths Array of file paths to check
-     * @return string|null First existing path (expanded), or null if none exist
+     * @return string|null First existing path (original, may contain ~), or null if none exist
      */
     public function getFirstExisting(array $paths): ?string
     {
@@ -227,7 +228,7 @@ final readonly class FilesystemService
             try {
                 $expandedPath = $this->expandPath($path);
                 if ($this->exists($expandedPath)) {
-                    return $expandedPath;
+                    return $path;
                 }
             } catch (\RuntimeException) {
                 // Skip paths that cannot be expanded (e.g., ~ paths when HOME not set)
