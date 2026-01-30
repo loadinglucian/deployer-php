@@ -38,7 +38,8 @@ class ServerDeleteCommand extends BaseCommand
             ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the server name to confirm')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt')
-            ->addOption('inventory-only', null, InputOption::VALUE_NONE, 'Only remove from inventory, skip cloud provider destruction');
+            ->addOption('destroy-cloud', null, InputOption::VALUE_NEGATABLE, 'Destroy the cloud instance (DigitalOcean droplet or AWS EC2)')
+            ->addOption('remove-anyway', null, InputOption::VALUE_NONE, 'Remove from inventory even if cloud destruction fails');
     }
 
     // ----
@@ -66,11 +67,26 @@ class ServerDeleteCommand extends BaseCommand
         $siteCount = count($serverSites);
 
         //
-        // Display deletion info
+        // Prompt for cloud destruction (if applicable)
         // ----
 
-        /** @var bool $inventoryOnly */
-        $inventoryOnly = $input->getOption('inventory-only');
+        $destroyCloud = false;
+
+        if ($server->isProvisioned()) {
+            $destroyCloud = $this->io->getBooleanOptionOrPrompt(
+                'destroy-cloud',
+                fn () => $this->io->promptConfirm(
+                    label: $server->isDo()
+                        ? "Also destroy the droplet on DigitalOcean (ID: {$server->dropletId})?"
+                        : "Also terminate the EC2 instance on AWS (ID: {$server->instanceId})?",
+                    default: true
+                )
+            );
+        }
+
+        //
+        // Display deletion info
+        // ----
 
         $deletionInfo = [
             'Remove the server from inventory',
@@ -82,11 +98,11 @@ class ServerDeleteCommand extends BaseCommand
             $deletionInfo[] = "Delete {$siteCount} associated site(s): {$sitesList}";
         }
 
-        if ($server->isDo() && !$inventoryOnly) {
+        if ($server->isDo() && $destroyCloud) {
             $deletionInfo[] = "Destroy the droplet on DigitalOcean (ID: {$server->dropletId})";
         }
 
-        if ($server->isAws() && !$inventoryOnly) {
+        if ($server->isAws() && $destroyCloud) {
             $deletionInfo[] = "Terminate the EC2 instance on AWS (ID: {$server->instanceId})";
             $deletionInfo[] = 'Release associated Elastic IP (if any)';
         }
@@ -138,7 +154,7 @@ class ServerDeleteCommand extends BaseCommand
 
         $destroyed = false;
 
-        if ($server->isDo() && !$inventoryOnly) {
+        if ($server->isDo() && $destroyCloud) {
             try {
                 if (Command::FAILURE === $this->initializeDoAPI()) {
                     throw new \RuntimeException('Destroying droplet failed');
@@ -159,7 +175,7 @@ class ServerDeleteCommand extends BaseCommand
                 $this->nay($e->getMessage());
 
                 $continueAnyway = $this->io->getBooleanOptionOrPrompt(
-                    'inventory-only',
+                    'remove-anyway',
                     fn (): bool => $this->io->promptConfirm(
                         label: 'Remove from inventory anyway?',
                         default: true
@@ -170,7 +186,7 @@ class ServerDeleteCommand extends BaseCommand
                     return Command::FAILURE;
                 }
             }
-        } elseif ($server->isAws() && !$inventoryOnly) {
+        } elseif ($server->isAws() && $destroyCloud) {
             try {
                 if (Command::FAILURE === $this->initializeAwsAPI()) {
                     throw new \RuntimeException('Terminating instance failed');
@@ -214,7 +230,7 @@ class ServerDeleteCommand extends BaseCommand
                 $this->nay($e->getMessage());
 
                 $continueAnyway = $this->io->getBooleanOptionOrPrompt(
-                    'inventory-only',
+                    'remove-anyway',
                     fn (): bool => $this->io->promptConfirm(
                         label: 'Remove from inventory anyway?',
                         default: true
@@ -264,10 +280,12 @@ class ServerDeleteCommand extends BaseCommand
             'yes' => true,
         ];
 
-        // If we made it this far with a provisioned server that wasn't destroyed,
-        // we should add the --inventory-only option to the command replay
-        if ($server->isProvisioned() && !$destroyed) {
-            $replayOptions['inventory-only'] = true;
+        if ($server->isProvisioned()) {
+            $replayOptions['destroy-cloud'] = $destroyCloud;
+        }
+
+        if (!$destroyed && $server->isProvisioned()) {
+            $replayOptions['remove-anyway'] = true;
         }
 
         $this->commandReplay($replayOptions);

@@ -457,7 +457,8 @@ setup() {
 	run_deployer server:delete \
 		--server="$AWS_TEST_SERVER_NAME" \
 		--force \
-		--yes
+		--yes \
+		--destroy-cloud
 
 	debug_output
 

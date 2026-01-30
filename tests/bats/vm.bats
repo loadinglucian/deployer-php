@@ -116,7 +116,7 @@ setup() {
 		--server="$TEST_SERVER_NAME" \
 		--force \
 		--yes \
-		--inventory-only
+		--no-destroy-cloud
 
 	debug_output
 
@@ -133,7 +133,7 @@ setup() {
 		--server="nonexistent" \
 		--force \
 		--yes \
-		--inventory-only
+		--no-destroy-cloud
 
 	debug_output
 
@@ -141,21 +141,21 @@ setup() {
 	assert_output_contains "not found in inventory"
 }
 
-@test "server:delete with --inventory-only removes from inventory" {
-	add_test_server "inventory-only-server"
-	inventory_has_server "inventory-only-server"
+@test "server:delete with --no-destroy-cloud removes from inventory" {
+	add_test_server "no-destroy-server"
+	inventory_has_server "no-destroy-server"
 
 	run_deployer server:delete \
-		--server="inventory-only-server" \
+		--server="no-destroy-server" \
 		--force \
 		--yes \
-		--inventory-only
+		--no-destroy-cloud
 
 	debug_output
 
 	[ "$status" -eq 0 ]
 	assert_success_output
-	! inventory_has_server "inventory-only-server"
+	! inventory_has_server "no-destroy-server"
 }
 
 # NOTE: "server:delete fails when typed name doesn't match" cannot be tested

@@ -98,7 +98,8 @@ aws_cleanup_test_server() {
 	"$DEPLOYER_BIN" server:delete \
 		--server="$AWS_TEST_SERVER_NAME" \
 		--force \
-		--yes 2> /dev/null || true
+		--yes \
+		--destroy-cloud 2> /dev/null || true
 }
 
 # ----
@@ -159,7 +160,8 @@ do_cleanup_test_server() {
 	"$DEPLOYER_BIN" server:delete \
 		--server="$DO_TEST_SERVER_NAME" \
 		--force \
-		--yes 2> /dev/null || true
+		--yes \
+		--destroy-cloud 2> /dev/null || true
 }
 
 # ----
