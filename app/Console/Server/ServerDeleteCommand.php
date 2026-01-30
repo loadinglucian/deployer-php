@@ -284,7 +284,7 @@ class ServerDeleteCommand extends BaseCommand
             $replayOptions['destroy-cloud'] = $destroyCloud;
         }
 
-        if (!$destroyed && $server->isProvisioned()) {
+        if ($destroyCloud && !$destroyed && $server->isProvisioned()) {
             $replayOptions['remove-anyway'] = true;
         }
 
