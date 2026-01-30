@@ -88,7 +88,7 @@ class ValkeyInstallCommand extends BaseCommand
             } else {
                 $saveCredentialsPath = $this->io->promptText(
                     label: 'Save credentials to:',
-                    placeholder: './.env.valkey',
+                    placeholder: '.env.valkey',
                     required: true,
                     validate: fn ($value) => $this->validatePathInput($value)
                 );

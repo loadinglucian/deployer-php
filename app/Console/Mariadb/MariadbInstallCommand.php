@@ -88,7 +88,7 @@ class MariadbInstallCommand extends BaseCommand
             } else {
                 $saveCredentialsPath = $this->io->promptText(
                     label: 'Save credentials to:',
-                    placeholder: './.env.mariadb',
+                    placeholder: '.env.mariadb',
                     required: true,
                     validate: fn ($value) => $this->validatePathInput($value)
                 );

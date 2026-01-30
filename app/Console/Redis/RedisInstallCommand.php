@@ -88,7 +88,7 @@ class RedisInstallCommand extends BaseCommand
             } else {
                 $saveCredentialsPath = $this->io->promptText(
                     label: 'Save credentials to:',
-                    placeholder: './.env.redis',
+                    placeholder: '.env.redis',
                     required: true,
                     validate: fn ($value) => $this->validatePathInput($value)
                 );
