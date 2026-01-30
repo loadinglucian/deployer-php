@@ -37,7 +37,8 @@ class SiteDeleteCommand extends BaseCommand
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Domain name')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the site domain to confirm')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt')
-            ->addOption('inventory-only', null, InputOption::VALUE_NONE, 'Only remove from inventory, skip remote site deletion');
+            ->addOption('inventory-only', null, InputOption::VALUE_NONE, 'Only remove from inventory, skip remote site deletion')
+            ->addOption('remove-anyway', null, InputOption::VALUE_NONE, 'Remove from inventory even if remote site deletion fails');
     }
 
     // ----
@@ -159,7 +160,7 @@ class SiteDeleteCommand extends BaseCommand
 
             if (!$deletedFromServer) {
                 $proceedAnyway = $this->io->getBooleanOptionOrPrompt(
-                    'inventory-only',
+                    'remove-anyway',
                     fn (): bool => $this->io->promptConfirm(
                         label: 'Remove site from inventory anyway?',
                         default: false
@@ -191,9 +192,9 @@ class SiteDeleteCommand extends BaseCommand
         ];
 
         // If we made it this far without deleting from server,
-        // add --inventory-only to the command replay
+        // add --remove-anyway to the command replay
         if (!$deletedFromServer) {
-            $replayOptions['inventory-only'] = true;
+            $replayOptions['remove-anyway'] = true;
         }
 
         $this->commandReplay($replayOptions);
