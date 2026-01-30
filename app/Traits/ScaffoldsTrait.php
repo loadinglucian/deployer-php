@@ -13,7 +13,7 @@ use Symfony\Component\Console\Input\InputOption;
 /**
  * Reusable scaffold file copying helpers using template method pattern.
  *
- * Commands can override hooks to customize behavior:
+ * Commands can override methods to customize behavior:
  * - resolveScaffoldContext(): Add extra prompts (e.g., agent selection)
  * - buildTargetPath(): Custom destination structure
  * - buildTemplatePath(): Custom source directory
@@ -64,7 +64,7 @@ trait ScaffoldsTrait
             return Command::FAILURE;
         }
 
-        // Step 2: Hook for commands needing extra prompts (e.g., agent selection)
+        // Step 2: Extension point for commands needing extra prompts (e.g., agent selection)
         $context = $this->resolveScaffoldContext($destinationDir, $type);
         if (null === $context) {
             return Command::FAILURE;
@@ -91,7 +91,7 @@ trait ScaffoldsTrait
     }
 
     // ----
-    // Overridable Hooks
+    // Overridable Methods
     // ----
 
     /**

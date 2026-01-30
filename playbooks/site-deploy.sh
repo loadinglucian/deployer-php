@@ -3,7 +3,7 @@
 #
 # Site Deploy
 #
-# Deploys site using atomic releases with git clone, hooks, and symlink swap.
+# Deploys site using atomic releases with git clone, scripts, and symlink swap.
 #
 # Output:
 #   status: success
@@ -50,8 +50,8 @@ export DEPLOYER_DOMAIN="$DEPLOYER_SITE_DOMAIN"
 export DEPLOYER_BRANCH="$DEPLOYER_SITE_BRANCH"
 export DEPLOYER_KEEP_RELEASES
 
-# Variables to preserve when running hooks as deployer user via sudo.
-# By default sudo sanitizes the environment for security, but hooks need
+# Variables to preserve when running scripts as deployer user via sudo.
+# By default sudo sanitizes the environment for security, but scripts need
 # access to deployment context (paths, domain, PHP version, etc).
 # Used by run_as_deployer() in helpers.sh with sudo --preserve-env.
 # shellcheck disable=SC2034 # Used by inlined helpers.sh
@@ -62,31 +62,31 @@ PRESERVE_ENV_VARS="DEPLOYER_RELEASE_PATH,DEPLOYER_SHARED_PATH,DEPLOYER_CURRENT_P
 # ----
 
 #
-# Hook Management
+# Script Management
 # ----
 
 #
-# Execute deployment hook if it exists
+# Execute deployment script if it exists
 #
 # Arguments:
-#   $1 - Hook name (1-building.sh, 2-releasing.sh, 3-finishing.sh)
+#   $1 - Script name (1-building.sh, 2-releasing.sh, 3-finishing.sh)
 
-run_hook() {
-	local hook_name=$1
-	local hook_path="${DEPLOYER_RELEASE_PATH}/.deployer/hooks/${hook_name}"
+run_script() {
+	local script_name=$1
+	local script_path="${DEPLOYER_RELEASE_PATH}/.deployer/scripts/${script_name}"
 
-	if ! run_cmd test -f "$hook_path"; then
+	if ! run_cmd test -f "$script_path"; then
 		return 0
 	fi
 
-	if ! run_cmd test -x "$hook_path"; then
-		run_cmd chmod +x "$hook_path" || fail "Failed to make ${hook_name} hook executable"
+	if ! run_cmd test -x "$script_path"; then
+		run_cmd chmod +x "$script_path" || fail "Failed to make ${script_name} script executable"
 	fi
 
-	echo "→ Running ${hook_name} hook..."
+	echo "→ Running ${script_name} script..."
 
-	if ! run_as_deployer bash -c "cd $(printf '%q' "$DEPLOYER_RELEASE_PATH") && $(printf '%q' "$hook_path")"; then
-		fail "${hook_name} hook failed"
+	if ! run_as_deployer bash -c "cd $(printf '%q' "$DEPLOYER_RELEASE_PATH") && $(printf '%q' "$script_path")"; then
+		fail "${script_name} script failed"
 	fi
 }
 
@@ -422,24 +422,24 @@ write_output() {
 # ----
 
 #
-# Execute full deployment hook sequence
+# Execute full deployment script sequence
 #
-# Runs hooks in order: build release -> link shared -> 1-building -> 2-releasing -> activate -> 3-finishing -> cleanup -> restart supervisors
+# Runs scripts in order: build release -> link shared -> 1-building -> 2-releasing -> activate -> 3-finishing -> cleanup -> restart supervisors
 
-run_hooks_sequence() {
+run_scripts_sequence() {
 	clone_or_update_repo
 
 	build_release
 
-	run_hook '1-building.sh'
+	run_script '1-building.sh'
 
 	link_shared_resources
 
-	run_hook '2-releasing.sh'
+	run_script '2-releasing.sh'
 
 	activate_release
 
-	run_hook '3-finishing.sh'
+	run_script '3-finishing.sh'
 
 	reload_php_fpm
 
@@ -462,7 +462,7 @@ run_hooks_sequence() {
 main() {
 	detect_php_binary
 	prepare_directories
-	run_hooks_sequence
+	run_scripts_sequence
 	write_output
 }
 

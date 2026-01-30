@@ -103,16 +103,16 @@ deployer site:create --domain=example.com --server=production --php-version=8.3
 
 Complete sequence for deploying a site.
 
-| Step | Command            | Notes                                        |
-| ---- | ------------------ | -------------------------------------------- |
-| 1    | `scaffold:hooks`   | Create `.deployer/hooks/` with build scripts |
-| 2    | `site:deploy`      | Clone repo, run hooks, activate release      |
-| 3    | `site:https`       | Obtain Let's Encrypt certificate             |
-| 4    | `site:shared:push` | Upload .env and other persistent files       |
+| Step | Command            | Notes                                          |
+| ---- | ------------------ | ---------------------------------------------- |
+| 1    | `scaffold:scripts` | Create `.deployer/scripts/` with build scripts |
+| 2    | `site:deploy`      | Clone repo, run scripts, activate release      |
+| 3    | `site:https`       | Obtain Let's Encrypt certificate               |
+| 4    | `site:shared:push` | Upload .env and other persistent files         |
 
 ```bash
-deployer scaffold:hooks
-# Edit .deployer/hooks/*.sh to customize build process, commit to repo
+deployer scaffold:scripts
+# Edit .deployer/scripts/*.sh to customize build process, commit to repo
 deployer site:deploy --domain=example.com
 deployer site:https --domain=example.com
 deployer site:shared:push --domain=example.com
@@ -237,7 +237,7 @@ All service commands follow the pattern `{service}:{action}`.
 | Command                | Description                                                     |
 | ---------------------- | --------------------------------------------------------------- |
 | `scaffold:ai`          | Generate AI agent skill (this file)                             |
-| `scaffold:hooks`       | Generate deployment hooks (`.deployer/hooks/`)                  |
+| `scaffold:scripts`     | Generate deployment scripts (`.deployer/scripts/`)              |
 | `scaffold:crons`       | Generate cron script templates (`.deployer/crons/`)             |
 | `scaffold:supervisors` | Generate supervisor script templates (`.deployer/supervisors/`) |
 
@@ -332,9 +332,9 @@ deployer server:run --server=production --command="free -h"
 
 #### Deployment Failed
 
-1. Verify deployment hooks exist: `ls .deployer/hooks/`
+1. Verify deployment scripts exist: `ls .deployer/scripts/`
 2. Ensure deploy key is added to Git provider
-3. Check hook syntax: `bash -n .deployer/hooks/1-building.sh`
+3. Check script syntax: `bash -n .deployer/scripts/1-building.sh`
 4. Review deployment logs for specific error
 
 #### Service Not Starting
@@ -357,17 +357,17 @@ deployer server:run --server=production --command="free -h"
 3. Run sync after creating: `cron:sync` or `supervisor:sync`
 4. Check logs: `deployer server:logs --server=<name> --site=<domain>`
 
-### Deployment Hooks
+### Deployment Scripts
 
-Build scripts run during deployment from `.deployer/hooks/`:
+Build scripts run during deployment from `.deployer/scripts/`:
 
-| Hook             | When                | Purpose                                                          |
+| Script           | When                | Purpose                                                          |
 | ---------------- | ------------------- | ---------------------------------------------------------------- |
 | `1-building.sh`  | After code checkout | Install deps: `composer install`, `bun install`, `bun run build` |
 | `2-releasing.sh` | Before activation   | Framework setup: migrations, cache optimization, symlinks        |
 | `3-finishing.sh` | After activation    | Post-deployment tasks (PHP-FPM auto-reloaded)                    |
 
-Hooks receive environment variables:
+Scripts receive environment variables:
 
 - `DEPLOYER_RELEASE_PATH` - New release directory
 - `DEPLOYER_SHARED_PATH` - Shared directory path

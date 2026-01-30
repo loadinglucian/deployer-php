@@ -11,10 +11,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'scaffold:hooks',
-    description: 'Scaffold deployment hooks from templates'
+    name: 'scaffold:scripts',
+    description: 'Scaffold deployment scripts from templates'
 )]
-class HooksCommand extends BaseCommand
+class ScriptsCommand extends BaseCommand
 {
     use ScaffoldsTrait;
 
@@ -35,8 +35,8 @@ class HooksCommand extends BaseCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         parent::execute($input, $output);
-        $this->h1('Scaffold Deployment Hooks');
+        $this->h1('Scaffold Deployment Scripts');
 
-        return $this->scaffoldFiles('hooks');
+        return $this->scaffoldFiles('scripts');
     }
 }

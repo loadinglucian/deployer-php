@@ -20,7 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'site:deploy',
-    description: 'Deploy a site by running the deployment playbook and hooks'
+    description: 'Deploy a site by running the deployment playbook and scripts'
 )]
 class SiteDeployCommand extends BaseCommand
 {
@@ -104,29 +104,29 @@ class SiteDeployCommand extends BaseCommand
         }
 
         //
-        // Check for deployment hooks in remote repository
+        // Check for deployment scripts in remote repository
         // ----
 
         try {
-            $availableHooks = $this->getAvailableScripts($site, '.deployer/hooks');
+            $availableScripts = $this->getAvailableScripts($site, '.deployer/scripts');
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
 
             return Command::FAILURE;
         }
 
-        $expectedHooks = $this->getExpectedHooks();
-        $hooksStatus = $this->getHooksStatus($availableHooks, $expectedHooks);
-        $missingHooks = array_keys(array_filter($hooksStatus, fn ($s) => 'missing' === $s));
-        $hasMissingHooks = [] !== $missingHooks;
+        $expectedScripts = $this->getExpectedScripts();
+        $scriptsStatus = $this->getScriptsStatus($availableScripts, $expectedScripts);
+        $missingScripts = array_keys(array_filter($scriptsStatus, fn ($s) => 'missing' === $s));
+        $hasMissingScripts = [] !== $missingScripts;
 
-        $this->out('Deployment hooks:');
-        $this->displayDeets($hooksStatus);
+        $this->out('Deployment scripts:');
+        $this->displayDeets($scriptsStatus);
         $this->out('───');
 
-        if ($hasMissingHooks) {
-            $this->warn('Missing hooks will be skipped.');
-            $this->info('Run <|cyan>scaffold:hooks</> to create them.');
+        if ($hasMissingScripts) {
+            $this->warn('Missing scripts will be skipped.');
+            $this->info('Run <|cyan>scaffold:scripts</> to create them.');
         }
 
         //
@@ -373,30 +373,30 @@ class SiteDeployCommand extends BaseCommand
     }
 
     /**
-     * Get expected hooks by scanning the scaffolds/hooks directory.
+     * Get expected scripts by scanning the scaffolds/scripts directory.
      *
      * @return array<int, string>
      */
-    private function getExpectedHooks(): array
+    private function getExpectedScripts(): array
     {
-        $scaffoldsPath = dirname(__DIR__, 3) . '/scaffolds/hooks';
+        $scaffoldsPath = dirname(__DIR__, 3) . '/scaffolds/scripts';
 
         return $this->fs->scanDirectory($scaffoldsPath);
     }
 
     /**
-     * Build status array for hooks (present/missing).
+     * Build status array for scripts (present/missing).
      *
-     * @param array<int, string> $availableHooks Hooks found in repository
-     * @param array<int, string> $expectedHooks  Hooks from scaffolds directory
-     * @return array<string, string> Hook name => status
+     * @param array<int, string> $availableScripts Scripts found in repository
+     * @param array<int, string> $expectedScripts  Scripts from scaffolds directory
+     * @return array<string, string> Script name => status
      */
-    private function getHooksStatus(array $availableHooks, array $expectedHooks): array
+    private function getScriptsStatus(array $availableScripts, array $expectedScripts): array
     {
         $status = [];
 
-        foreach ($expectedHooks as $hook) {
-            $status[$hook] = in_array($hook, $availableHooks, true) ? 'present' : 'missing';
+        foreach ($expectedScripts as $script) {
+            $status[$script] = in_array($script, $availableScripts, true) ? 'present' : 'missing';
         }
 
         return $status;
