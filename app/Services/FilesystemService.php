@@ -215,6 +215,47 @@ final readonly class FilesystemService
     }
 
     /**
+     * Shorten path by replacing home directory with tilde (~).
+     *
+     * Inverse of expandPath() - for display purposes.
+     */
+    public function shortenPath(string $path): string
+    {
+        if ('' === $path) {
+            return $path;
+        }
+
+        $home = getenv('HOME') ?: '';
+        if ('' === $home) {
+            $home = getenv('USERPROFILE') ?: '';
+            if ('' === $home) {
+                $drive = getenv('HOMEDRIVE') ?: '';
+                $hpath = getenv('HOMEPATH') ?: '';
+                if ('' !== $drive && '' !== $hpath) {
+                    $home = $drive . $hpath;
+                }
+            }
+        }
+
+        if ('' === $home) {
+            return $path;
+        }
+
+        // Normalize for comparison
+        $home = rtrim($home, '/\\');
+
+        if ($path === $home) {
+            return '~';
+        }
+
+        if (str_starts_with($path, $home . '/') || str_starts_with($path, $home . '\\')) {
+            return '~' . substr($path, strlen($home));
+        }
+
+        return $path;
+    }
+
+    /**
      * Get first existing path from array of candidates.
      * Automatically expands tilde paths before checking existence,
      * but returns the original path (preserving ~) for portable storage.

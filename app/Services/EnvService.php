@@ -77,15 +77,15 @@ class EnvService
         $path = $this->getEnvPath();
 
         if (!$this->fs->exists($path)) {
-            $this->envFileStatus = "No .env file found at {$path}";
+            $this->envFileStatus = "No .env file found at {$this->fs->shortenPath($path)}";
             return;
         }
 
         $this->readDotenv();
 
-        $this->envFileStatus = $path;
+        $this->envFileStatus = $this->fs->shortenPath($path);
         if (!count($this->dotenv)) {
-            $this->envFileStatus = "No variables found in {$path}";
+            $this->envFileStatus = "No variables found in {$this->fs->shortenPath($path)}";
         }
     }
 

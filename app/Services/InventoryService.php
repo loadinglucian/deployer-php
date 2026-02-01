@@ -102,12 +102,12 @@ class InventoryService
 
         // Initialize empty inventory file if it doesn't exist
         if (!$this->fs->exists($path)) {
-            $this->inventoryFileStatus = "Creating inventory file at {$path}";
+            $this->inventoryFileStatus = "Creating inventory file at {$this->fs->shortenPath($path)}";
             $this->writeInventory();
         }
 
         $this->readInventory();
-        $this->inventoryFileStatus = $path;
+        $this->inventoryFileStatus = $this->fs->shortenPath($path);
     }
 
     /**
