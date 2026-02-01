@@ -57,14 +57,7 @@ For more information, please read [Managing Servers](/docs/getting-started/manag
 
 ### Cloud Instances
 
-Instead of running `server:add` you can provision cloud instances and automatically add them to the inventory by running one of the dedicated provisioning commands:
-
-| Command         | Description                                               |
-| --------------- | --------------------------------------------------------- |
-| `aws:provision` | Provision a new AWS EC2 instance and add to inventory     |
-| `do:provision`  | Provision a new DigitalOcean droplet and add to inventory |
-
-For more information, please read [Cloud Providers](/docs/getting-started/cloud-providers).
+Alternatively, you can provision a cloud instance and automatically add it to the inventory using one of the cloud provider commands. For more information, please read [Cloud Providers](/docs/getting-started/cloud-providers).
 
 ## Step 2: Install The Server
 
@@ -160,14 +153,7 @@ Before you can access your site or enable HTTPS, configure your domain's DNS set
 
 DNS propagation typically takes a few minutes to 24 hours. You can check if your DNS is ready using an online tool like [whatsmydns.net](https://www.whatsmydns.net/), a free DNS checker that shows propagation status across multiple locations worldwide.
 
-If you use one of the supported DNS providers you can do so by running one of the dedicated DNS commands:
-
-| Command       | Description                                  |
-| ------------- | -------------------------------------------- |
-| `aws:dns:set` | Create or update DNS records in AWS Route53  |
-| `do:dns:set`  | Create or update DNS records in DigitalOcean |
-
-For more information, please read [Cloud Providers](/docs/getting-started/cloud-providers).
+If you use one of the supported DNS providers, you can configure DNS using one of the cloud provider commands. For more information, please read [Cloud Providers](/docs/getting-started/cloud-providers).
 
 ## Step 4: Deploy a Site
 

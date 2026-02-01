@@ -117,9 +117,9 @@ When you delete a server, any sites associated with that server are also removed
 
 ### Cloud-Provisioned Servers
 
-If the server was provisioned through DeployerPHP using `aws:provision` or `do:provision`, you'll be prompted whether to also destroy the cloud instance. This gives you explicit control over cloud resources:
+If the server was provisioned through a cloud provider using DeployerPHP, you'll be prompted whether to also destroy the cloud instance. This gives you explicit control over cloud resources:
 
-- **Yes** - Destroys the DigitalOcean droplet or terminates the AWS EC2 instance (and releases any associated Elastic IP)
+- **Yes** - Destroys the cloud instance and releases associated resources
 - **No** - Only removes the server from your local inventory, leaving the cloud instance running
 
 > [!WARNING]

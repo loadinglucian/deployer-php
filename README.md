@@ -44,11 +44,9 @@ alias deployer="./vendor/bin/deployer"
 # 3. Add your server to the inventory
 deployer server:add
 
-# Replace server:add with your favorite provider
-# to provision an instance and automatically add
-# it as a server to your inventory:
+# Or provision through a cloud provider to automatically
+# add to your inventory (see docs/cloud-providers.md):
 # deployer aws:provision
-# deployer do:provision
 
 # 4. Install your preferred database service:
 # deployer mariadb:install
