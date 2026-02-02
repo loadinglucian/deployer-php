@@ -3,8 +3,17 @@
 <!-- toc -->
 
 - [Relational Databases](#relational-databases)
+    - [MySQL](#mysql)
+    - [MariaDB](#mariadb)
+    - [PostgreSQL](#postgresql)
 - [Key-Value Stores](#key-value-stores)
+    - [Redis](#redis)
+    - [Valkey](#valkey)
+    - [Memcached](#memcached)
 - [Credentials](#credentials)
+    - [What Gets Generated](#what-gets-generated)
+    - [Receiving Credentials](#receiving-credentials)
+    - [File Format](#file-format)
 
 <!-- /toc -->
 

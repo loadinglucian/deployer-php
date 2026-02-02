@@ -18,11 +18,12 @@ DeployerPHP allows you to easily:
 <!-- toc -->
 
 - [Crash Course](#crash-course)
-- [Unlimited Servers & Sites](#unlimited-servers--sites)
-- [No Vendor Lock-In](#no-vendor-lock-in)
-- [End-To-End Management](#end-to-end-management)
-- [Composable Commands](#composable-commands)
-- [AI Automation](#ai-automation)
+- [Benefits](#benefits)
+    - [Unlimited Servers & Sites](#unlimited-servers--sites)
+    - [No Vendor Lock-In](#no-vendor-lock-in)
+    - [End-To-End Management](#end-to-end-management)
+    - [Composable Commands](#composable-commands)
+    - [AI Automation](#ai-automation)
 - [License](#license)
 - [Contributing](#contributing)
 
@@ -75,33 +76,37 @@ deployer site:deploy
 deployer site:https
 ```
 
+<a name="benefits"></a>
+
+## Benefits
+
 <a name="unlimited-servers--sites"></a>
 
-## Unlimited Servers & Sites
+### Unlimited Servers & Sites
 
 There aren't any limits or restrictions on how many servers and sites you can deploy or manage: provision, install, manage, and deploy as many as you want.
 
 <a name="no-vendor-lock-in"></a>
 
-## No Vendor Lock-In
+### No Vendor Lock-In
 
 You can manage servers and deploy sites with any hosting or cloud provider. If your server runs Ubuntu LTS or Debian and you can SSH into it, you can deploy sites there using DeployerPHP.
 
 <a name="end-to-end-management"></a>
 
-## End-To-End Management
+### End-To-End Management
 
 With DeployerPHP, you can effortlessly provision cloud instances, install services, and manage deployments and operations directly from the command line.
 
 <a name="composable-commands"></a>
 
-## Composable Commands
+### Composable Commands
 
 Atomic commands allow you to easily create automation pipelines for spinning up servers, installing services, deploying sites, or running custom workflows on demand.
 
 <a name="ai-automation"></a>
 
-## AI Automation
+### AI Automation
 
 Use your favorite AI agents to help you debug server and site issues, using DeployerPHP's composable commands and built-in agent skills.
 
