@@ -55,7 +55,7 @@ deployer site:shared:pull
 You'll be prompted for the site, the remote filename, and the local destination path.
 
 > [!NOTE]
-> The `site:shared:*` commands support single files. Create directory structures your application needs in the `1-building.sh` script as described in [Zero to Deploy](/docs/getting-started/zero-to-deploy).
+> The `site:shared:*` commands support single files. Create directory structures your application needs in the `1-building.sh` script as described in [Zero to Deploy](/docs/zero-to-deploy).
 
 ## SSH Access
 
@@ -75,14 +75,14 @@ To view logs for a specific site, use the `server:logs` command with the site fi
 deployer server:logs
 ```
 
-Select your server, then choose from the available log sources. For full documentation, see [Viewing Logs](/docs/getting-started/managing-servers#viewing-logs) in the Managing Servers guide.
+Select your server, then choose from the available log sources. For full documentation, see [Viewing Logs](/docs/managing-servers#viewing-logs) in the Managing Servers guide.
 
 ## Cron Jobs
 
 Cron jobs run scheduled tasks for your site. DeployerPHP manages cron scripts in your repository's `.deployer/crons/` directory and syncs them to the server.
 
 > [!TIP]
-> New to cron jobs? See [Set Up Scheduled Tasks](/docs/getting-started/zero-to-deploy#step-6-set-up-scheduled-tasks-optional) in the Zero to Deploy guide for a quick introduction.
+> New to cron jobs? See [Cron Jobs](/docs/crons-and-supervisors#cron-jobs) in the Crons and Supervisors guide for a quick introduction.
 
 ### Scaffolding Cron Scripts
 
@@ -127,7 +127,7 @@ You'll be prompted to select the site and cron script to delete, with confirmati
 Supervisor manages long-running processes like queue workers, WebSocket servers, or custom daemons. DeployerPHP manages supervisor scripts in your repository's `.deployer/supervisors/` directory.
 
 > [!TIP]
-> New to supervisor? See [Set Up Background Processes](/docs/getting-started/zero-to-deploy#step-7-set-up-background-processes-optional) in the Zero to Deploy guide for a quick introduction.
+> New to supervisor? See [Supervisor Processes](/docs/crons-and-supervisors#supervisor-processes) in the Crons and Supervisors guide for a quick introduction.
 
 ### Scaffolding Supervisor Scripts
 
@@ -191,7 +191,7 @@ Run `scaffold:scripts` to create deployment scripts:
 deployer scaffold:scripts
 ```
 
-This creates `.deployer/scripts/` with `1-building.sh`, `2-releasing.sh`, and `3-finishing.sh`. These scripts run during the deployment lifecycle as described in [Zero to Deploy](/docs/getting-started/zero-to-deploy).
+This creates `.deployer/scripts/` with `1-building.sh`, `2-releasing.sh`, and `3-finishing.sh`. These scripts run during the deployment lifecycle as described in [Zero to Deploy](/docs/zero-to-deploy).
 
 ### AI Agent Skills
 
@@ -203,7 +203,7 @@ deployer scaffold:ai
 
 You'll be prompted to select an AI agent (Claude, Cursor, or Codex). The command auto-detects existing agent directories in your project.
 
-For more details on using AI agents with DeployerPHP, see [AI Automation](/docs/automation/ai-automation).
+For more details on using AI agents with DeployerPHP, see [AI Automation](/docs/automation#ai-automation).
 
 ## Rollbacks
 

@@ -121,4 +121,4 @@ $> deployer server:add  \
 
 You can copy these replays directly into scripts or CI pipelines to automate your workflow.
 
-Read [Zero to Deploy](/docs/getting-started/zero-to-deploy.md) next to get started with your first deployment!
+Read [Zero to Deploy](/docs/zero-to-deploy) next to get started with your first deployment!

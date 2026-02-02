@@ -53,7 +53,7 @@ deployer cron:sync
 
 This updates the server's crontab with your scheduled tasks. Run `cron:sync` whenever you add, modify, or remove cron jobs in your inventory.
 
-For managing cron jobs (viewing, deleting, logs), see [Cron Jobs](/docs/getting-started/managing-sites#cron-jobs) in the Managing Sites guide.
+For managing cron jobs (viewing, deleting, logs), see [Cron Jobs](/docs/managing-sites#cron-jobs) in the Managing Sites guide.
 
 ## Supervisor Processes
 
@@ -94,4 +94,4 @@ deployer supervisor:sync
 
 This writes supervisor configuration files and reloads the daemon. Run `supervisor:sync` whenever you add, modify, or remove supervisor processes.
 
-For managing processes (start, stop, restart, delete), see [Supervisor Processes](/docs/getting-started/managing-sites#supervisor-processes) in the Managing Sites guide.
+For managing processes (start, stop, restart, delete), see [Supervisor Processes](/docs/managing-sites#supervisor-processes) in the Managing Sites guide.

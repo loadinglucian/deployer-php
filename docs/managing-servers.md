@@ -14,7 +14,7 @@
 
 Once you've added and installed a server, you'll need to monitor its status, run maintenance commands, and occasionally troubleshoot issues. DeployerPHP provides a set of `server:*` commands that let you manage your servers directly from your local machine without manually SSHing in for most tasks.
 
-These commands work with any server in your inventory, whether it's a physical server, VPS, or cloud instance. If you haven't added a server yet, please read [Zero to Deploy](/docs/getting-started/zero-to-deploy) to get started.
+These commands work with any server in your inventory, whether it's a physical server, VPS, or cloud instance. If you haven't added a server yet, please read [Zero to Deploy](/docs/zero-to-deploy) to get started.
 
 ## Checking Server Status
 

@@ -25,7 +25,7 @@ It may seem overwhelming, but you only need to run a few simple commands and res
 
 ## Step 1: Add A Server
 
-Before we can deploy anything we'll need a fresh new server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can connect to it via SSH and it is running a version of `Ubuntu LTS >= 24.04` or `Debian >= 12` as specified by the [Requirements](/docs/getting-started/introduction#requirements).
+Before we can deploy anything we'll need a fresh new server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can connect to it via SSH and it is running a version of `Ubuntu LTS >= 24.04` or `Debian >= 12` as specified by the [Requirements](/docs/introduction#requirements).
 
 Run the `server:add` command to add a new server to your inventory:
 
@@ -61,11 +61,11 @@ $> deployer server:add  \
   --private-key-path='~/.ssh/id_ed25519'
 ```
 
-For more information, please read [Managing Servers](/docs/getting-started/managing-servers)
+For more information, please read [Managing Servers](/docs/managing-servers)
 
 ### Cloud Instances
 
-Alternatively, you can provision a cloud instance and automatically add it to the inventory using one of the cloud provider commands. For more information, please read [Cloud Providers](/docs/getting-started/cloud-providers).
+Alternatively, you can provision a cloud instance and automatically add it to the inventory using one of the cloud provider commands. For more information, please read [Cloud Providers](/docs/cloud-providers).
 
 ## Step 2: Install The Server
 
@@ -116,7 +116,7 @@ The `server:install` command is additive; it will never uninstall anything. Ever
 > [!NOTE]
 > When you have multiple PHP versions installed, the `server:install` command will always prompt you to select the default PHP version you want to use for your server CLI.
 
-For more information, please read [Managing Services](/docs/getting-started/managing-services).
+For more information, please read [Managing Services](/docs/managing-services).
 
 ### Installing Databases
 
@@ -131,7 +131,7 @@ Install your preferred database or cache server by running one of the dedicated 
 | `valkey:install`     | Install Valkey key-value store (Redis-compatible) |
 | `memcached:install`  | Install Memcached caching server                  |
 
-For more information, please read [Managing Databases](/docs/getting-started/managing-databases).
+For more information, please read [Managing Databases](/docs/managing-databases).
 
 ## Step 3: Create a Site
 
@@ -161,7 +161,7 @@ Before you can access your site or enable HTTPS, configure your domain's DNS set
 
 DNS propagation typically takes a few minutes to 24 hours. You can check if your DNS is ready using an online tool like [whatsmydns.net](https://www.whatsmydns.net/), a free DNS checker that shows propagation status across multiple locations worldwide.
 
-If you use one of the supported DNS providers, you can configure DNS using one of the cloud provider commands. For more information, please read [Cloud Providers](/docs/getting-started/cloud-providers).
+If you use one of the supported DNS providers, you can configure DNS using one of the cloud provider commands. For more information, please read [Cloud Providers](/docs/cloud-providers).
 
 ## Step 4: Deploy a Site
 
@@ -278,4 +278,4 @@ This:
 
 ## Next Steps
 
-With your application deployed and secured with HTTPS, you may want to set up automation for scheduled tasks and long-running processes. See [Crons and Supervisors](/docs/getting-started/crons-and-supervisors) to learn how to configure Laravel schedulers, queue workers, and other background processes.
+With your application deployed and secured with HTTPS, you may want to set up automation for scheduled tasks and long-running processes. See [Crons and Supervisors](/docs/crons-and-supervisors) to learn how to configure Laravel schedulers, queue workers, and other background processes.
