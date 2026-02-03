@@ -108,7 +108,7 @@ Atomic commands allow you to easily create automation pipelines for spinning up 
 
 ### AI Automation
 
-Use your favorite AI agents to help you debug server and site issues, using DeployerPHP's composable commands and built-in agent skills.
+Use your favorite AI agents to help you debug server and site issues, using DeployerPHP's composable commands and built-in agent skills. When you run `scaffold:ai`, DeployerPHP auto-selects the agent if exactly one agent directory exists, and otherwise prompts you to choose or create one.
 
 <a name="license"></a>
 

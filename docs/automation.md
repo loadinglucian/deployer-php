@@ -70,14 +70,20 @@ Run the `scaffold:ai` command from your project directory:
 deployer scaffold:ai
 ```
 
-DeployerPHP will prompt you to select your AI agent:
+DeployerPHP will select the AI agent using this flow:
+
+1. If exactly one agent directory exists (e.g., `.claude`, `.cursor`, `.codex`), it is selected automatically.
+2. If multiple agent directories exist, you'll be prompted to choose which one to use.
+3. If no agent directories exist, you'll be prompted to choose which one to create.
+
+The supported agents are:
 
 - **Claude**: Creates rules in `.claude/rules/`
 - **Cursor**: Creates rules in `.cursor/rules/`
 - **Codex**: Creates rules in `.codex/rules/`
 
 > [!NOTE]
-> If an existing AI agent directory is detected in your project, DeployerPHP will automatically use it. If multiple are found, you'll be prompted to choose one.
+> The selection flow above is based on whether agent directories already exist in your project.
 
 <a name="permission-tiers"></a>
 
