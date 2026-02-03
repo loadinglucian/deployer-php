@@ -22,8 +22,25 @@ class AiCommand extends BaseCommand
     /** @var array<string, string> */
     private const AGENT_DIRS = [
         'claude' => '.claude',
-        'cursor' => '.cursor',
         'codex' => '.codex',
+        'cursor' => '.cursor',
+        'opencode' => '.opencode',
+    ];
+
+    /** @var array<string, string> */
+    private const AGENT_LABELS = [
+        'claude' => 'Claude',
+        'codex' => 'Codex',
+        'cursor' => 'Cursor',
+        'opencode' => 'OpenCode',
+    ];
+
+    /** @var list<string> */
+    private const AGENT_ORDER = [
+        'claude',
+        'codex',
+        'cursor',
+        'opencode',
     ];
 
     /** @var array<string, string> */
@@ -43,7 +60,7 @@ class AiCommand extends BaseCommand
     {
         parent::configure();
         $this->configureScaffoldOptions();
-        $this->addOption('agent', null, InputOption::VALUE_REQUIRED, 'AI agent (claude, cursor, codex)');
+        $this->addOption('agent', null, InputOption::VALUE_REQUIRED, 'AI agent (Claude, Codex, Cursor, OpenCode)');
         $this->addOption('tier', null, InputOption::VALUE_REQUIRED, 'Skill tier (observer, debugger, admin)');
     }
 
@@ -92,6 +109,10 @@ class AiCommand extends BaseCommand
     protected function buildTargetPath(string $destinationDir, string $type, array $context): string
     {
         $agentDir = self::AGENT_DIRS[$context['agent']];
+
+        if ('opencode' === $context['agent']) {
+            return $this->fs->joinPaths($destinationDir, $agentDir, 'skill', 'deployer-php');
+        }
 
         return $this->fs->joinPaths($destinationDir, $agentDir, 'skills', 'deployer-php');
     }
@@ -158,8 +179,16 @@ class AiCommand extends BaseCommand
         if (count($existing) > 1) {
             // Multiple found - ask which to use
             $options = [];
-            foreach ($existing as $agent) {
-                $options[$agent] = self::AGENT_DIRS[$agent] . ' (exists)';
+            foreach (self::AGENT_ORDER as $agent) {
+                if (! in_array($agent, $existing, true)) {
+                    continue;
+                }
+
+                $options[$agent] = sprintf(
+                    '%s (%s exists)',
+                    self::AGENT_LABELS[$agent],
+                    self::AGENT_DIRS[$agent]
+                );
             }
 
             /** @var string */
@@ -171,8 +200,12 @@ class AiCommand extends BaseCommand
 
         // None found - ask which to create
         $options = [];
-        foreach (self::AGENT_DIRS as $agent => $dir) {
-            $options[$agent] = $dir;
+        foreach (self::AGENT_ORDER as $agent) {
+            $options[$agent] = sprintf(
+                '%s (%s)',
+                self::AGENT_LABELS[$agent],
+                self::AGENT_DIRS[$agent]
+            );
         }
 
         /** @var string */

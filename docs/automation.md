@@ -59,10 +59,10 @@ Option --domain is required when using --quiet mode
 
 ## AI Automation
 
-If you use AI tools like Claude, Cursor, or Codex, you can create a rules file that guides agents on safely interacting with your DeployerPHP-managed servers. This is useful when debugging issues with your application in production. Agents can read logs or execute remote, non-destructive commands on your server to investigate and resolve problems.
+If you use AI tools like Claude, Codex, Cursor, or OpenCode, you can create a skills file that guides agents on safely interacting with your DeployerPHP-managed servers. This is useful when debugging issues with your application in production. Agents can read logs or execute remote, non-destructive commands on your server to investigate and resolve problems.
 
 > [!WARNING]
-> **Use at your own risk!** Granting AI agents access to production servers can be risky. Always review generated rules and monitor AI-initiated actions. You are solely responsible for any changes, data loss, or issues arising from AI-assisted debugging.
+> **Use at your own risk!** Granting AI agents access to production servers can be risky. Always review generated skills and monitor AI-initiated actions. You are solely responsible for any changes, data loss, or issues arising from AI-assisted debugging.
 
 Run the `scaffold:ai` command from your project directory:
 
@@ -72,15 +72,16 @@ deployer scaffold:ai
 
 DeployerPHP will select the AI agent using this flow:
 
-1. If exactly one agent directory exists (e.g., `.claude`, `.cursor`, `.codex`), it is selected automatically.
+1. If exactly one agent directory exists (e.g., `.claude`, `.codex`, `.cursor`, `.opencode`), it is selected automatically.
 2. If multiple agent directories exist, you'll be prompted to choose which one to use.
 3. If no agent directories exist, you'll be prompted to choose which one to create.
 
 The supported agents are:
 
-- **Claude**: Creates rules in `.claude/rules/`
-- **Cursor**: Creates rules in `.cursor/rules/`
-- **Codex**: Creates rules in `.codex/rules/`
+- **Claude**: Creates skills in `.claude/skills/`
+- **Codex**: Creates skills in `.codex/skills/`
+- **Cursor**: Creates skills in `.cursor/skills/`
+- **OpenCode**: Creates skills in `.opencode/skill/` (also discovers `.claude/skills/`)
 
 > [!NOTE]
 > The selection flow above is based on whether agent directories already exist in your project.
@@ -89,7 +90,7 @@ The supported agents are:
 
 ### Permission Tiers
 
-When scaffolding AI rules, you'll select a permission tier that determines what your AI assistant can do on your servers. Each tier builds on the previous one, adding more capabilities:
+When scaffolding AI skills, you'll select a permission tier that determines what your AI assistant can do on your servers. Each tier builds on the previous one, adding more capabilities:
 
 | Tier     | Access Level                  | Best For                              |
 | -------- | ----------------------------- | ------------------------------------- |
@@ -101,12 +102,12 @@ When scaffolding AI rules, you'll select a permission tier that determines what 
 
 **Debugger** is the default tier and strikes a balance between utility and safety. In addition to observer capabilities, your assistant can run safe, non-destructive shell commands like `ls`, `cat`, `grep`, and `df`. This lets it actively investigate issues by exploring the filesystem and checking resource usage, but it cannot restart services, modify files, or run deployments.
 
-**Admin** grants full access to DeployerPHP commands. Your assistant can deploy code, manage services, configure sites, and perform any operation you could do manually. Only use this tier with AI agents you fully trust, and always review the generated rules before enabling them.
+**Admin** grants full access to DeployerPHP commands. Your assistant can deploy code, manage services, configure sites, and perform any operation you could do manually. Only use this tier with AI agents you fully trust, and always review the generated skills before enabling them.
 
 > [!TIP]
 > Start with the Debugger tier. It provides enough access for most troubleshooting scenarios while keeping guardrails in place. You can always scaffold a higher tier later if needed.
 
-The generated rules file provides your AI assistant with:
+The generated skills file provides your AI assistant with:
 
 - **Inventory context**: Understanding of your `deployer.yml` structure
 - **Deployment layout**: Knowledge of the release directory structure

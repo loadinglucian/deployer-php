@@ -201,7 +201,7 @@ Run `scaffold:ai` to scaffold AI agent skills for DeployerPHP:
 deployer scaffold:ai
 ```
 
-DeployerPHP selects the AI agent using this flow: if exactly one agent directory exists, it is selected automatically; if multiple exist, you'll be prompted to choose one; if none exist, you'll be prompted to choose one to create. You'll also select a permission tier (Debugger is the default).
+DeployerPHP selects the AI agent using this flow: if exactly one agent directory exists, it is selected automatically; if multiple exist, you'll be prompted to choose one; if none exist, you'll be prompted to choose one to create. You'll also select a permission tier (Debugger is the default). Supported agents include Claude, Codex, Cursor, and OpenCode.
 
 For more details on using AI agents with DeployerPHP, see [AI Automation](/docs/automation#ai-automation).
 

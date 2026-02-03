@@ -56,7 +56,7 @@ DeployerPHP has a wide range of commands and capabilities. All commands are orga
 - **`nginx:*`** and **`php:*`**: Web server and PHP-FPM control
 - **`mariadb:*`**, **`mysql:*`**, **`postgresql:*`**: Database services
 - **`memcached:*`**, **`redis:*`**, **`valkey:*`**: Cache services
-- **`scaffold:*`**: Generate cron, hook, supervisor, and AI rules config files
+- **`scaffold:*`**: Generate cron, hook, supervisor, and AI skills config files
 - **`aws:*`**, **`cf:*`**, **`do:*`**: Cloud provider integrations
 
 Don't worry about what each of these does. For now, just focus on how everything is laid out and organized. We'll cover each of them in detail in other sections of the documentation.

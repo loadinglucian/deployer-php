@@ -1,6 +1,6 @@
 ---
 name: deployer-php
-description: Full-access deployment concierge for DeployerPHP. Helps with provisioning servers (AWS, DigitalOcean), deploying PHP applications, managing services (Nginx, PHP-FPM, MySQL, Redis), configuring crons and supervisors, and debugging deployment issues. Use when working with deployer.yml inventory or running deployer CLI commands. Also use when investigating the deployed version of a site - checking how the deployment stores sessions, handles caching, reads environment variables, or any production configuration. For questions about "how does the deployed site work" or "what's running on the server", use server:run to inspect the deployed application.
+description: Full-access deployment concierge for DeployerPHP. Provision servers, deploy PHP apps, manage services, crons, and supervisors, and debug infrastructure issues. Use when working with deployer.yml inventory or running deployer CLI commands, including inspecting deployed apps via server:run for environment/config/runtime details.
 ---
 
 # DeployerPHP (Admin Tier)
