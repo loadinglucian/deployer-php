@@ -49,7 +49,7 @@ class ServerSshCommand extends BaseCommand
         // Select server
         // ----
 
-        $server = $this->selectServerDeets();
+        $server = $this->selectServerDeets(skipInfo: true);
 
         if (is_int($server)) {
             return $server;

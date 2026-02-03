@@ -287,9 +287,10 @@ trait ServersTrait
     /**
      * Select a server from inventory by name option or interactive prompt.
      *
+     * @param bool $skipInfo Skip server info retrieval (for commands needing only connection details)
      * @return ServerDTO|int Returns ServerDTO on success, or Command::FAILURE on error
      */
-    protected function selectServerDeets(): ServerDTO|int
+    protected function selectServerDeets(bool $skipInfo = false): ServerDTO|int
     {
         //
         // If specific server requested via option, validate it exists first
@@ -306,7 +307,7 @@ trait ServersTrait
                 return Command::FAILURE;
             }
 
-            return $this->getServerInfo($server);
+            return $skipInfo ? $server : $this->getServerInfo($server);
         }
 
         //
@@ -343,7 +344,7 @@ trait ServersTrait
         /** @var ServerDTO */
         $server = $this->servers->findByName($name);
 
-        return $this->getServerInfo($server);
+        return $skipInfo ? $server : $this->getServerInfo($server);
     }
 
     // ----
