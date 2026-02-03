@@ -19,11 +19,11 @@ DeployerPHP allows you to easily:
 
 - [Crash Course](#crash-course)
 - [Benefits](#benefits)
-    - [Unlimited Servers & Sites](#unlimited-servers--sites)
-    - [No Vendor Lock-In](#no-vendor-lock-in)
-    - [End-To-End Management](#end-to-end-management)
-    - [Composable Commands](#composable-commands)
-    - [AI Automation](#ai-automation)
+  - [Unlimited Servers & Sites](#unlimited-servers--sites)
+  - [No Vendor Lock-In](#no-vendor-lock-in)
+  - [End-To-End Management](#end-to-end-management)
+  - [Composable Commands](#composable-commands)
+  - [AI Automation](#ai-automation)
 - [License](#license)
 - [Contributing](#contributing)
 

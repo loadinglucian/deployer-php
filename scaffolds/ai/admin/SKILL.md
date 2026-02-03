@@ -289,9 +289,6 @@ deployer server:logs --server=production --service=nginx,php8.3-fpm --lines=100
 
 # Site-specific logs (access, crons, supervisors for one site)
 deployer server:logs --server=production --site=example.com --lines=100
-
-# Interactive selection
-deployer server:logs --server=production
 ```
 
 Available log sources:
