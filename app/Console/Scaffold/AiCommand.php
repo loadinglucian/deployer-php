@@ -13,7 +13,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'scaffold:ai',
-    description: 'Scaffold AI agent skill for DeployerPHP'
+    description: 'Scaffold AI agent skill for DeployerPHP (observer, debugger, or admin tier)'
 )]
 class AiCommand extends BaseCommand
 {
@@ -26,6 +26,15 @@ class AiCommand extends BaseCommand
         'codex' => '.codex',
     ];
 
+    /** @var array<string, string> */
+    private const TIERS = [
+        'observer' => 'Observer - Read-only (view logs, server info)',
+        'debugger' => 'Debugger - Inspect + safe shell (default)',
+        'admin' => 'Admin - Full access (manage infrastructure)',
+    ];
+
+    private const DEFAULT_TIER = 'debugger';
+
     // ----
     // Configuration
     // ----
@@ -35,6 +44,7 @@ class AiCommand extends BaseCommand
         parent::configure();
         $this->configureScaffoldOptions();
         $this->addOption('agent', null, InputOption::VALUE_REQUIRED, 'AI agent (claude, cursor, codex)');
+        $this->addOption('tier', null, InputOption::VALUE_REQUIRED, 'Skill tier (observer, debugger, admin)');
     }
 
     // ----
@@ -55,9 +65,9 @@ class AiCommand extends BaseCommand
     // ----
 
     /**
-     * Resolve agent selection context.
+     * Resolve agent and tier selection context.
      *
-     * @return array{agent: string}|null
+     * @return array{agent: string, tier: string}|null
      */
     protected function resolveScaffoldContext(string $destinationDir, string $type): ?array
     {
@@ -66,13 +76,18 @@ class AiCommand extends BaseCommand
             return null;
         }
 
-        return ['agent' => $agent];
+        $tier = $this->determineTier();
+        if (null === $tier) {
+            return null;
+        }
+
+        return ['agent' => $agent, 'tier' => $tier];
     }
 
     /**
      * Build target path for AI agent skills directory.
      *
-     * @param array{agent: string} $context
+     * @param array{agent: string, tier: string} $context
      */
     protected function buildTargetPath(string $destinationDir, string $type, array $context): string
     {
@@ -82,15 +97,29 @@ class AiCommand extends BaseCommand
     }
 
     /**
-     * Include agent in replay options.
+     * Build path to tier-specific template directory.
      *
-     * @param array{agent: string} $context
+     * @param array<string, mixed> $context
+     */
+    protected function buildTemplatePath(string $type, array $context): string
+    {
+        /** @var string $tier */
+        $tier = $context['tier'];
+
+        return $this->fs->joinPaths(dirname(__DIR__, 3), 'scaffolds', $type, $tier);
+    }
+
+    /**
+     * Include agent and tier in replay options.
+     *
+     * @param array{agent: string, tier: string} $context
      * @return array<string, mixed>
      */
     protected function buildReplayOptions(string $destinationDir, array $context): array
     {
         return [
             'agent' => $context['agent'],
+            'tier' => $context['tier'],
             'destination' => $destinationDir,
         ];
     }
@@ -171,6 +200,34 @@ class AiCommand extends BaseCommand
         return $existing;
     }
 
+    /**
+     * Determine which tier to use.
+     */
+    private function determineTier(): ?string
+    {
+        // Check for --tier option first
+        /** @var string|null $tierOption */
+        $tierOption = $this->io->getOptionValue('tier');
+        if (null !== $tierOption) {
+            $error = $this->validateTierInput($tierOption);
+            if (null !== $error) {
+                $this->nay($error);
+
+                return null;
+            }
+
+            return $tierOption;
+        }
+
+        // Prompt for tier selection with default
+        /** @var string */
+        return $this->io->promptSelect(
+            label: 'Select permission tier:',
+            options: self::TIERS,
+            default: self::DEFAULT_TIER
+        );
+    }
+
     // ----
     // Validation
     // ----
@@ -190,6 +247,26 @@ class AiCommand extends BaseCommand
             $valid = implode(', ', array_keys(self::AGENT_DIRS));
 
             return "Invalid agent '{$value}'. Valid options: {$valid}";
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate tier input.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    private function validateTierInput(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return 'Tier must be a string';
+        }
+
+        if (! array_key_exists($value, self::TIERS)) {
+            $valid = implode(', ', array_keys(self::TIERS));
+
+            return "Invalid tier '{$value}'. Valid options: {$valid}";
         }
 
         return null;

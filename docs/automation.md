@@ -5,6 +5,7 @@
 - [Command Replays](#command-replays)
 - [Quiet Mode](#quiet-mode)
 - [AI Automation](#ai-automation)
+    - [Permission Tiers](#permission-tiers)
 
 <!-- /toc -->
 
@@ -77,6 +78,27 @@ DeployerPHP will prompt you to select your AI agent:
 
 > [!NOTE]
 > If an existing AI agent directory is detected in your project, DeployerPHP will automatically use it. If multiple are found, you'll be prompted to choose one.
+
+<a name="permission-tiers"></a>
+
+### Permission Tiers
+
+When scaffolding AI rules, you'll select a permission tier that determines what your AI assistant can do on your servers. Each tier builds on the previous one, adding more capabilities:
+
+| Tier     | Access Level                  | Best For                              |
+| -------- | ----------------------------- | ------------------------------------- |
+| Observer | Read-only                     | Viewing logs and server information   |
+| Debugger | Inspect + safe shell commands | Investigating issues with more agency |
+| Admin    | Full infrastructure access    | Agents can manage everything          |
+
+**Observer** is the most restrictive tier. Your AI assistant can view server logs, check deployment status, and read configuration files, but it cannot execute any commands or make changes. This is ideal for getting help understanding what's happening on your server without any risk of accidental modifications.
+
+**Debugger** is the default tier and strikes a balance between utility and safety. In addition to observer capabilities, your assistant can run safe, non-destructive shell commands like `ls`, `cat`, `grep`, and `df`. This lets it actively investigate issues by exploring the filesystem and checking resource usage, but it cannot restart services, modify files, or run deployments.
+
+**Admin** grants full access to DeployerPHP commands. Your assistant can deploy code, manage services, configure sites, and perform any operation you could do manually. Only use this tier with AI agents you fully trust, and always review the generated rules before enabling them.
+
+> [!TIP]
+> Start with the Debugger tier. It provides enough access for most troubleshooting scenarios while keeping guardrails in place. You can always scaffold a higher tier later if needed.
 
 The generated rules file provides your AI assistant with:
 
