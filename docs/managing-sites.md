@@ -201,7 +201,7 @@ Run `scaffold:ai` to scaffold AI agent skills for DeployerPHP:
 deployer scaffold:ai
 ```
 
-You'll be prompted to select an AI agent (Claude, Cursor, or Codex). The command auto-detects existing agent directories in your project.
+You'll be prompted to select an AI agent (Claude, Cursor, or Codex). The command auto-detects existing agent directories in your project. You'll also select a permission tier (Debugger is the default).
 
 For more details on using AI agents with DeployerPHP, see [AI Automation](/docs/automation#ai-automation).
 
