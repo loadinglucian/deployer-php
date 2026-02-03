@@ -75,7 +75,7 @@ sites:
 
 Sites are deployed to `/home/deployer/{domain}/`:
 
-```
+```text
 /home/deployer/example.com/
 ├── current -> releases/20240115_120000   # Symlink to active release
 ├── releases/
@@ -123,10 +123,10 @@ When using `server:run`, only execute **safe, read-only commands**. This tier is
 
 ### Safe Commands (Allowed)
 
-| Category        | Commands                                                   |
-| --------------- | ---------------------------------------------------------- |
-| File inspection | `ls`, `cat`, `head`, `tail`, `less`, `find`, `grep`, `wc`  |
-| Process info    | `ps`, `top`, `htop`, `pgrep`                               |
+| Category        | Commands                                                    |
+| --------------- | ----------------------------------------------------------- |
+| File inspection | `ls`, `cat`, `head`, `tail`, `find`, `grep`, `wc`           |
+| Process info    | `ps`, `pgrep`, `top -b -n 1` (batch mode, single snapshot)  |
 | System info     | `df`, `du`, `free`, `uptime`, `uname`, `hostname`, `whoami` |
 | Network info    | `netstat`, `ss`, `curl` (GET only), `wget` (GET only), `ping`, `dig` |
 | Service status  | `systemctl status`                                         |

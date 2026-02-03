@@ -70,7 +70,7 @@ sites:
 
 Sites are deployed to `/home/deployer/{domain}/`:
 
-```
+```text
 /home/deployer/example.com/
 ├── current -> releases/20240115_120000   # Symlink to active release
 ├── releases/
