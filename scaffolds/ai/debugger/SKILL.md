@@ -121,6 +121,8 @@ Available log sources for `server:logs`:
 
 When using `server:run`, only execute **safe, read-only commands**. This tier is for inspection and diagnostics, not modification.
 
+> **Important:** The `server:run` command executes via non-interactive SSH without a terminal (no PTY). **Never use interactive commands** like `less`, `top`, `htop`, `vim`, `nano`, or anything requiring keyboard input—they will hang indefinitely. Use non-interactive alternatives (e.g., `top -b -n 1` for a process snapshot).
+
 ### Safe Commands (Allowed)
 
 | Category        | Commands                                                    |

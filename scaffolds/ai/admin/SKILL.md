@@ -422,3 +422,15 @@ All commands support non-interactive execution. After each command, a "Non-inter
 - Automation scripts
 - CI/CD pipelines
 - Documentation
+
+### Shell Command Limitations
+
+The `server:run` command executes via non-interactive SSH without a terminal (no PTY). **Never use interactive commands** that require keyboard input—they will hang indefinitely.
+
+| Avoid                  | Use Instead                          |
+| ---------------------- | ------------------------------------ |
+| `less`, `more`         | `cat`, `head -n`, `tail -n`          |
+| `top`, `htop`          | `top -b -n 1`, `ps aux`              |
+| `vim`, `vi`, `nano`    | `cat` to view, `sed` for edits       |
+| `mysql`, `psql` (REPL) | Single queries with `-e` flag        |
+| `ssh` (nested)         | Not supported                        |
