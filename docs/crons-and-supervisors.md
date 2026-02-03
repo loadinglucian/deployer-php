@@ -3,13 +3,13 @@
 <!-- toc -->
 
 - [Cron Jobs](#cron-jobs)
-    - [Scaffolding Cron Scripts](#scaffolding-cron-scripts)
-    - [Creating a Cron Job](#creating-a-cron-job)
-    - [Syncing Cron Jobs](#syncing-cron-jobs)
+  - [Scaffolding Cron Scripts](#scaffolding-cron-scripts)
+  - [Creating a Cron Job](#creating-a-cron-job)
+  - [Syncing Cron Jobs](#syncing-cron-jobs)
 - [Supervisor Processes](#supervisor-processes)
-    - [Scaffolding Supervisor Scripts](#scaffolding-supervisor-scripts)
-    - [Creating a Supervised Process](#creating-a-supervised-process)
-    - [Syncing Supervisor Processes](#syncing-supervisor-processes)
+  - [Scaffolding Supervisor Scripts](#scaffolding-supervisor-scripts)
+  - [Creating a Supervised Process](#creating-a-supervised-process)
+  - [Syncing Supervisor Processes](#syncing-supervisor-processes)
 
 <!-- /toc -->
 
