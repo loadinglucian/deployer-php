@@ -12,7 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'scaffold:scripts',
-    description: 'Scaffold deployment scripts from templates'
+    description: 'Scaffold deployment, cron, and supervisor scripts from templates'
 )]
 class ScriptsCommand extends BaseCommand
 {
@@ -35,7 +35,7 @@ class ScriptsCommand extends BaseCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         parent::execute($input, $output);
-        $this->h1('Scaffold Deployment Scripts');
+        $this->h1('Scaffold Scripts');
 
         return $this->scaffoldFiles('scripts');
     }

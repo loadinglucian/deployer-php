@@ -373,15 +373,13 @@ class SiteDeployCommand extends BaseCommand
     }
 
     /**
-     * Get expected scripts by scanning the scaffolds/scripts directory.
+     * Get expected deployment scripts.
      *
      * @return array<int, string>
      */
     private function getExpectedScripts(): array
     {
-        $scaffoldsPath = dirname(__DIR__, 3) . '/scaffolds/scripts';
-
-        return $this->fs->scanDirectory($scaffoldsPath);
+        return ['deploy.sh'];
     }
 
     /**

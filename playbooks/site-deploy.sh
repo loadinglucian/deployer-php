@@ -69,7 +69,7 @@ PRESERVE_ENV_VARS="DEPLOYER_RELEASE_PATH,DEPLOYER_SHARED_PATH,DEPLOYER_CURRENT_P
 # Execute deployment script if it exists
 #
 # Arguments:
-#   $1 - Script name (deployer.sh)
+#   $1 - Script name (deploy.sh)
 
 run_script() {
 	local script_name=$1
@@ -424,14 +424,14 @@ write_output() {
 #
 # Execute full deployment script sequence
 #
-# Runs: clone -> build release -> deployer.sh -> activate -> reload -> cleanup -> runner -> supervisors
+# Runs: clone -> build release -> deploy.sh -> activate -> reload -> cleanup -> runner -> supervisors
 
 run_scripts_sequence() {
 	clone_or_update_repo
 
 	build_release
 
-	run_script 'deployer.sh'
+	run_script 'deploy.sh'
 
 	activate_release
 

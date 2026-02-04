@@ -90,20 +90,20 @@ Select your server, then choose from the available log sources. For full documen
 
 ## Cron Jobs
 
-Cron jobs run scheduled tasks for your site. DeployerPHP manages cron scripts in your repository's `.deployer/crons/` directory and syncs them to the server.
+Cron jobs run scheduled tasks for your site. DeployerPHP manages cron scripts in your repository's `.deployer/scripts/` directory and syncs them to the server.
 
 > [!TIP]
 > New to cron jobs? See [Cron Jobs](/docs/crons-and-supervisors#cron-jobs) in the Crons and Supervisors guide for a quick introduction.
 
 ### Scaffolding Cron Scripts
 
-Run `scaffold:crons` to create example cron scripts in your repository:
+Run `scaffold:scripts` to create example cron scripts in your repository:
 
 ```shell
-deployer scaffold:crons
+deployer scaffold:scripts
 ```
 
-This creates `.deployer/crons/` with example scripts like `scheduler.sh` for Laravel's scheduler and `messenger.sh` for Symfony Messenger.
+This creates `.deployer/scripts/` with `cron.sh`, which includes defaults for Laravel's scheduler and Symfony Messenger. Customize or duplicate it as `cron*.sh` scripts as needed.
 
 ### Creating Cron Jobs
 
@@ -113,7 +113,7 @@ The `cron:create` command adds a cron job to a site:
 deployer cron:create
 ```
 
-You'll be prompted to select a script from `.deployer/crons/` and provide a schedule expression (e.g., `*/5 * * * *` for every 5 minutes).
+You'll be prompted to select a script from `.deployer/scripts/` (matching `cron*.sh`) and provide a schedule expression (e.g., `*/5 * * * *` for every 5 minutes).
 
 ### Syncing Cron Jobs
 
@@ -135,20 +135,20 @@ You'll be prompted to select the site and cron script to delete, with confirmati
 
 ## Supervisor Processes
 
-Supervisor manages long-running processes like queue workers, WebSocket servers, or custom daemons. DeployerPHP manages supervisor scripts in your repository's `.deployer/supervisors/` directory.
+Supervisor manages long-running processes like queue workers, WebSocket servers, or custom daemons. DeployerPHP manages supervisor scripts in your repository's `.deployer/scripts/` directory.
 
 > [!TIP]
 > New to supervisor? See [Supervisor Processes](/docs/crons-and-supervisors#supervisor-processes) in the Crons and Supervisors guide for a quick introduction.
 
 ### Scaffolding Supervisor Scripts
 
-Run `scaffold:supervisors` to create example supervisor scripts:
+Run `scaffold:scripts` to create example supervisor scripts:
 
 ```shell
-deployer scaffold:supervisors
+deployer scaffold:scripts
 ```
 
-This creates `.deployer/supervisors/` with example scripts like `queue-worker.sh` for Laravel queues and `messenger.sh` for Symfony Messenger.
+This creates `.deployer/scripts/` with `supervisor.sh`, which includes defaults for Laravel queue workers and Symfony Messenger consumers. Customize or duplicate it as `supervisor*.sh` scripts as needed.
 
 ### Creating Processes
 
@@ -202,7 +202,7 @@ Run `scaffold:scripts` to create deployment scripts:
 deployer scaffold:scripts
 ```
 
-This creates `.deployer/scripts/` with `deployer.sh`. This script runs during the deployment lifecycle as described in [Zero to Deploy](/docs/zero-to-deploy).
+This creates `.deployer/scripts/` with `deploy.sh`, `cron.sh`, and `supervisor.sh`. The `deploy.sh` script runs during the deployment lifecycle as described in [Zero to Deploy](/docs/zero-to-deploy).
 
 ### AI Agent Skills
 

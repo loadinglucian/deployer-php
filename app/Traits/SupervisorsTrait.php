@@ -248,7 +248,7 @@ trait SupervisorsTrait
         }
 
         if (! in_array($script, $availableScripts, true)) {
-            return "Supervisor script not found: .deployer/supervisors/{$script}";
+            return "Supervisor script not found: .deployer/scripts/{$script}";
         }
 
         return null;

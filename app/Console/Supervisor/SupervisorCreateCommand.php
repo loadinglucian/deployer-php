@@ -39,7 +39,7 @@ class SupervisorCreateCommand extends BaseCommand
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain')
             ->addOption('program', null, InputOption::VALUE_REQUIRED, 'Process name identifier')
-            ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Script in .deployer/supervisors/')
+            ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Script in .deployer/scripts/ (supervisor*.sh)')
             ->addOption('autostart', null, InputOption::VALUE_NEGATABLE, 'Start on supervisord start')
             ->addOption('autorestart', null, InputOption::VALUE_NEGATABLE, 'Restart on exit')
             ->addOption('stopwaitsecs', null, InputOption::VALUE_REQUIRED, 'Seconds to wait for stop')
@@ -73,7 +73,12 @@ class SupervisorCreateCommand extends BaseCommand
         }
 
         try {
-            $availableScripts = $this->getAvailableScripts($site, '.deployer/supervisors');
+            $availableScripts = $this->getAvailableScripts($site, '.deployer/scripts');
+            $availableScripts = array_values(array_filter(
+                $availableScripts,
+                fn (string $script): bool => str_starts_with($script, 'supervisor') && str_ends_with($script, '.sh')
+            ));
+            sort($availableScripts);
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
 
@@ -81,8 +86,8 @@ class SupervisorCreateCommand extends BaseCommand
         }
 
         if ([] === $availableScripts) {
-            $this->warn('No supervisor scripts found in repository');
-            $this->info('Run <|cyan>scaffold:supervisors</> to create some');
+            $this->warn('No supervisor scripts (supervisor*.sh) found in repository');
+            $this->info('Run <|cyan>scaffold:scripts</> to create them');
 
             return Command::FAILURE;
         }

@@ -105,16 +105,16 @@ deployer site:create --domain=example.com --server=production --php-version=8.3
 
 Complete sequence for deploying a site.
 
-| Step | Command            | Notes                                          |
-| ---- | ------------------ | ---------------------------------------------- |
-| 1    | `scaffold:scripts` | Create `.deployer/scripts/` with build scripts |
+| Step | Command            | Notes                                                            |
+| ---- | ------------------ | ---------------------------------------------------------------- |
+| 1    | `scaffold:scripts` | Create `.deployer/scripts/` with deploy/cron/supervisor scripts  |
 | 2    | `site:deploy`      | Clone repo, run scripts, activate release      |
 | 3    | `site:https`       | Obtain Let's Encrypt certificate               |
 | 4    | `site:shared:push` | Upload .env and other persistent files         |
 
 ```bash
 deployer scaffold:scripts
-# Edit .deployer/scripts/*.sh to customize build process, commit to repo
+# Edit .deployer/scripts/*.sh to customize deploy/cron/supervisor processes, commit to repo
 deployer site:deploy --domain=example.com
 deployer site:https --domain=example.com
 deployer site:shared:push --domain=example.com
@@ -156,21 +156,21 @@ deployer server:install --server=production --php-version=8.3 --generate-deploy-
 
 Complete sequence for setting up supervisor programs.
 
-| Step | Command                | Notes                                     |
-| ---- | ---------------------- | ----------------------------------------- |
-| 1    | `scaffold:supervisors` | Create `.deployer/supervisors/` templates |
-| 2    | `supervisor:create`    | Add program to inventory                  |
-| 3    | `supervisor:sync`      | Apply configuration to server             |
+| Step | Command             | Notes                                                     |
+| ---- | ------------------- | --------------------------------------------------------- |
+| 1    | `scaffold:scripts`  | Create `.deployer/scripts/` (`supervisor*.sh`) templates |
+| 2    | `supervisor:create` | Add program to inventory                                  |
+| 3    | `supervisor:sync`   | Apply configuration to server                             |
 
 ### Adding Cron Jobs
 
 Complete sequence for setting up scheduled tasks.
 
-| Step | Command          | Notes                               |
-| ---- | ---------------- | ----------------------------------- |
-| 1    | `scaffold:crons` | Create `.deployer/crons/` templates |
-| 2    | `cron:create`    | Add cron to inventory               |
-| 3    | `cron:sync`      | Apply crontab to server             |
+| Step | Command            | Notes                                                |
+| ---- | ------------------ | ---------------------------------------------------- |
+| 1    | `scaffold:scripts` | Create `.deployer/scripts/` (`cron*.sh`) templates   |
+| 2    | `cron:create`      | Add cron to inventory                                |
+| 3    | `cron:sync`        | Apply crontab to server                              |
 
 ## Commands
 
@@ -238,12 +238,10 @@ All service commands follow the pattern `{service}:{action}`.
 
 ### Scaffolding
 
-| Command                | Description                                                             |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `scaffold:ai`          | Generate AI agent skill (observer, debugger, or admin tier)             |
-| `scaffold:scripts`     | Generate deployment scripts (`.deployer/scripts/`)                      |
-| `scaffold:crons`       | Generate cron script templates (`.deployer/crons/`)                     |
-| `scaffold:supervisors` | Generate supervisor script templates (`.deployer/supervisors/`)         |
+| Command            | Description                                                                                              |
+| ------------------ | -------------------------------------------------------------------------------------------------------- |
+| `scaffold:ai`      | Generate AI agent skill (observer, debugger, or admin tier)                                              |
+| `scaffold:scripts` | Generate deployment, cron, and supervisor scripts (`.deployer/scripts/` with `deploy.sh`, `cron.sh`, `supervisor.sh`) |
 
 ### Cloud Providers
 
@@ -335,7 +333,7 @@ deployer server:run --server=production --command="free -h"
 
 1. Verify deployment scripts exist: `ls .deployer/scripts/`
 2. Ensure deploy key is added to Git provider
-3. Check script syntax: `bash -n .deployer/scripts/deployer.sh`
+3. Check script syntax: `bash -n .deployer/scripts/deploy.sh`
 4. Review deployment logs for specific error
 
 #### Service Not Starting
@@ -354,7 +352,7 @@ deployer server:run --server=production --command="free -h"
 #### Cron/Supervisor Not Working
 
 1. Ensure site is deployed at least once before creating crons/supervisors
-2. Scripts must exist in `.deployer/crons/` or `.deployer/supervisors/`
+2. Scripts must exist in `.deployer/scripts/` (`cron*.sh` or `supervisor*.sh`)
 3. Run sync after creating: `cron:sync` or `supervisor:sync`
 4. Check logs: `deployer server:logs --server=<name> --site=<domain>`
 
@@ -362,9 +360,11 @@ deployer server:run --server=production --command="free -h"
 
 Build scripts run during deployment from `.deployer/scripts/`:
 
-| Script        | When                | Purpose                                                                  |
-| ------------- | ------------------- | ------------------------------------------------------------------------ |
-| `deployer.sh` | After code checkout | Build, link shared resources, migrations, cache optimization (all-in-one)|
+| Script          | When                | Purpose                                                                  |
+| --------------- | ------------------- | ------------------------------------------------------------------------ |
+| `deploy.sh`     | After code checkout | Build, link shared resources, migrations, cache optimization (all-in-one)|
+| `cron*.sh`      | Cron schedules      | Run scheduled tasks (framework-specific defaults in `cron.sh`)           |
+| `supervisor*.sh`| Supervisor programs | Run long-lived workers (defaults in `supervisor.sh`)                     |
 
 Scripts receive environment variables:
 

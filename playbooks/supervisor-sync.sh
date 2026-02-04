@@ -84,7 +84,7 @@ generate_supervisor_config() {
 
 	cat <<- EOF
 		[program:${full_name}]
-		command=${RUNNER_PATH} .deployer/supervisors/${script}
+		command=${RUNNER_PATH} .deployer/scripts/${script}
 		directory=${CURRENT_PATH}
 		user=deployer
 		autostart=${autostart}

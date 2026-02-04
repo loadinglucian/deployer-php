@@ -98,7 +98,7 @@ trait SitesTrait
     /**
      * Get available scripts from a remote site directory.
      *
-     * @param string $directory Directory path (e.g., '.deployer/crons')
+     * @param string $directory Directory path (e.g., '.deployer/scripts')
      * @return array<int, string> Script list (empty if none found)
      * @throws \RuntimeException If git operations fail
      */

@@ -36,7 +36,7 @@ class CronDeleteCommand extends BaseCommand
 
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain')
-            ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Cron script path within .deployer/crons/')
+            ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Cron script path within .deployer/scripts/ (cron*.sh)')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the script name to confirm')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
     }

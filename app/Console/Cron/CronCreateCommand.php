@@ -38,7 +38,7 @@ class CronCreateCommand extends BaseCommand
 
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain')
-            ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Cron script path within .deployer/crons/')
+            ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Cron script path within .deployer/scripts/ (cron*.sh)')
             ->addOption('schedule', null, InputOption::VALUE_REQUIRED, 'Cron schedule expression (e.g., "*/5 * * * *")');
     }
 
@@ -69,7 +69,12 @@ class CronCreateCommand extends BaseCommand
         }
 
         try {
-            $availableScripts = $this->getAvailableScripts($site, '.deployer/crons');
+            $availableScripts = $this->getAvailableScripts($site, '.deployer/scripts');
+            $availableScripts = array_values(array_filter(
+                $availableScripts,
+                fn (string $script): bool => str_starts_with($script, 'cron') && str_ends_with($script, '.sh')
+            ));
+            sort($availableScripts);
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
 
@@ -77,8 +82,8 @@ class CronCreateCommand extends BaseCommand
         }
 
         if ([] === $availableScripts) {
-            $this->warn('No cron scripts found in repository');
-            $this->info('Run <|cyan>scaffold:crons</> to create some');
+            $this->warn('No cron scripts (cron*.sh) found in repository');
+            $this->info('Run <|cyan>scaffold:scripts</> to create them');
 
             return Command::FAILURE;
         }

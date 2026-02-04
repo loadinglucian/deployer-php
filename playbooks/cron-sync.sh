@@ -89,7 +89,7 @@ generate_cron_block() {
 		script_base="${SCRIPT_BASES[$i]}"
 		script_log="${CRON_LOG_DIR}/${DEPLOYER_SITE_DOMAIN}-${script_base}.log"
 
-		cron_block+="${schedule} ${runner_path} .deployer/crons/${SCRIPT_NAMES[$i]} >> ${script_log} 2>&1"$'\n'
+		cron_block+="${schedule} ${runner_path} .deployer/scripts/${SCRIPT_NAMES[$i]} >> ${script_log} 2>&1"$'\n'
 
 		((i++))
 	done

@@ -32,10 +32,10 @@ trait CronsTrait
     // ----
 
     /**
-     * Scan .deployer/crons/ directory recursively and return sorted list of scripts.
+     * Scan .deployer/scripts/ directory recursively and return sorted list of cron scripts.
      *
-     * @param string $cronsDir Absolute path to crons directory
-     * @return array<int, string> Array of script paths relative to crons directory
+     * @param string $cronsDir Absolute path to scripts directory
+     * @return array<int, string> Array of script paths relative to scripts directory
      */
     protected function scanCronScripts(string $cronsDir): array
     {
@@ -183,7 +183,7 @@ trait CronsTrait
         }
 
         if (! in_array($script, $availableScripts, true)) {
-            return "Cron script not found: .deployer/crons/{$script}";
+            return "Cron script not found: .deployer/scripts/{$script}";
         }
 
         return null;

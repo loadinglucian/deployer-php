@@ -21,13 +21,13 @@ Many applications need to run tasks on a schedule, like sending queued emails, g
 
 ### Scaffolding Cron Scripts
 
-Run the `scaffold:crons` command in your project directory to generate example cron scripts:
+Run the `scaffold:scripts` command in your project directory to generate example cron scripts:
 
 ```shell
-deployer scaffold:crons
+deployer scaffold:scripts
 ```
 
-This creates a `.deployer/crons/` directory with example scripts for Laravel and Symfony. Each script uses environment variables that DeployerPHP provides automatically, so they work correctly with your deployment structure.
+This creates a `.deployer/scripts/` directory with `cron.sh`, which includes defaults for Laravel and Symfony. Each script uses environment variables that DeployerPHP provides automatically, so they work correctly with your deployment structure.
 
 ### Creating a Cron Job
 
@@ -40,7 +40,7 @@ deployer cron:create
 DeployerPHP will prompt you for:
 
 - **Site** - The site to add the cron job to
-- **Script** - Select from the scripts in your `.deployer/crons/` directory
+- **Script** - Select from the scripts in your `.deployer/scripts/` directory (matching `cron*.sh`)
 - **Schedule** - A cron expression like `* * * * *` (every minute) or `0 * * * *` (hourly)
 
 ### Syncing Cron Jobs
@@ -61,13 +61,13 @@ Some tasks need to run continuously rather than on a schedule, like queue worker
 
 ### Scaffolding Supervisor Scripts
 
-Run the `scaffold:supervisors` command in your project directory:
+Run the `scaffold:scripts` command in your project directory:
 
 ```shell
-deployer scaffold:supervisors
+deployer scaffold:scripts
 ```
 
-This creates a `.deployer/supervisors/` directory with example scripts for Laravel queue workers and Symfony Messenger consumers.
+This creates a `.deployer/scripts/` directory with `supervisor.sh`, which includes defaults for Laravel queue workers and Symfony Messenger consumers.
 
 ### Creating a Supervised Process
 
@@ -80,7 +80,7 @@ deployer supervisor:create
 DeployerPHP will prompt you for:
 
 - **Site** - The site to add the process to
-- **Script** - Select from your `.deployer/supervisors/` directory
+- **Script** - Select from your `.deployer/scripts/` directory (matching `supervisor*.sh`)
 - **Program name** - A unique identifier for this process (e.g., "queue-worker")
 - **Process settings** - Options like autostart, autorestart, and number of instances
 

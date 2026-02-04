@@ -186,7 +186,7 @@ Understanding the deployment lifecycle helps you write effective deployment scri
 
 2. **Release Creation** - A new timestamped directory is created in `releases/` (e.g., `releases/20240115_143052`). Your code is exported from the repository into this directory using `git archive`, ensuring a clean copy without Git metadata.
 
-3. **Deploy Script** - If your project has a `.deployer/scripts/deployer.sh` script, it runs now. This single script handles the entire pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The release is isolated at this point, so failures here won't affect your live site.
+3. **Deploy Script** - If your project has a `.deployer/scripts/deploy.sh` script, it runs now. This single script handles the entire pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The release is isolated at this point, so failures here won't affect your live site.
 
 4. **Activation** - The `current` symlink atomically switches to point to the new release. This is the moment your new code goes live. The atomic nature of symlink operations means there's no "in-between" state.
 
@@ -202,7 +202,7 @@ Run the `scaffold:scripts` command in your project directory to scaffold your de
 deployer scaffold:scripts
 ```
 
-This creates `deployer.sh` in the `.deployer/scripts` directory. This single script handles the complete pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches.
+This creates `deploy.sh`, `cron.sh`, and `supervisor.sh` in the `.deployer/scripts` directory. The `deploy.sh` script handles the complete pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The `cron.sh` and `supervisor.sh` scripts are starting points for scheduled tasks and long-running workers.
 
 Each script has access to these environment variables:
 

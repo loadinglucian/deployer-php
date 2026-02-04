@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Breaking
+
+- Renamed `.deployer/scripts/deployer.sh` to `.deployer/scripts/deploy.sh`
+- Moved cron and supervisor scripts into `.deployer/scripts` (`cron*.sh`, `supervisor*.sh`)
+- Removed `scaffold:crons` and `scaffold:supervisors` in favor of `scaffold:scripts`
+
 ## [1.0.2] - 2026-01-20
 
 ### Fixed
