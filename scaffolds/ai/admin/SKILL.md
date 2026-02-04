@@ -335,7 +335,7 @@ deployer server:run --server=production --command="free -h"
 
 1. Verify deployment scripts exist: `ls .deployer/scripts/`
 2. Ensure deploy key is added to Git provider
-3. Check script syntax: `bash -n .deployer/scripts/1-building.sh`
+3. Check script syntax: `bash -n .deployer/scripts/deployer.sh`
 4. Review deployment logs for specific error
 
 #### Service Not Starting
@@ -362,11 +362,9 @@ deployer server:run --server=production --command="free -h"
 
 Build scripts run during deployment from `.deployer/scripts/`:
 
-| Script           | When                | Purpose                                                          |
-| ---------------- | ------------------- | ---------------------------------------------------------------- |
-| `1-building.sh`  | After code checkout | Install deps: `composer install`, `bun install`, `bun run build` |
-| `2-releasing.sh` | Before activation   | Framework setup: migrations, cache optimization, symlinks        |
-| `3-finishing.sh` | After activation    | Post-deployment tasks (PHP-FPM auto-reloaded)                    |
+| Script        | When                | Purpose                                                                  |
+| ------------- | ------------------- | ------------------------------------------------------------------------ |
+| `deployer.sh` | After code checkout | Build, link shared resources, migrations, cache optimization (all-in-one)|
 
 Scripts receive environment variables:
 

@@ -33,7 +33,7 @@ Sites are stored in your local inventory and linked to a server. Each site has i
 
 ## Shared Files
 
-Shared files persist across deployments. Common examples include `.env` files, user uploads, and configuration files. After deployments, DeployerPHP automatically symlinks items from the `shared/` directory into each release.
+Shared files persist across deployments. Common examples include `.env` files, user uploads, and configuration files. Your deploy script links specific shared items into each release during deployment.
 
 ### Listing Files
 
@@ -66,7 +66,7 @@ deployer site:shared:pull
 You'll be prompted for the site, the remote filename, and the local destination path.
 
 > [!NOTE]
-> The `site:shared:*` commands support single files. Create directory structures your application needs in the `1-building.sh` script as described in [Zero to Deploy](/docs/zero-to-deploy).
+> The `site:shared:*` commands support single files. Create directory structures your application needs in the deploy script as described in [Zero to Deploy](/docs/zero-to-deploy).
 
 ## SSH Access
 
@@ -202,7 +202,7 @@ Run `scaffold:scripts` to create deployment scripts:
 deployer scaffold:scripts
 ```
 
-This creates `.deployer/scripts/` with `1-building.sh`, `2-releasing.sh`, and `3-finishing.sh`. These scripts run during the deployment lifecycle as described in [Zero to Deploy](/docs/zero-to-deploy).
+This creates `.deployer/scripts/` with `deployer.sh`. This script runs during the deployment lifecycle as described in [Zero to Deploy](/docs/zero-to-deploy).
 
 ### AI Agent Skills
 

@@ -212,7 +212,7 @@ deployer server:run --server=production --command="systemctl --failed"
 
 1. Check deployment scripts exist: `ls .deployer/scripts/`
 2. Ensure deploy key is added to Git provider
-3. Check script syntax: `bash -n .deployer/scripts/1-building.sh`
+3. Check script syntax: `bash -n .deployer/scripts/deployer.sh`
 4. Review deployment logs for specific error
 
 #### Service Not Starting

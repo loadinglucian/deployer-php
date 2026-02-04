@@ -69,7 +69,7 @@ PRESERVE_ENV_VARS="DEPLOYER_RELEASE_PATH,DEPLOYER_SHARED_PATH,DEPLOYER_CURRENT_P
 # Execute deployment script if it exists
 #
 # Arguments:
-#   $1 - Script name (1-building.sh, 2-releasing.sh, 3-finishing.sh)
+#   $1 - Script name (deployer.sh)
 
 run_script() {
 	local script_name=$1
@@ -424,22 +424,16 @@ write_output() {
 #
 # Execute full deployment script sequence
 #
-# Runs scripts in order: build release -> link shared -> 1-building -> 2-releasing -> activate -> 3-finishing -> cleanup -> restart supervisors
+# Runs: clone -> build release -> deployer.sh -> activate -> reload -> cleanup -> runner -> supervisors
 
 run_scripts_sequence() {
 	clone_or_update_repo
 
 	build_release
 
-	run_script '1-building.sh'
-
-	link_shared_resources
-
-	run_script '2-releasing.sh'
+	run_script 'deployer.sh'
 
 	activate_release
-
-	run_script '3-finishing.sh'
 
 	reload_php_fpm
 

@@ -186,19 +186,13 @@ Understanding the deployment lifecycle helps you write effective deployment scri
 
 2. **Release Creation** - A new timestamped directory is created in `releases/` (e.g., `releases/20240115_143052`). Your code is exported from the repository into this directory using `git archive`, ensuring a clean copy without Git metadata.
 
-3. **Building Phase** - If your project has a `.deployer/scripts/1-building.sh` script, it runs now. This is where you install dependencies and build assets. The release is isolated at this point, so failures here won't affect your live site.
+3. **Deploy Script** - If your project has a `.deployer/scripts/deployer.sh` script, it runs now. This single script handles the entire pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The release is isolated at this point, so failures here won't affect your live site.
 
-4. **Shared Files Linking** - DeployerPHP creates symlinks from the release directory to files and folders in `shared/`. This connects your release to persistent data like `.env` files and uploaded content.
+4. **Activation** - The `current` symlink atomically switches to point to the new release. This is the moment your new code goes live. The atomic nature of symlink operations means there's no "in-between" state.
 
-5. **Releasing Phase** - If present, `.deployer/scripts/2-releasing.sh` runs. This is the ideal place for pre-activation tasks like database migrations and cache warming. Your release is ready but not yet live.
+5. **PHP-FPM Reload** - DeployerPHP reloads PHP-FPM to clear the opcode cache, ensuring PHP serves your new code immediately.
 
-6. **Activation** - The `current` symlink atomically switches to point to the new release. This is the moment your new code goes live. The atomic nature of symlink operations means there's no "in-between" state.
-
-7. **Finishing Phase** - If present, `.deployer/scripts/3-finishing.sh` runs. Use this for post-deployment tasks like notifying monitoring services, clearing external caches, or sending deployment notifications.
-
-8. **PHP-FPM Reload** - DeployerPHP reloads PHP-FPM to clear the opcode cache, ensuring PHP serves your new code immediately.
-
-9. **Cleanup** - Old releases beyond the keep count (default: 5) are removed to free disk space.
+6. **Cleanup** - Old releases beyond the keep count (default: 5) are removed to free disk space.
 
 ### Deployment Scripts
 
@@ -208,13 +202,7 @@ Run the `scaffold:scripts` command in your project directory to scaffold your de
 deployer scaffold:scripts
 ```
 
-This creates three files in the `.deployer/scripts` directory:
-
-| Script           | Runs                          | Purpose                                         |
-| ---------------- | ----------------------------- | ----------------------------------------------- |
-| `1-building.sh`  | After release creation        | Install dependencies, build assets, create dirs |
-| `2-releasing.sh` | After shared files are linked | Database migrations, cache warming              |
-| `3-finishing.sh` | After release is live         | Notifications, external cache clearing          |
+This creates `deployer.sh` in the `.deployer/scripts` directory. This single script handles the complete pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches.
 
 Each script has access to these environment variables:
 
@@ -225,14 +213,14 @@ Each script has access to these environment variables:
 | `DEPLOYER_CURRENT` | Path to the current symlink           |
 | `DEPLOYER_REPO`    | Path to the repository directory      |
 
-Scripts run in the release directory with the `deployer` user. Adding `set -e` at the top of your scripts ensures the deployment stops if any command fails, preventing a broken release from going live.
+The script runs in the release directory with the `deployer` user. Adding `set -e` at the top ensures the deployment stops if any command fails, preventing a broken release from going live.
 
 > [!TIP]
-> The building script is the ideal place to create shared directories your application needs. For example, if your application stores user uploads, create the directory in `1-building.sh` with `mkdir -p "$DEPLOYER_SHARED/uploads"`.
+> The deploy script is the ideal place to create shared directories your application needs. For example, if your application stores user uploads, create the directory with `mkdir -p "$DEPLOYER_SHARED_PATH/uploads"` and symlink it into the release.
 
 ### Shared Files
 
-Shared files and directories persist across deployments. Common examples include `.env` configuration files, user-uploaded content, and log files. After the building phase completes, DeployerPHP automatically symlinks items from the `shared/` directory into each release.
+Shared files and directories persist across deployments. Common examples include `.env` configuration files, user-uploaded content, and SQLite databases. The deploy script links specific shared items into each release, giving you fine-grained control over what gets symlinked and how.
 
 Use the `site:shared:push` command to upload a file to a site's shared directory:
 
@@ -243,9 +231,7 @@ deployer site:shared:push
 DeployerPHP will prompt you for the server, site, local file path, and remote file path within the shared directory. Use `site:shared:pull` to download a shared file to your local machine.
 
 > [!NOTE]
-> The `site:shared:*` commands support single files. Create directory structures your application needs in the `1-building.sh` script.
-
-Shared items are symlinked based on what exists in the `shared/` directory. For example, if `shared/.env` exists, DeployerPHP creates a symlink at `releases/TIMESTAMP/.env` pointing to `shared/.env`. The same applies to directories like `shared/uploads`.
+> The `site:shared:*` commands support single files. Create directory structures your application needs in the deploy script.
 
 ### Release Management
 
