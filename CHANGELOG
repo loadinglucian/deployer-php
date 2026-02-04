@@ -7,6 +7,7 @@
 - Renamed `.deployer/scripts/deployer.sh` to `.deployer/scripts/deploy.sh`
 - Moved cron and supervisor scripts into `.deployer/scripts` (`cron*.sh`, `supervisor*.sh`)
 - Removed `scaffold:crons` and `scaffold:supervisors` in favor of `scaffold:scripts`
+- Default inventory path is now `.deployer/inventory.yml`; move existing `deployer.yml` or pass `--inventory`
 
 ## [1.0.2] - 2026-01-20
 

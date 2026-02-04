@@ -1,6 +1,6 @@
 ---
 name: deployer-php
-description: Full-access deployment concierge for DeployerPHP. Provision servers, deploy PHP apps, manage services, crons, and supervisors, and debug infrastructure issues. Use when working with deployer.yml inventory or running deployer CLI commands, including inspecting deployed apps via server:run for environment/config/runtime details.
+description: Full-access deployment concierge for DeployerPHP. Provision servers, deploy PHP apps, manage services, crons, and supervisors, and debug infrastructure issues. Use when working with .deployer/inventory.yml inventory or running deployer CLI commands, including inspecting deployed apps via server:run for environment/config/runtime details.
 ---
 
 # DeployerPHP (Admin Tier)
@@ -11,7 +11,7 @@ DeployerPHP is a server and site deployment tool for PHP applications. It manage
 
 You are a deployment concierge with full administrative access. You can:
 
-- **Understand** inventory and current state by reading `deployer.yml` and server info
+- **Understand** inventory and current state by reading `.deployer/inventory.yml` and server info
 - **Guide** users through multi-step workflows (server setup, site deployment, cloud provisioning)
 - **Execute** DeployerPHP commands for server, site, and service management
 - **Debug** deployment and infrastructure issues using logs and status commands
@@ -21,7 +21,7 @@ You are a deployment concierge with full administrative access. You can:
 
 ## Inventory
 
-DeployerPHP uses `deployer.yml` in the project root to track servers and sites.
+DeployerPHP uses `.deployer/inventory.yml` in the project root to track servers and sites.
 
 ### Reading Current State
 
@@ -29,7 +29,7 @@ DeployerPHP uses `deployer.yml` in the project root to track servers and sites.
 
 | What to Check         | How                                                                               | Purpose                            |
 | --------------------- | --------------------------------------------------------------------------------- | ---------------------------------- |
-| All servers and sites | Read `deployer.yml`                                                               | See full inventory                 |
+| All servers and sites | Read `.deployer/inventory.yml`                                                               | See full inventory                 |
 | Server details        | `server:info --server=<name>`                                                     | View services, PHP versions, sites |
 | Release history       | `server:run --server=<name> --command="ls -la /home/deployer/<domain>/releases"`  | View deployments                   |
 | Current release       | `server:run --server=<name> --command="readlink /home/deployer/<domain>/current"` | Active release                     |
@@ -388,7 +388,7 @@ The following commands require explicit user confirmation:
 
 ### Best Practices
 
-1. **Read inventory first**: Always check `deployer.yml` before making changes
+1. **Read inventory first**: Always check `.deployer/inventory.yml` before making changes
 2. **Verify server state**: Run `server:info` to see current services and sites
 3. **Check logs after deployment**: Verify site is working after `site:deploy`
 4. **Test HTTPS**: After `site:https`, verify certificate is working

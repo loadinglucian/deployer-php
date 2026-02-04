@@ -63,7 +63,7 @@ Don't worry about what each of these does. For now, just focus on how everything
 
 ## The Inventory
 
-DeployerPHP tracks your servers and sites in a `deployer.yml` file, which it initializes in your current working directory. This inventory file stores the details of servers you add and sites you create, so you don't have to re-enter connection details each time you run a command.
+DeployerPHP tracks your servers and sites in a `.deployer/inventory.yml` file, which it initializes in your current working directory. This inventory file stores the details of servers you add and sites you create, so you don't have to re-enter connection details each time you run a command.
 
 Commands automatically reference the inventory, making multi-server management straightforward. You can commit this file to version control to share your infrastructure configuration with your team.
 
@@ -72,14 +72,14 @@ Commands automatically reference the inventory, making multi-server management s
 DeployerPHP uses two configuration files to manage your infrastructure:
 
 - **`.env`** - Environment variables like API keys for cloud providers
-- **`deployer.yml`** - The inventory file that stores your servers and sites
+- **`.deployer/inventory.yml`** - The inventory file that stores your servers and sites
 
 ```DeployerPHP
 ▒ ≡ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ▒
 ▒ Ver: dev-main
 ▒ Env: ~/example.com/.env
-▒ Inv: ~/example.com/deployer.yml
+▒ Inv: ~/example.com/.deployer/inventory.yml
 .
 .
 .
@@ -87,10 +87,12 @@ DeployerPHP uses two configuration files to manage your infrastructure:
 
 By default, DeployerPHP looks for both files in your current working directory. This works well for most projects, but you may need more flexibility when managing multiple environments or working from different directories.
 
+If you have an existing `deployer.yml`, move it to `.deployer/inventory.yml` or run commands with `--inventory` to target the legacy path.
+
 Every command accepts two global options for overriding these paths:
 
 - **`--env`** - Specify a custom path to your `.env` file
-- **`--inventory`** - Specify a custom path to your `deployer.yml` file
+- **`--inventory`** - Specify a custom path to your inventory file
 
 This is particularly useful when you:
 

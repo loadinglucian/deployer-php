@@ -88,7 +88,7 @@ class InventoryService
      */
     public function setCustomPath(?string $path): void
     {
-        $this->inventoryPath = $path;
+        $this->inventoryPath = ($path === null || $path === '') ? null : $path;
     }
 
     /**
@@ -99,15 +99,16 @@ class InventoryService
         $this->inventory = [];
 
         $path = $this->getInventoryPath();
+        $legacyNote = $this->getLegacyNote();
 
         // Initialize empty inventory file if it doesn't exist
         if (!$this->fs->exists($path)) {
-            $this->inventoryFileStatus = "Creating inventory file at {$this->fs->shortenPath($path)}";
+            $this->inventoryFileStatus = "Creating inventory file at {$this->fs->shortenPath($path)}{$legacyNote}";
             $this->writeInventory();
         }
 
         $this->readInventory();
-        $this->inventoryFileStatus = $this->fs->shortenPath($path);
+        $this->inventoryFileStatus = $this->fs->shortenPath($path) . $legacyNote;
     }
 
     /**
@@ -219,7 +220,7 @@ class InventoryService
      */
     private function getInventoryPath(): string
     {
-        return $this->inventoryPath ?? rtrim($this->fs->getCwd(), '/') . '/deployer.yml';
+        return $this->inventoryPath ?? rtrim($this->fs->getCwd(), '/') . '/.deployer/inventory.yml';
     }
 
     /**
@@ -253,6 +254,10 @@ class InventoryService
         }
 
         $path = $this->getInventoryPath();
+        $directory = $this->fs->getParentDirectory($path);
+        if (! $this->fs->isDirectory($directory)) {
+            $this->fs->mkdir($directory);
+        }
 
         try {
             $yaml = Yaml::dump($this->inventory, 12, 2, Yaml::DUMP_EMPTY_ARRAY_AS_SEQUENCE);
@@ -260,5 +265,30 @@ class InventoryService
         } catch (\Throwable $e) {
             throw new \RuntimeException("Error writing inventory file at {$path}: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Determine if we are using the default inventory path.
+     */
+    private function isUsingDefaultPath(): bool
+    {
+        return null === $this->inventoryPath;
+    }
+
+    /**
+     * Return a note if a legacy deployer.yml exists and is ignored.
+     */
+    private function getLegacyNote(): string
+    {
+        if (! $this->isUsingDefaultPath()) {
+            return '';
+        }
+
+        $legacyPath = rtrim($this->fs->getCwd(), '/') . '/deployer.yml';
+        if ($this->fs->exists($legacyPath)) {
+            return ' (legacy deployer.yml ignored)';
+        }
+
+        return '';
     }
 }

@@ -86,7 +86,7 @@ abstract class BaseCommand extends Command
             'inventory',
             null,
             InputOption::VALUE_OPTIONAL,
-            'Custom path to deployer.yml file (defaults to deployer.yml in the current working directory)'
+            'Custom path to inventory file (defaults to .deployer/inventory.yml in the current working directory)'
         );
     }
 

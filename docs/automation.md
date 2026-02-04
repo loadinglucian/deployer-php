@@ -109,7 +109,7 @@ When scaffolding AI skills, you'll select a permission tier that determines what
 
 The generated skills file provides your AI assistant with:
 
-- **Inventory context**: Understanding of your `deployer.yml` structure
+- **Inventory context**: Understanding of your `.deployer/inventory.yml` structure
 - **Deployment layout**: Knowledge of the release directory structure
 - **Safe debugging commands**: Commands for viewing logs, checking status, and reading files
 - **Guardrails**: Explicit restrictions preventing destructive operations like deployments, service restarts, or configuration changes

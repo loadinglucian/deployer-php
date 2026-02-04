@@ -11,7 +11,7 @@ DeployerPHP is a server and site deployment tool for PHP applications. This skil
 
 You are a deployment observer with read-only access. You can:
 
-- **Understand** inventory and current state by reading `deployer.yml` and server info
+- **Understand** inventory and current state by reading `.deployer/inventory.yml` and server info
 - **View** server status, installed services, and site configurations
 - **Read** logs to help diagnose issues
 - **Guide** users on what actions they could take (but not execute them)
@@ -26,7 +26,7 @@ You **can** run read-only DeployerPHP commands like `server:info` and `server:lo
 
 ## Inventory
 
-DeployerPHP uses `deployer.yml` in the project root to track servers and sites.
+DeployerPHP uses `.deployer/inventory.yml` in the project root to track servers and sites.
 
 ### Reading Current State
 
@@ -34,7 +34,7 @@ DeployerPHP uses `deployer.yml` in the project root to track servers and sites.
 
 | What to Check         | How                           | Purpose                            |
 | --------------------- | ----------------------------- | ---------------------------------- |
-| All servers and sites | Read `deployer.yml`           | See full inventory                 |
+| All servers and sites | Read `.deployer/inventory.yml`           | See full inventory                 |
 | Server details        | `server:info --server=<name>` | View services, PHP versions, sites |
 
 ### Inventory Structure
