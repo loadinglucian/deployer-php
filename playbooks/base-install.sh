@@ -39,7 +39,7 @@ export DEPLOYER_PERMS
 install_packages() {
 	echo "→ Installing packages..."
 
-	local common_packages=(curl zip unzip nginx certbot python3-certbot-nginx git rsync ufw jq supervisor)
+	local common_packages=(curl zip unzip nginx certbot python3-certbot-nginx git rsync ufw jq supervisor tree)
 	local distro_packages
 
 	case $DEPLOYER_DISTRO in
