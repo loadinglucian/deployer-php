@@ -40,26 +40,8 @@ fi
 
 if [[ $framework == "laravel" ]]; then
 
-	#
-	# Ensure shared data
-	# ----
-
-	echo "→ Ensuring shared data..."
-
-	mkdir -p "${DEPLOYER_SHARED_PATH}/storage/"{app,framework,logs}
-	mkdir -p "${DEPLOYER_SHARED_PATH}/storage/framework/"{cache,sessions,views}
+	echo "→ Creating storage symlink..."
 	"${DEPLOYER_PHP}" artisan storage:link
-
-	echo "→ Ensuring shared sqlite database..."
-	mkdir -p "${DEPLOYER_SHARED_PATH}/database"
-
-	shared_db="${DEPLOYER_SHARED_PATH}/database/database.sqlite"
-	touch "${shared_db}"
-
-	release_db="${DEPLOYER_RELEASE_PATH}/database/database.sqlite"
-	if [ ! -e "${release_db}" ] && [ ! -L "${release_db}" ]; then
-		ln -s "${shared_db}" "${release_db}"
-	fi
 
 	echo "→ Ensuring app key exists..."
 	"${DEPLOYER_PHP}" artisan key:generate || true
@@ -86,10 +68,6 @@ fi
 # Uncomment as needed
 
 # if [[ $framework == "symfony" ]]; then
-# 	# Ensure shared data
-# 	echo "→ Ensuring shared data..."
-# 	mkdir -p "${DEPLOYER_SHARED_PATH}/var/"{cache,log,sessions}
-#
 # 	# Run migrations
 # 	echo "→ Running migrations..."
 # 	"${DEPLOYER_PHP}" bin/console doctrine:migrations:migrate --no-interaction
@@ -105,10 +83,6 @@ fi
 # Uncomment as needed
 
 # if [[ $framework == "codeigniter" ]]; then
-# 	# Ensure shared data
-# 	echo "→ Ensuring shared data..."
-# 	mkdir -p "${DEPLOYER_SHARED_PATH}/writable/"{cache,logs,session,uploads}
-#
 # 	# Run migrations
 # 	echo "→ Running migrations..."
 # 	"${DEPLOYER_PHP}" spark migrate --all

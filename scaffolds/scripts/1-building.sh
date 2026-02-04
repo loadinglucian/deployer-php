@@ -34,3 +34,51 @@ if [[ -f package.json ]]; then
 	echo "→ Building frontend assets..."
 	bun run build
 fi
+
+# ----
+# Framework Detection
+# ----
+
+framework=""
+
+if [[ -f artisan ]]; then
+	framework="laravel"
+elif [[ -f bin/console ]]; then
+	framework="symfony"
+elif [[ -f spark ]]; then
+	framework="codeigniter"
+fi
+
+# ----
+# Laravel
+# ----
+
+if [[ $framework == "laravel" ]]; then
+	echo "→ Ensuring shared directories..."
+	mkdir -p "${DEPLOYER_SHARED_PATH}/storage/"{app,framework,logs}
+	mkdir -p "${DEPLOYER_SHARED_PATH}/storage/framework/"{cache,sessions,views}
+
+	echo "→ Ensuring shared sqlite database..."
+	mkdir -p "${DEPLOYER_SHARED_PATH}/database"
+	touch "${DEPLOYER_SHARED_PATH}/database/database.sqlite"
+fi
+
+# ----
+# Symfony
+# ----
+# Uncomment as needed
+
+# if [[ $framework == "symfony" ]]; then
+# 	echo "→ Ensuring shared directories..."
+# 	mkdir -p "${DEPLOYER_SHARED_PATH}/var/"{log,sessions}
+# fi
+
+# ----
+# CodeIgniter
+# ----
+# Uncomment as needed
+
+# if [[ $framework == "codeigniter" ]]; then
+# 	echo "→ Ensuring shared directories..."
+# 	mkdir -p "${DEPLOYER_SHARED_PATH}/writable/"{cache,logs,session,uploads}
+# fi
