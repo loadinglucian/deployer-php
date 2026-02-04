@@ -74,10 +74,19 @@ class SiteSharedListCommand extends BaseCommand
             /** @var string $listing */
             $listing = $this->io->promptSpin(
                 function () use ($server, $sharedPath): string {
+                    $dirCheck = $this->ssh->executeCommand(
+                        $server,
+                        sprintf('test -d %s', escapeshellarg($sharedPath))
+                    );
+
+                    if (0 !== $dirCheck['exit_code']) {
+                        throw new \RuntimeException("Shared directory not found or inaccessible: {$sharedPath}");
+                    }
+
                     $result = $this->ssh->executeCommand(
                         $server,
                         sprintf(
-                            'cd %1$s && tree -a --noreport 2>/dev/null || find . -not -name "." | sort',
+                            'cd %1$s && (tree -a --noreport 2>/dev/null || find . -not -name "." | sort)',
                             escapeshellarg($sharedPath)
                         )
                     );
@@ -88,7 +97,9 @@ class SiteSharedListCommand extends BaseCommand
                         );
                     }
 
-                    return trim((string) $result['output']);
+                    $output = trim((string) $result['output']);
+
+                    return '.' === $output ? '' : $output;
                 },
                 'Listing shared files...'
             );
