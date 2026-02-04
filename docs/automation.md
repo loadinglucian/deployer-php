@@ -5,7 +5,7 @@
 - [Command Replays](#command-replays)
 - [Quiet Mode](#quiet-mode)
 - [AI Automation](#ai-automation)
-  - [Permission Tiers](#permission-tiers)
+    - [Permission Tiers](#permission-tiers)
 
 <!-- /toc -->
 

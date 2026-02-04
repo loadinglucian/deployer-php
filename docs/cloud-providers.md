@@ -3,19 +3,19 @@
 <!-- toc -->
 
 - [AWS](#aws)
-  - [Configuration](#configuration)
-  - [IAM Permissions](#iam-permissions)
-  - [Managing SSH Keys](#managing-ssh-keys)
-  - [Provisioning Servers](#provisioning-servers)
-  - [Managing DNS Records](#managing-dns-records)
+    - [Configuration](#configuration)
+    - [IAM Permissions](#iam-permissions)
+    - [Managing SSH Keys](#managing-ssh-keys)
+    - [Provisioning Servers](#provisioning-servers)
+    - [Managing DNS Records](#managing-dns-records)
 - [Cloudflare](#cloudflare)
-  - [Configuration](#configuration-1)
-  - [Managing DNS Records](#managing-dns-records-1)
+    - [Configuration](#configuration-1)
+    - [Managing DNS Records](#managing-dns-records-1)
 - [DigitalOcean](#digitalocean)
-  - [Configuration](#configuration-2)
-  - [Managing SSH Keys](#managing-ssh-keys-1)
-  - [Provisioning Droplets](#provisioning-droplets)
-  - [Managing DNS Records](#managing-dns-records-2)
+    - [Configuration](#configuration-2)
+    - [Managing SSH Keys](#managing-ssh-keys-1)
+    - [Provisioning Droplets](#provisioning-droplets)
+    - [Managing DNS Records](#managing-dns-records-2)
 
 <!-- /toc -->
 

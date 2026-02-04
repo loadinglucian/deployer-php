@@ -4,11 +4,11 @@
 
 - [Checking Server Status](#checking-server-status)
 - [Running Commands Remotely](#running-commands-remotely)
-  - [Interactive SSH Sessions](#interactive-ssh-sessions)
+    - [Interactive SSH Sessions](#interactive-ssh-sessions)
 - [Configuring the Firewall](#configuring-the-firewall)
 - [Viewing Logs](#viewing-logs)
 - [Removing a Server](#removing-a-server)
-  - [Cloud-Provisioned Servers](#cloud-provisioned-servers)
+    - [Cloud-Provisioned Servers](#cloud-provisioned-servers)
 
 <!-- /toc -->
 

@@ -3,12 +3,12 @@
 <!-- toc -->
 
 - [Nginx](#nginx)
-  - [Controlling Nginx](#controlling-nginx)
-  - [Viewing Logs](#viewing-logs)
+    - [Controlling Nginx](#controlling-nginx)
+    - [Viewing Logs](#viewing-logs)
 - [PHP-FPM](#php-fpm)
-  - [Controlling PHP-FPM](#controlling-php-fpm)
-  - [Installing Additional PHP Versions](#installing-additional-php-versions)
-  - [Viewing Logs](#viewing-logs-1)
+    - [Controlling PHP-FPM](#controlling-php-fpm)
+    - [Installing Additional PHP Versions](#installing-additional-php-versions)
+    - [Viewing Logs](#viewing-logs-1)
 
 <!-- /toc -->
 

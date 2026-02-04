@@ -3,24 +3,25 @@
 <!-- toc -->
 
 - [Shared Files](#shared-files)
-  - [Pushing Files](#pushing-files)
-  - [Pulling Files](#pulling-files)
+    - [Listing Files](#listing-files)
+    - [Pushing Files](#pushing-files)
+    - [Pulling Files](#pulling-files)
 - [SSH Access](#ssh-access)
 - [Viewing Logs](#viewing-logs)
 - [Cron Jobs](#cron-jobs)
-  - [Scaffolding Cron Scripts](#scaffolding-cron-scripts)
-  - [Creating Cron Jobs](#creating-cron-jobs)
-  - [Syncing Cron Jobs](#syncing-cron-jobs)
-  - [Deleting Cron Jobs](#deleting-cron-jobs)
+    - [Scaffolding Cron Scripts](#scaffolding-cron-scripts)
+    - [Creating Cron Jobs](#creating-cron-jobs)
+    - [Syncing Cron Jobs](#syncing-cron-jobs)
+    - [Deleting Cron Jobs](#deleting-cron-jobs)
 - [Supervisor Processes](#supervisor-processes)
-  - [Scaffolding Supervisor Scripts](#scaffolding-supervisor-scripts)
-  - [Creating Processes](#creating-processes)
-  - [Managing Processes](#managing-processes)
-  - [Syncing Processes](#syncing-processes)
-  - [Deleting Processes](#deleting-processes)
+    - [Scaffolding Supervisor Scripts](#scaffolding-supervisor-scripts)
+    - [Creating Processes](#creating-processes)
+    - [Managing Processes](#managing-processes)
+    - [Syncing Processes](#syncing-processes)
+    - [Deleting Processes](#deleting-processes)
 - [Scaffolding](#scaffolding)
-  - [Deployment Scripts](#deployment-scripts)
-  - [AI Agent Skills](#ai-agent-skills)
+    - [Deployment Scripts](#deployment-scripts)
+    - [AI Agent Skills](#ai-agent-skills)
 - [Rollbacks](#rollbacks)
 - [Deleting a Site](#deleting-a-site)
 
@@ -33,6 +34,16 @@ Sites are stored in your local inventory and linked to a server. Each site has i
 ## Shared Files
 
 Shared files persist across deployments. Common examples include `.env` files, user uploads, and configuration files. After deployments, DeployerPHP automatically symlinks items from the `shared/` directory into each release.
+
+### Listing Files
+
+The `site:shared:list` command shows all files and folders in a site's shared directory:
+
+```shell
+deployer site:shared:list
+```
+
+You'll be prompted to select a site. DeployerPHP connects to the server and displays the directory tree, including hidden files like `.env`.
 
 ### Pushing Files
 
