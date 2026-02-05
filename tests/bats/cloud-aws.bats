@@ -416,6 +416,7 @@ setup() {
 		--domain="$AWS_TEST_DOMAIN" \
 		--repo="$CLOUD_TEST_DEPLOY_REPO" \
 		--branch="$CLOUD_TEST_DEPLOY_BRANCH" \
+		--force \
 		--yes
 
 	debug_output

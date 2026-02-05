@@ -4,10 +4,7 @@ permissions:
   contents: read
 
 on:
-  push:
-    branches:
-      - main
-      - "ci/bats/**"
+  pull_request:
 
 jobs:
   cloud-tests:
