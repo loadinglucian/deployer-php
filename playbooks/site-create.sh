@@ -218,6 +218,7 @@ configure_nginx_vhost() {
 
     # Static file caching
     location ~* \\.(?:css|js|jpg|jpeg|gif|png|ico|cur|gz|svg|svgz|mp4|ogg|ogv|webm|htc|woff|woff2)\$ {
+        try_files \$uri /index.php?\$query_string;
         expires 1M;
         access_log off;
         add_header Cache-Control \"public\";

@@ -127,10 +127,7 @@ class SiteSshCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        $this->out([
-            '',
-            'Opening SSH in site directory...',
-        ]);
+        $this->out('Opening SSH in site directory...');
 
         pcntl_exec($sshBinary, $sshArgs);
 
