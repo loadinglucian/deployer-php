@@ -181,7 +181,7 @@ setup() {
 	add_test_server
 
 	# Full install takes time - use longer timeout
-	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" server:install \
+	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:install \
 		--server="$TEST_SERVER_NAME" \
 		--generate-deploy-key \
 		--timezone="UTC" \
@@ -252,7 +252,7 @@ setup() {
 	expected_key=$(cat "${TEST_KEY}.pub")
 
 	# Run install with custom key (cli,fpm are always installed, must include optional extension)
-	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" server:install \
+	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:install \
 		--server="$TEST_SERVER_NAME" \
 		--custom-deploy-key="$TEST_KEY" \
 		--timezone="UTC" \

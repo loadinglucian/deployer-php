@@ -516,8 +516,10 @@ class IoService
         Closure $callback,
         string $message = 'Loading...'
     ): mixed {
-        // Bypass spinner in test environment to prevent terminal conflicts in parallel execution
-        if (defined('PHPUNIT_COMPOSER_INSTALL') || defined('__PEST_RUNNING__')) {
+        // Bypass spinner in test/non-decorated environments to prevent
+        // terminal conflicts (PHPUnit/Pest) and cursor control sequence
+        // noise in non-terminal contexts (CI, BATS --no-ansi)
+        if (defined('PHPUNIT_COMPOSER_INSTALL') || defined('__PEST_RUNNING__') || !$this->io->isDecorated()) {
             return $callback();
         }
 

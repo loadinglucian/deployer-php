@@ -31,7 +31,7 @@ trait AwsTrait
      * Initialize AWS API with credentials from environment.
      *
      * Retrieves AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
-     * and region (AWS_DEFAULT_REGION or AWS_REGION) from environment variables,
+     * and region (AWS_REGION) from environment variables,
      * configures the AWS service, and verifies authentication with STS.
      * Displays error messages and exits on failure.
      *
@@ -47,7 +47,7 @@ trait AwsTrait
             $secretAccessKey = $this->env->get(['AWS_SECRET_ACCESS_KEY']);
 
             /** @var string $region */
-            $region = $this->env->get(['AWS_DEFAULT_REGION', 'AWS_REGION']);
+            $region = $this->env->get(['AWS_REGION'], required: false) ?? 'eu-central-1';
 
             // Initialize AWS API
             $this->io->promptSpin(
@@ -59,7 +59,7 @@ trait AwsTrait
         } catch (\InvalidArgumentException) {
             // Credential configuration issue
             $this->nay('AWS credentials not found in environment.');
-            $this->nay('Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_DEFAULT_REGION in your .env file.');
+            $this->nay('Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION in your .env file.');
 
             return Command::FAILURE;
         } catch (\RuntimeException $e) {

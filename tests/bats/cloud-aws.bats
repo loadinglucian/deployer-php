@@ -4,7 +4,7 @@
 # Tests: aws:key:add, aws:key:list, aws:key:delete, aws:provision
 #
 # Prerequisites:
-#   - AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION in environment
+#   - AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION in environment
 #   - Valid AWS credentials with EC2 permissions
 #   - SSH private key at ~/.ssh/id_ed25519
 
@@ -140,7 +140,7 @@ setup() {
 	fi
 
 	# Full install takes time - use longer timeout
-	run timeout 600 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" server:install \
+	run timeout 600 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:install \
 		--server="$AWS_TEST_SERVER_NAME" \
 		--generate-deploy-key \
 		--timezone="UTC" \
@@ -219,12 +219,9 @@ setup() {
 # ----
 
 @test "cf:dns:set creates A record for root domain (proxied)" {
-	# Skip if AWS credentials/SSH key not available OR Cloudflare credentials missing
+	# Skip if AWS credentials/SSH key not available (CF DNS tests need AWS-provisioned server IP)
 	if ! aws_provision_config_available; then
 		skip "AWS credentials not configured or SSH key missing"
-	fi
-	if ! cf_credentials_available; then
-		skip "Cloudflare credentials not configured"
 	fi
 
 	# Get server IP from inventory
@@ -251,12 +248,9 @@ setup() {
 }
 
 @test "cf:dns:set creates A record for www subdomain (non-proxied)" {
-	# Skip if AWS credentials/SSH key not available OR Cloudflare credentials missing
+	# Skip if AWS credentials/SSH key not available (CF DNS tests need AWS-provisioned server IP)
 	if ! aws_provision_config_available; then
 		skip "AWS credentials not configured or SSH key missing"
-	fi
-	if ! cf_credentials_available; then
-		skip "Cloudflare credentials not configured"
 	fi
 
 	# Get server IP from inventory
@@ -287,12 +281,9 @@ setup() {
 # ----
 
 @test "cf:dns:list shows created records" {
-	# Skip if AWS credentials/SSH key not available OR Cloudflare credentials missing
+	# Skip if AWS credentials/SSH key not available (CF DNS tests need AWS-provisioned server IP)
 	if ! aws_provision_config_available; then
 		skip "AWS credentials not configured or SSH key missing"
-	fi
-	if ! cf_credentials_available; then
-		skip "Cloudflare credentials not configured"
 	fi
 
 	run_deployer cf:dns:list \
@@ -310,12 +301,9 @@ setup() {
 # ----
 
 @test "cf:dns:delete removes www A record" {
-	# Skip if AWS credentials/SSH key not available OR Cloudflare credentials missing
+	# Skip if AWS credentials/SSH key not available (CF DNS tests need AWS-provisioned server IP)
 	if ! aws_provision_config_available; then
 		skip "AWS credentials not configured or SSH key missing"
-	fi
-	if ! cf_credentials_available; then
-		skip "Cloudflare credentials not configured"
 	fi
 
 	run_deployer cf:dns:delete \
@@ -334,12 +322,9 @@ setup() {
 }
 
 @test "cf:dns:delete removes root A record" {
-	# Skip if AWS credentials/SSH key not available OR Cloudflare credentials missing
+	# Skip if AWS credentials/SSH key not available (CF DNS tests need AWS-provisioned server IP)
 	if ! aws_provision_config_available; then
 		skip "AWS credentials not configured or SSH key missing"
-	fi
-	if ! cf_credentials_available; then
-		skip "Cloudflare credentials not configured"
 	fi
 
 	run_deployer cf:dns:delete \
@@ -419,7 +404,7 @@ setup() {
 	fi
 
 	# Deploy takes time - use longer timeout
-	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" site:deploy \
+	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:deploy \
 		--domain="$AWS_TEST_DOMAIN" \
 		--repo="$CLOUD_TEST_DEPLOY_REPO" \
 		--branch="$CLOUD_TEST_DEPLOY_BRANCH" \

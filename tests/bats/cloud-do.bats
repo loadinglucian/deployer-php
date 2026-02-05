@@ -147,7 +147,7 @@ setup() {
 	fi
 
 	# Full install takes time - use longer timeout
-	run timeout 600 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" server:install \
+	run timeout 600 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:install \
 		--server="$DO_TEST_SERVER_NAME" \
 		--generate-deploy-key \
 		--timezone="UTC" \
@@ -285,7 +285,7 @@ setup() {
 	fi
 
 	# Deploy takes time - use longer timeout
-	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" site:deploy \
+	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:deploy \
 		--domain="$DO_TEST_DOMAIN" \
 		--repo="$CLOUD_TEST_DEPLOY_REPO" \
 		--branch="$CLOUD_TEST_DEPLOY_BRANCH" \

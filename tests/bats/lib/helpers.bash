@@ -143,7 +143,7 @@ assert_failure() {
 # Run deployer command with test inventory
 # Usage: run_deployer server:info --server=test-server
 run_deployer() {
-	run "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" "$@"
+	run "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi "$@"
 }
 
 # Run deployer command expecting success (exit code 0)

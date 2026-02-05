@@ -24,18 +24,17 @@ export BATS_RUN_SUFFIX
 # ----
 # AWS Test Configuration
 # ----
-# Instance sizing - t3.small (2 vCPU, 2 GB) recommended for faster installs
-# Minimum: t3.micro (2 vCPU burst, 1 GB)
+# Instance sizing and disk configuration
 
 export AWS_TEST_KEY_NAME="${AWS_TEST_KEY_NAME:-deployer-bats-aws-${BATS_RUN_SUFFIX}}"
 export AWS_TEST_SERVER_NAME="${AWS_TEST_SERVER_NAME:-deployer-bats-aws-${BATS_RUN_SUFFIX}}"
-export AWS_TEST_INSTANCE_TYPE="${AWS_TEST_INSTANCE_TYPE:-t3.small}"
+export AWS_TEST_INSTANCE_TYPE="${AWS_TEST_INSTANCE_TYPE:-}"
 export AWS_TEST_AMI="${AWS_TEST_AMI:-}"
 export AWS_TEST_KEY_PAIR="${AWS_TEST_KEY_PAIR:-}"
 export AWS_TEST_VPC="${AWS_TEST_VPC:-}"
 export AWS_TEST_SUBNET="${AWS_TEST_SUBNET:-}"
 export AWS_TEST_PRIVATE_KEY_PATH="${AWS_TEST_PRIVATE_KEY_PATH:-$HOME/.ssh/id_ed25519}"
-export AWS_TEST_DISK_SIZE="${AWS_TEST_DISK_SIZE:-8}"
+export AWS_TEST_DISK_SIZE="${AWS_TEST_DISK_SIZE:-}"
 
 # AWS DNS/Site Test Configuration
 export AWS_TEST_DOMAIN="${AWS_TEST_DOMAIN:-deployeraws.eu}"
@@ -46,17 +45,16 @@ export AWS_TEST_DNS_WWW="www-r${BATS_RUN_SUFFIX}"
 # ----
 # DigitalOcean Test Configuration
 # ----
-# Droplet sizing - s-2vcpu-2gb recommended for faster installs
-# Minimum: s-1vcpu-1gb
+# Droplet sizing and VPC configuration
 
 export DO_TEST_KEY_NAME="${DO_TEST_KEY_NAME:-deployer-bats-do-${BATS_RUN_SUFFIX}}"
 export DO_TEST_SERVER_NAME="${DO_TEST_SERVER_NAME:-deployer-bats-do-${BATS_RUN_SUFFIX}}"
 export DO_TEST_SSH_KEY_ID="${DO_TEST_SSH_KEY_ID:-}"
 export DO_TEST_PRIVATE_KEY_PATH="${DO_TEST_PRIVATE_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 export DO_TEST_REGION="${DO_TEST_REGION:-}"
-export DO_TEST_SIZE="${DO_TEST_SIZE:-s-2vcpu-2gb}"
+export DO_TEST_SIZE="${DO_TEST_SIZE:-}"
 export DO_TEST_IMAGE="${DO_TEST_IMAGE:-}"
-export DO_TEST_VPC_UUID="${DO_TEST_VPC_UUID:-default}"
+export DO_TEST_VPC_UUID="${DO_TEST_VPC_UUID:-}"
 
 # DigitalOcean DNS/Site Test Configuration
 export DO_TEST_DOMAIN="${DO_TEST_DOMAIN:-deployerdo.eu}"
@@ -90,7 +88,7 @@ export CLOUD_TEST_APP_MESSAGE="${CLOUD_TEST_APP_MESSAGE:-DeployerPHP-BATS-Test-S
 aws_credentials_available() {
 	[[ -n "${AWS_ACCESS_KEY_ID:-}" ]] \
 		&& [[ -n "${AWS_SECRET_ACCESS_KEY:-}" ]] \
-		&& [[ -n "${AWS_DEFAULT_REGION:-}${AWS_REGION:-}" ]]
+		&& [[ -n "${AWS_REGION:-}" ]]
 }
 
 # Check if AWS provision test configuration is complete
@@ -101,6 +99,7 @@ aws_provision_config_available() {
 		&& [[ -n "$AWS_TEST_KEY_PAIR" ]] \
 		&& [[ -n "$AWS_TEST_VPC" ]] \
 		&& [[ -n "$AWS_TEST_SUBNET" ]] \
+		&& [[ -n "$AWS_TEST_DISK_SIZE" ]] \
 		&& [[ -f "$AWS_TEST_PRIVATE_KEY_PATH" ]]
 }
 
@@ -154,6 +153,7 @@ do_provision_config_available() {
 		&& [[ -n "$DO_TEST_REGION" ]] \
 		&& [[ -n "$DO_TEST_SIZE" ]] \
 		&& [[ -n "$DO_TEST_IMAGE" ]] \
+		&& [[ -n "$DO_TEST_VPC_UUID" ]] \
 		&& [[ -f "$DO_TEST_PRIVATE_KEY_PATH" ]]
 }
 
@@ -171,7 +171,7 @@ do_extract_key_id_from_output() {
 # Note: Must strip ANSI/control codes and match 8-digit IDs (not short numbers in escapes)
 do_find_key_id_by_name() {
 	local key_name="$1"
-	"$DEPLOYER_BIN" do:key:list 2> /dev/null \
+	"$DEPLOYER_BIN" --no-ansi do:key:list 2> /dev/null \
 		| LC_ALL=C tr -cd '[:print:]\n' \
 		| grep "$key_name" \
 		| grep -oE '[0-9]{7,8}' \
@@ -226,12 +226,8 @@ cf_credentials_available() {
 	[[ -n "${CLOUDFLARE_API_TOKEN:-}${CF_API_TOKEN:-}" ]]
 }
 
-# Cleanup Cloudflare test DNS records (idempotent - skips if no credentials)
+# Cleanup Cloudflare test DNS records (idempotent - ignores "not found")
 cf_cleanup_test_dns() {
-	if ! cf_credentials_available; then
-		return 0
-	fi
-
 	"$DEPLOYER_BIN" cf:dns:delete \
 		--zone="$CF_TEST_DOMAIN" \
 		--type="A" \
@@ -257,7 +253,7 @@ cf_cleanup_test_dns() {
 # Note: Parses text output since --format=json still includes banner
 get_server_ip() {
 	local server_name="$1"
-	"$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" server:info \
+	"$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:info \
 		--server="$server_name" 2> /dev/null \
 		| grep -E '^▒ Host:' \
 		| sed 's/.*Host:[[:space:]]*//'
