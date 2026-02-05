@@ -3,7 +3,7 @@
 set -euo pipefail
 
 #
-# Deploy Script - Build, link shared resources, and prepare for release activation
+# Deploy Script - Link shared resources, build, and prepare for release activation
 # ----
 #
 # Environment variables provided by Deployer PHP:
@@ -17,27 +17,6 @@ set -euo pipefail
 #   DEPLOYER_PHP           - Absolute path to the PHP binary (e.g. /usr/bin/php8.4)
 #
 # You're automatically in the DEPLOYER_RELEASE_PATH directory at this point:
-
-# ----
-# Build
-# ----
-
-echo "→ Building release..."
-
-if [[ -f composer.json ]]; then
-	echo "→ Installing Composer dependencies..."
-
-	composer_bin="$(command -v composer || true)"
-	"${DEPLOYER_PHP}" "${composer_bin}" install --no-interaction --no-dev --optimize-autoloader
-fi
-
-if [[ -f package.json ]]; then
-	echo "→ Installing frontend dependencies..."
-	bun install --frozen-lockfile
-
-	echo "→ Building frontend assets..."
-	bun run build
-fi
 
 # ----
 # Framework Detection
@@ -99,6 +78,27 @@ fi
 if [[ -f "${DEPLOYER_SHARED_PATH}/.env" ]]; then
 	echo "→ Linking shared .env..."
 	ln -sf "${DEPLOYER_SHARED_PATH}/.env" "${DEPLOYER_RELEASE_PATH}/.env"
+fi
+
+# ----
+# Build
+# ----
+
+echo "→ Building release..."
+
+if [[ -f composer.json ]]; then
+	echo "→ Installing Composer dependencies..."
+
+	composer_bin="$(command -v composer || true)"
+	"${DEPLOYER_PHP}" "${composer_bin}" install --no-interaction --no-dev --optimize-autoloader
+fi
+
+if [[ -f package.json ]]; then
+	echo "→ Installing frontend dependencies..."
+	bun install --frozen-lockfile
+
+	echo "→ Building frontend assets..."
+	bun run build
 fi
 
 # ----
