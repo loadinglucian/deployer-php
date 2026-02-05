@@ -84,6 +84,8 @@ trait ScaffoldsTrait
 
         // Step 5: Display results and replay
         $this->displayDeets($status);
+        $this->out('───');
+
         $this->yay('Finished scaffolding ' . $type);
         $this->commandReplay($this->buildReplayOptions($destinationDir, $context));
 
