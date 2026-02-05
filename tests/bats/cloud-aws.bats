@@ -21,8 +21,15 @@ setup_file() {
 		skip "AWS credentials not configured"
 	fi
 
-	# Clean up any leftover test key from previous runs
-	aws_cleanup_test_key
+	# Clean up any leftover resources from previous runs
+	aws_cleanup_all
+}
+
+teardown_file() {
+	if ! aws_credentials_available; then
+		return 0
+	fi
+	aws_cleanup_all
 }
 
 setup() {
@@ -168,7 +175,7 @@ setup() {
 	run_deployer aws:dns:set \
 		--zone="$AWS_TEST_HOSTED_ZONE" \
 		--type="A" \
-		--name="@" \
+		--name="$AWS_TEST_DNS_ROOT" \
 		--value="$server_ip" \
 		--ttl="60"
 
@@ -195,7 +202,7 @@ setup() {
 	run_deployer aws:dns:set \
 		--zone="$AWS_TEST_HOSTED_ZONE" \
 		--type="A" \
-		--name="www" \
+		--name="$AWS_TEST_DNS_WWW" \
 		--value="$server_ip" \
 		--ttl="60"
 
@@ -229,7 +236,7 @@ setup() {
 	run_deployer cf:dns:set \
 		--zone="$CF_TEST_DOMAIN" \
 		--type="A" \
-		--name="@" \
+		--name="$CF_TEST_DNS_ROOT" \
 		--value="$server_ip" \
 		--ttl="60" \
 		--proxied
@@ -261,7 +268,7 @@ setup() {
 	run_deployer cf:dns:set \
 		--zone="$CF_TEST_DOMAIN" \
 		--type="A" \
-		--name="www" \
+		--name="$CF_TEST_DNS_WWW" \
 		--value="$server_ip" \
 		--ttl="60" \
 		--no-proxied
@@ -314,7 +321,7 @@ setup() {
 	run_deployer cf:dns:delete \
 		--zone="$CF_TEST_DOMAIN" \
 		--type="A" \
-		--name="www" \
+		--name="$CF_TEST_DNS_WWW" \
 		--force \
 		--yes
 
@@ -338,7 +345,7 @@ setup() {
 	run_deployer cf:dns:delete \
 		--zone="$CF_TEST_DOMAIN" \
 		--type="A" \
-		--name="@" \
+		--name="$CF_TEST_DNS_ROOT" \
 		--force \
 		--yes
 

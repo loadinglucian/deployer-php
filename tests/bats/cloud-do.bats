@@ -21,8 +21,15 @@ setup_file() {
 		skip "DigitalOcean credentials not configured"
 	fi
 
-	# Clean up any leftover test key from previous runs
-	do_cleanup_test_key
+	# Clean up any leftover resources from previous runs
+	do_cleanup_all
+}
+
+teardown_file() {
+	if ! do_credentials_available; then
+		return 0
+	fi
+	do_cleanup_all
 }
 
 setup() {
@@ -175,7 +182,7 @@ setup() {
 	run_deployer do:dns:set \
 		--zone="$DO_TEST_DOMAIN" \
 		--type="A" \
-		--name="@" \
+		--name="$DO_TEST_DNS_ROOT" \
 		--value="$server_ip" \
 		--ttl="60"
 
@@ -203,7 +210,7 @@ setup() {
 	run_deployer do:dns:set \
 		--zone="$DO_TEST_DOMAIN" \
 		--type="A" \
-		--name="www" \
+		--name="$DO_TEST_DNS_WWW" \
 		--value="$server_ip" \
 		--ttl="60"
 

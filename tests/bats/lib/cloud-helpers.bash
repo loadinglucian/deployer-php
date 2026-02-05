@@ -9,13 +9,26 @@
 export CLOUD_TEST_KEY_PATH="${CLOUD_TEST_KEY_PATH:-${BATS_TEST_ROOT}/fixtures/keys/id_test.pub}"
 
 # ----
+# Run-Scoped Resource Isolation
+# ----
+# CI: last 6 chars of GITHUB_RUN_ID (unique per workflow run)
+# Local: shell PID for basic isolation
+
+if [[ -n "${GITHUB_RUN_ID:-}" ]]; then
+	BATS_RUN_SUFFIX="${GITHUB_RUN_ID: -6}"
+else
+	BATS_RUN_SUFFIX="$$"
+fi
+export BATS_RUN_SUFFIX
+
+# ----
 # AWS Test Configuration
 # ----
 # Instance sizing - t3.small (2 vCPU, 2 GB) recommended for faster installs
 # Minimum: t3.micro (2 vCPU burst, 1 GB)
 
-export AWS_TEST_KEY_NAME="${AWS_TEST_KEY_NAME:-deployer-bats-aws}"
-export AWS_TEST_SERVER_NAME="${AWS_TEST_SERVER_NAME:-deployer-bats-aws}"
+export AWS_TEST_KEY_NAME="${AWS_TEST_KEY_NAME:-deployer-bats-aws-${BATS_RUN_SUFFIX}}"
+export AWS_TEST_SERVER_NAME="${AWS_TEST_SERVER_NAME:-deployer-bats-aws-${BATS_RUN_SUFFIX}}"
 export AWS_TEST_INSTANCE_TYPE="${AWS_TEST_INSTANCE_TYPE:-t3.small}"
 export AWS_TEST_AMI="${AWS_TEST_AMI:-}"
 export AWS_TEST_KEY_PAIR="${AWS_TEST_KEY_PAIR:-}"
@@ -27,6 +40,8 @@ export AWS_TEST_DISK_SIZE="${AWS_TEST_DISK_SIZE:-8}"
 # AWS DNS/Site Test Configuration
 export AWS_TEST_DOMAIN="${AWS_TEST_DOMAIN:-deployeraws.eu}"
 export AWS_TEST_HOSTED_ZONE="${AWS_TEST_HOSTED_ZONE:-deployeraws.eu}"
+export AWS_TEST_DNS_ROOT="r${BATS_RUN_SUFFIX}"
+export AWS_TEST_DNS_WWW="www-r${BATS_RUN_SUFFIX}"
 
 # ----
 # DigitalOcean Test Configuration
@@ -34,8 +49,8 @@ export AWS_TEST_HOSTED_ZONE="${AWS_TEST_HOSTED_ZONE:-deployeraws.eu}"
 # Droplet sizing - s-2vcpu-2gb recommended for faster installs
 # Minimum: s-1vcpu-1gb
 
-export DO_TEST_KEY_NAME="${DO_TEST_KEY_NAME:-deployer-bats-do}"
-export DO_TEST_SERVER_NAME="${DO_TEST_SERVER_NAME:-deployer-bats-do}"
+export DO_TEST_KEY_NAME="${DO_TEST_KEY_NAME:-deployer-bats-do-${BATS_RUN_SUFFIX}}"
+export DO_TEST_SERVER_NAME="${DO_TEST_SERVER_NAME:-deployer-bats-do-${BATS_RUN_SUFFIX}}"
 export DO_TEST_SSH_KEY_ID="${DO_TEST_SSH_KEY_ID:-}"
 export DO_TEST_PRIVATE_KEY_PATH="${DO_TEST_PRIVATE_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 export DO_TEST_REGION="${DO_TEST_REGION:-}"
@@ -45,6 +60,8 @@ export DO_TEST_VPC_UUID="${DO_TEST_VPC_UUID:-default}"
 
 # DigitalOcean DNS/Site Test Configuration
 export DO_TEST_DOMAIN="${DO_TEST_DOMAIN:-deployerdo.eu}"
+export DO_TEST_DNS_ROOT="r${BATS_RUN_SUFFIX}"
+export DO_TEST_DNS_WWW="www-r${BATS_RUN_SUFFIX}"
 
 # ----
 # Cloudflare Test Configuration
@@ -52,6 +69,8 @@ export DO_TEST_DOMAIN="${DO_TEST_DOMAIN:-deployerdo.eu}"
 # DNS-only provider - uses AWS-provisioned server IP for record values
 
 export CF_TEST_DOMAIN="${CF_TEST_DOMAIN:-deployercf.eu}"
+export CF_TEST_DNS_ROOT="r${BATS_RUN_SUFFIX}"
+export CF_TEST_DNS_WWW="www-r${BATS_RUN_SUFFIX}"
 
 # ----
 # Shared Deployment Test Configuration
@@ -95,11 +114,28 @@ aws_cleanup_test_key() {
 
 # Cleanup AWS provisioned test server (idempotent - ignores "not found")
 aws_cleanup_test_server() {
-	"$DEPLOYER_BIN" server:delete \
+	"$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" server:delete \
 		--server="$AWS_TEST_SERVER_NAME" \
 		--force \
 		--yes \
 		--destroy-cloud 2> /dev/null || true
+}
+
+# Cleanup AWS test DNS records (idempotent - ignores "not found")
+aws_cleanup_test_dns() {
+	"$DEPLOYER_BIN" aws:dns:delete \
+		--zone="$AWS_TEST_HOSTED_ZONE" \
+		--type="A" \
+		--name="$AWS_TEST_DNS_ROOT" \
+		--force \
+		--yes 2> /dev/null || true
+
+	"$DEPLOYER_BIN" aws:dns:delete \
+		--zone="$AWS_TEST_HOSTED_ZONE" \
+		--type="A" \
+		--name="$AWS_TEST_DNS_WWW" \
+		--force \
+		--yes 2> /dev/null || true
 }
 
 # ----
@@ -157,11 +193,28 @@ do_cleanup_test_key() {
 
 # Cleanup DO provisioned test server (idempotent - ignores "not found")
 do_cleanup_test_server() {
-	"$DEPLOYER_BIN" server:delete \
+	"$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" server:delete \
 		--server="$DO_TEST_SERVER_NAME" \
 		--force \
 		--yes \
 		--destroy-cloud 2> /dev/null || true
+}
+
+# Cleanup DO test DNS records (idempotent - ignores "not found")
+do_cleanup_test_dns() {
+	"$DEPLOYER_BIN" do:dns:delete \
+		--zone="$DO_TEST_DOMAIN" \
+		--type="A" \
+		--name="$DO_TEST_DNS_ROOT" \
+		--force \
+		--yes 2> /dev/null || true
+
+	"$DEPLOYER_BIN" do:dns:delete \
+		--zone="$DO_TEST_DOMAIN" \
+		--type="A" \
+		--name="$DO_TEST_DNS_WWW" \
+		--force \
+		--yes 2> /dev/null || true
 }
 
 # ----
@@ -171,6 +224,27 @@ do_cleanup_test_server() {
 # Check if Cloudflare credentials are configured
 cf_credentials_available() {
 	[[ -n "${CLOUDFLARE_API_TOKEN:-}${CF_API_TOKEN:-}" ]]
+}
+
+# Cleanup Cloudflare test DNS records (idempotent - skips if no credentials)
+cf_cleanup_test_dns() {
+	if ! cf_credentials_available; then
+		return 0
+	fi
+
+	"$DEPLOYER_BIN" cf:dns:delete \
+		--zone="$CF_TEST_DOMAIN" \
+		--type="A" \
+		--name="$CF_TEST_DNS_ROOT" \
+		--force \
+		--yes 2> /dev/null || true
+
+	"$DEPLOYER_BIN" cf:dns:delete \
+		--zone="$CF_TEST_DOMAIN" \
+		--type="A" \
+		--name="$CF_TEST_DNS_WWW" \
+		--force \
+		--yes 2> /dev/null || true
 }
 
 # ----
@@ -255,4 +329,25 @@ wait_for_http() {
 		echo "No response received"
 	fi
 	return 1
+}
+
+# ----
+# Orchestration (cleanup all resources for a provider)
+# ----
+
+# Full AWS cleanup (most expensive first)
+aws_cleanup_all() {
+	aws_cleanup_test_server
+	aws_cleanup_test_dns
+	cf_cleanup_test_dns
+	cleanup_test_site "$AWS_TEST_DOMAIN"
+	aws_cleanup_test_key
+}
+
+# Full DO cleanup (most expensive first)
+do_cleanup_all() {
+	do_cleanup_test_server
+	do_cleanup_test_dns
+	cleanup_test_site "$DO_TEST_DOMAIN"
+	do_cleanup_test_key
 }

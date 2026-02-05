@@ -20,6 +20,31 @@ jobs:
       group: bats-cloud-${{ matrix.provider }}-${{ github.ref }}
       cancel-in-progress: true
 
+    env:
+      CI: "true"
+      # Run-scoped resource suffix (last 6 chars of run ID)
+      BATS_RUN_SUFFIX: ${{ github.run_id }}
+      # AWS credentials and configuration
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_TEST_AMI: ${{ vars.AWS_TEST_AMI }}
+      AWS_TEST_KEY_PAIR: ${{ vars.AWS_TEST_KEY_PAIR }}
+      AWS_TEST_VPC: ${{ vars.AWS_TEST_VPC }}
+      AWS_TEST_SUBNET: ${{ vars.AWS_TEST_SUBNET }}
+      AWS_TEST_HOSTED_ZONE: ${{ vars.AWS_TEST_HOSTED_ZONE }}
+      AWS_TEST_DOMAIN: ${{ vars.AWS_TEST_DOMAIN }}
+      # DigitalOcean credentials and configuration
+      DO_API_TOKEN: ${{ secrets.DO_API_TOKEN }}
+      DO_TEST_SSH_KEY_ID: ${{ vars.DO_TEST_SSH_KEY_ID }}
+      DO_TEST_REGION: ${{ vars.DO_TEST_REGION }}
+      DO_TEST_IMAGE: ${{ vars.DO_TEST_IMAGE }}
+      DO_TEST_VPC_UUID: ${{ vars.DO_TEST_VPC_UUID }}
+      DO_TEST_DOMAIN: ${{ vars.DO_TEST_DOMAIN }}
+      # Cloudflare (optional, for cf:dns tests)
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_TEST_DOMAIN: ${{ vars.CF_TEST_DOMAIN }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,26 +72,108 @@ jobs:
           EOF
 
       - name: Run ${{ matrix.provider }} tests
-        env:
-          CI: "true"
-          # AWS credentials and configuration
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          AWS_TEST_AMI: ${{ vars.AWS_TEST_AMI }}
-          AWS_TEST_KEY_PAIR: ${{ vars.AWS_TEST_KEY_PAIR }}
-          AWS_TEST_VPC: ${{ vars.AWS_TEST_VPC }}
-          AWS_TEST_SUBNET: ${{ vars.AWS_TEST_SUBNET }}
-          AWS_TEST_HOSTED_ZONE: ${{ vars.AWS_TEST_HOSTED_ZONE }}
-          AWS_TEST_DOMAIN: ${{ vars.AWS_TEST_DOMAIN }}
-          # DigitalOcean credentials and configuration
-          DO_API_TOKEN: ${{ secrets.DO_API_TOKEN }}
-          DO_TEST_SSH_KEY_ID: ${{ vars.DO_TEST_SSH_KEY_ID }}
-          DO_TEST_REGION: ${{ vars.DO_TEST_REGION }}
-          DO_TEST_IMAGE: ${{ vars.DO_TEST_IMAGE }}
-          DO_TEST_VPC_UUID: ${{ vars.DO_TEST_VPC_UUID }}
-          DO_TEST_DOMAIN: ${{ vars.DO_TEST_DOMAIN }}
-          # Cloudflare (optional, for cf:dns tests)
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CF_TEST_DOMAIN: ${{ vars.CF_TEST_DOMAIN }}
         run: ./bats.sh ci cloud ${{ matrix.provider }}
+
+      - name: Cleanup cloud resources (backstop)
+        if: always()
+        run: |
+          SUFFIX="${BATS_RUN_SUFFIX: -6}"
+          DEPLOYER="php bin/deployer"
+          INVENTORY="tests/bats/fixtures/inventory/servers.json"
+
+          # ----
+          # Tier 1: Deployer CLI cleanup
+          # ----
+
+          if [[ "${{ matrix.provider }}" == "aws" ]]; then
+            echo "::group::Tier 1 - Deployer CLI (AWS)"
+            SERVER_NAME="deployer-bats-aws-${SUFFIX}"
+            DNS_ROOT="r${SUFFIX}"
+            DNS_WWW="www-r${SUFFIX}"
+
+            $DEPLOYER --inventory="$INVENTORY" server:delete --server="$SERVER_NAME" --force --yes --destroy-cloud 2>/dev/null || true
+            $DEPLOYER aws:dns:delete --zone="$AWS_TEST_HOSTED_ZONE" --type=A --name="$DNS_ROOT" --force --yes 2>/dev/null || true
+            $DEPLOYER aws:dns:delete --zone="$AWS_TEST_HOSTED_ZONE" --type=A --name="$DNS_WWW" --force --yes 2>/dev/null || true
+            if [[ -n "${CF_API_TOKEN:-}" ]]; then
+              $DEPLOYER cf:dns:delete --zone="$CF_TEST_DOMAIN" --type=A --name="$DNS_ROOT" --force --yes 2>/dev/null || true
+              $DEPLOYER cf:dns:delete --zone="$CF_TEST_DOMAIN" --type=A --name="$DNS_WWW" --force --yes 2>/dev/null || true
+            fi
+            $DEPLOYER --inventory="$INVENTORY" site:delete --domain="$AWS_TEST_DOMAIN" --force --yes 2>/dev/null || true
+            $DEPLOYER aws:key:delete --key="$SERVER_NAME" --force --yes 2>/dev/null || true
+            echo "::endgroup::"
+          fi
+
+          if [[ "${{ matrix.provider }}" == "do" ]]; then
+            echo "::group::Tier 1 - Deployer CLI (DO)"
+            SERVER_NAME="deployer-bats-do-${SUFFIX}"
+            DNS_ROOT="r${SUFFIX}"
+            DNS_WWW="www-r${SUFFIX}"
+
+            $DEPLOYER --inventory="$INVENTORY" server:delete --server="$SERVER_NAME" --force --yes --destroy-cloud 2>/dev/null || true
+            $DEPLOYER do:dns:delete --zone="$DO_TEST_DOMAIN" --type=A --name="$DNS_ROOT" --force --yes 2>/dev/null || true
+            $DEPLOYER do:dns:delete --zone="$DO_TEST_DOMAIN" --type=A --name="$DNS_WWW" --force --yes 2>/dev/null || true
+            $DEPLOYER --inventory="$INVENTORY" site:delete --domain="$DO_TEST_DOMAIN" --force --yes 2>/dev/null || true
+            # DO key cleanup requires finding key ID by name
+            KEY_ID=$($DEPLOYER do:key:list 2>/dev/null | LC_ALL=C tr -cd '[:print:]\n' | grep "$SERVER_NAME" | grep -oE '[0-9]{7,8}' | head -1 || true)
+            if [[ -n "$KEY_ID" ]]; then
+              $DEPLOYER do:key:delete --key="$KEY_ID" --force --yes 2>/dev/null || true
+            fi
+            echo "::endgroup::"
+          fi
+
+          # ----
+          # Tier 2: Raw cloud CLI (fallback if deployer is broken)
+          # ----
+
+          if [[ "${{ matrix.provider }}" == "aws" ]]; then
+            echo "::group::Tier 2 - Raw AWS CLI"
+            SERVER_NAME="deployer-bats-aws-${SUFFIX}"
+
+            # Find and terminate EC2 instance by Name tag
+            INSTANCE_ID=$(aws ec2 describe-instances \
+              --filters "Name=tag:Name,Values=${SERVER_NAME}" "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+              --query 'Reservations[].Instances[].InstanceId' --output text 2>/dev/null || true)
+            if [[ -n "$INSTANCE_ID" ]]; then
+              echo "Terminating EC2 instance: $INSTANCE_ID"
+              aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" 2>/dev/null || true
+            fi
+
+            # Release orphaned Elastic IPs tagged with server name
+            ALLOC_IDS=$(aws ec2 describe-addresses \
+              --filters "Name=tag:Name,Values=${SERVER_NAME}" \
+              --query 'Addresses[].AllocationId' --output text 2>/dev/null || true)
+            for ALLOC_ID in $ALLOC_IDS; do
+              echo "Releasing Elastic IP: $ALLOC_ID"
+              aws ec2 release-address --allocation-id "$ALLOC_ID" 2>/dev/null || true
+            done
+
+            # Delete key pair
+            aws ec2 delete-key-pair --key-name "$SERVER_NAME" 2>/dev/null || true
+            echo "::endgroup::"
+          fi
+
+          if [[ "${{ matrix.provider }}" == "do" ]]; then
+            echo "::group::Tier 2 - Raw DO API"
+            SERVER_NAME="deployer-bats-do-${SUFFIX}"
+
+            # Find and destroy droplet by name
+            DROPLET_ID=$(curl -s -H "Authorization: Bearer ${DO_API_TOKEN}" \
+              "https://api.digitalocean.com/v2/droplets?tag_name=" 2>/dev/null \
+              | jq -r ".droplets[] | select(.name==\"${SERVER_NAME}\") | .id" 2>/dev/null || true)
+            if [[ -n "$DROPLET_ID" ]]; then
+              echo "Destroying droplet: $DROPLET_ID"
+              curl -s -X DELETE -H "Authorization: Bearer ${DO_API_TOKEN}" \
+                "https://api.digitalocean.com/v2/droplets/${DROPLET_ID}" 2>/dev/null || true
+            fi
+
+            # Find and delete SSH key by name
+            KEY_ID=$(curl -s -H "Authorization: Bearer ${DO_API_TOKEN}" \
+              "https://api.digitalocean.com/v2/account/keys?per_page=200" 2>/dev/null \
+              | jq -r ".ssh_keys[] | select(.name==\"${SERVER_NAME}\") | .id" 2>/dev/null || true)
+            if [[ -n "$KEY_ID" ]]; then
+              echo "Deleting SSH key: $KEY_ID"
+              curl -s -X DELETE -H "Authorization: Bearer ${DO_API_TOKEN}" \
+                "https://api.digitalocean.com/v2/account/keys/${KEY_ID}" 2>/dev/null || true
+            fi
+            echo "::endgroup::"
+          fi
