@@ -227,6 +227,46 @@ teardown() {
 }
 
 # ----
+# do:dns:delete
+# ----
+
+@test "do:dns:delete removes www A record" {
+	require_do_provision_config
+
+	run_deployer do:dns:delete \
+		--zone="$DO_TEST_DOMAIN" \
+		--type="A" \
+		--name="$DO_TEST_DNS_WWW" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "DNS record deleted successfully"
+	assert_command_replay "do:dns:delete"
+}
+
+@test "do:dns:delete removes root A record" {
+	require_do_provision_config
+
+	run_deployer do:dns:delete \
+		--zone="$DO_TEST_DOMAIN" \
+		--type="A" \
+		--name="$DO_TEST_DNS_ROOT" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "DNS record deleted successfully"
+	assert_command_replay "do:dns:delete"
+}
+
+# ----
 # site:create
 # ----
 

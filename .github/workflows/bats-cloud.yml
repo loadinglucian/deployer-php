@@ -59,7 +59,8 @@ jobs:
       - name: Install BATS and dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bats jq
+          sudo apt-get install -y bats jq curl
+          aws --version
 
       - name: Setup SSH key for cloud provisioning
         run: |
@@ -151,6 +152,51 @@ jobs:
 
             # Delete key pair
             aws ec2 delete-key-pair --key-name "$SERVER_NAME" 2>/dev/null || true
+
+            # Delete Route53 DNS records
+            DNS_ROOT="r${SUFFIX}"
+            DNS_WWW="www-r${SUFFIX}"
+            ZONE_ID=$(aws route53 list-hosted-zones-by-name \
+              --dns-name "$AWS_TEST_HOSTED_ZONE" \
+              --query "HostedZones[?Name=='${AWS_TEST_HOSTED_ZONE}.'].Id" \
+              --output text 2>/dev/null || true)
+            if [[ -n "$ZONE_ID" ]]; then
+              for DNS_NAME in "$DNS_ROOT" "$DNS_WWW"; do
+                FQDN="${DNS_NAME}.${AWS_TEST_HOSTED_ZONE}."
+                RECORD_JSON=$(aws route53 list-resource-record-sets \
+                  --hosted-zone-id "$ZONE_ID" \
+                  --query "ResourceRecordSets[?Name=='${FQDN}' && Type=='A']|[0]" \
+                  --output json 2>/dev/null || true)
+                if [[ -n "$RECORD_JSON" && "$RECORD_JSON" != "null" ]]; then
+                  echo "Deleting Route53 A record: $DNS_NAME"
+                  aws route53 change-resource-record-sets \
+                    --hosted-zone-id "$ZONE_ID" \
+                    --change-batch "{\"Changes\":[{\"Action\":\"DELETE\",\"ResourceRecordSet\":${RECORD_JSON}}]}" \
+                    2>/dev/null || true
+                fi
+              done
+            fi
+
+            # Delete Cloudflare DNS records
+            if [[ -n "${CF_API_TOKEN:-}" ]]; then
+              CF_ZONE_ID=$(curl -s -H "Authorization: Bearer ${CF_API_TOKEN}" \
+                "https://api.cloudflare.com/client/v4/zones?name=${CF_TEST_DOMAIN}" 2>/dev/null \
+                | jq -r '.result[0].id // empty' 2>/dev/null || true)
+              if [[ -n "$CF_ZONE_ID" ]]; then
+                for DNS_NAME in "$DNS_ROOT" "$DNS_WWW"; do
+                  CF_FQDN="${DNS_NAME}.${CF_TEST_DOMAIN}"
+                  CF_RECORD_ID=$(curl -s -H "Authorization: Bearer ${CF_API_TOKEN}" \
+                    "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/dns_records?type=A&name=${CF_FQDN}" 2>/dev/null \
+                    | jq -r '.result[0].id // empty' 2>/dev/null || true)
+                  if [[ -n "$CF_RECORD_ID" ]]; then
+                    echo "Deleting Cloudflare A record: $DNS_NAME"
+                    curl -s -X DELETE -H "Authorization: Bearer ${CF_API_TOKEN}" \
+                      "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/dns_records/${CF_RECORD_ID}" \
+                      2>/dev/null || true
+                  fi
+                done
+              fi
+            fi
             echo "::endgroup::"
           fi
 
@@ -180,6 +226,21 @@ jobs:
                 curl -s -X DELETE -H "Authorization: Bearer ${DO_API_TOKEN}" \
                   "https://api.digitalocean.com/v2/account/keys/${KEY_ID}" 2>/dev/null || true
               fi
+
+              # Delete DO DNS records
+              DNS_ROOT="r${SUFFIX}"
+              DNS_WWW="www-r${SUFFIX}"
+              for DNS_NAME in "$DNS_ROOT" "$DNS_WWW"; do
+                DO_RECORD_ID=$(curl -s -H "Authorization: Bearer ${DO_API_TOKEN}" \
+                  "https://api.digitalocean.com/v2/domains/${DO_TEST_DOMAIN}/records?type=A&name=${DNS_NAME}.${DO_TEST_DOMAIN}" 2>/dev/null \
+                  | jq -r '.domain_records[0].id // empty' 2>/dev/null || true)
+                if [[ -n "$DO_RECORD_ID" ]]; then
+                  echo "Deleting DO DNS A record: $DNS_NAME"
+                  curl -s -X DELETE -H "Authorization: Bearer ${DO_API_TOKEN}" \
+                    "https://api.digitalocean.com/v2/domains/${DO_TEST_DOMAIN}/records/${DO_RECORD_ID}" \
+                    2>/dev/null || true
+                fi
+              done
               echo "::endgroup::"
             fi
           fi

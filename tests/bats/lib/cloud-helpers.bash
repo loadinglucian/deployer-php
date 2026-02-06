@@ -192,6 +192,32 @@ aws_cleanup_test_dns() {
 		--yes 2> /dev/null || true
 }
 
+# Cleanup AWS test DNS records via raw AWS CLI (safety net)
+aws_cleanup_test_dns_raw() {
+	command -v aws &> /dev/null || return 0
+
+	local zone_id name record_json
+	zone_id=$(aws route53 list-hosted-zones-by-name \
+		--dns-name "$AWS_TEST_HOSTED_ZONE" \
+		--query "HostedZones[?Name=='${AWS_TEST_HOSTED_ZONE}.'].Id" \
+		--output text 2> /dev/null || true)
+	[[ -n "$zone_id" ]] || return 0
+
+	for name in "$AWS_TEST_DNS_ROOT" "$AWS_TEST_DNS_WWW"; do
+		local fqdn="${name}.${AWS_TEST_HOSTED_ZONE}."
+		record_json=$(aws route53 list-resource-record-sets \
+			--hosted-zone-id "$zone_id" \
+			--query "ResourceRecordSets[?Name=='${fqdn}' && Type=='A']|[0]" \
+			--output json 2> /dev/null || true)
+		[[ -n "$record_json" && "$record_json" != "null" ]] || continue
+
+		aws route53 change-resource-record-sets \
+			--hosted-zone-id "$zone_id" \
+			--change-batch "{\"Changes\":[{\"Action\":\"DELETE\",\"ResourceRecordSet\":${record_json}}]}" \
+			2> /dev/null || true
+	done
+}
+
 # ----
 # DigitalOcean Helpers
 # ----
@@ -272,6 +298,26 @@ do_cleanup_test_dns() {
 		--yes 2> /dev/null || true
 }
 
+# Cleanup DO test DNS records via raw DO API (safety net)
+do_cleanup_test_dns_raw() {
+	local token="${DO_API_TOKEN:-${DIGITALOCEAN_API_TOKEN:-}}"
+	[[ -n "$token" ]] || return 0
+
+	local domain="$DO_TEST_DOMAIN"
+
+	for name in "$DO_TEST_DNS_ROOT" "$DO_TEST_DNS_WWW"; do
+		local record_id
+		record_id=$(curl -s -H "Authorization: Bearer ${token}" \
+			"https://api.digitalocean.com/v2/domains/${domain}/records?type=A&name=${name}.${domain}" 2> /dev/null \
+			| jq -r '.domain_records[0].id // empty' 2> /dev/null || true)
+		[[ -n "$record_id" ]] || continue
+
+		curl -s -X DELETE -H "Authorization: Bearer ${token}" \
+			"https://api.digitalocean.com/v2/domains/${domain}/records/${record_id}" \
+			2> /dev/null || true
+	done
+}
+
 # ----
 # Cloudflare Helpers
 # ----
@@ -296,6 +342,34 @@ cf_cleanup_test_dns() {
 		--name="$CF_TEST_DNS_WWW" \
 		--force \
 		--yes 2> /dev/null || true
+}
+
+# Cleanup Cloudflare test DNS records via raw CF API (safety net)
+cf_cleanup_test_dns_raw() {
+	local token="${CF_API_TOKEN:-${CLOUDFLARE_API_TOKEN:-}}"
+	[[ -n "$token" ]] || return 0
+
+	local domain="$CF_TEST_DOMAIN"
+
+	# Resolve zone ID
+	local zone_id
+	zone_id=$(curl -s -H "Authorization: Bearer ${token}" \
+		"https://api.cloudflare.com/client/v4/zones?name=${domain}" 2> /dev/null \
+		| jq -r '.result[0].id // empty' 2> /dev/null || true)
+	[[ -n "$zone_id" ]] || return 0
+
+	for name in "$CF_TEST_DNS_ROOT" "$CF_TEST_DNS_WWW"; do
+		local fqdn="${name}.${domain}"
+		local record_id
+		record_id=$(curl -s -H "Authorization: Bearer ${token}" \
+			"https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records?type=A&name=${fqdn}" 2> /dev/null \
+			| jq -r '.result[0].id // empty' 2> /dev/null || true)
+		[[ -n "$record_id" ]] || continue
+
+		curl -s -X DELETE -H "Authorization: Bearer ${token}" \
+			"https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records/${record_id}" \
+			2> /dev/null || true
+	done
 }
 
 # ----
@@ -414,7 +488,7 @@ cloud_check_failed() {
 aws_cleanup_all() {
 	aws_cleanup_test_server
 	aws_cleanup_test_dns
-	cf_cleanup_test_dns
+	aws_cleanup_test_dns_raw
 	cleanup_test_site "$AWS_TEST_DOMAIN"
 	aws_cleanup_test_key
 }
@@ -423,6 +497,13 @@ aws_cleanup_all() {
 do_cleanup_all() {
 	do_cleanup_test_server
 	do_cleanup_test_dns
+	do_cleanup_test_dns_raw
 	cleanup_test_site "$DO_TEST_DOMAIN"
 	do_cleanup_test_key
+}
+
+# Full CF cleanup
+cf_cleanup_all() {
+	cf_cleanup_test_dns
+	cf_cleanup_test_dns_raw
 }

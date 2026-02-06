@@ -19,6 +19,7 @@ setup_file() {
 	require_aws_credentials
 	require_cf_credentials
 	aws_cleanup_all
+	cf_cleanup_all
 }
 
 teardown_file() {
@@ -26,6 +27,7 @@ teardown_file() {
 		return 0
 	fi
 	aws_cleanup_all
+	cf_cleanup_all
 	rm -f "$TEST_INVENTORY"
 }
 
@@ -216,6 +218,46 @@ teardown() {
 	[ "$status" -eq 0 ]
 	assert_output_contains "$AWS_TEST_HOSTED_ZONE"
 	assert_command_replay "aws:dns:list"
+}
+
+# ----
+# aws:dns:delete
+# ----
+
+@test "aws:dns:delete removes www A record" {
+	require_aws_provision_config
+
+	run_deployer aws:dns:delete \
+		--zone="$AWS_TEST_HOSTED_ZONE" \
+		--type="A" \
+		--name="$AWS_TEST_DNS_WWW" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "DNS record deleted successfully"
+	assert_command_replay "aws:dns:delete"
+}
+
+@test "aws:dns:delete removes root A record" {
+	require_aws_provision_config
+
+	run_deployer aws:dns:delete \
+		--zone="$AWS_TEST_HOSTED_ZONE" \
+		--type="A" \
+		--name="$AWS_TEST_DNS_ROOT" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "DNS record deleted successfully"
+	assert_command_replay "aws:dns:delete"
 }
 
 # ----
