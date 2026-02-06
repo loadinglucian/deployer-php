@@ -2,7 +2,11 @@
 
 # VM command tests (server:add, server:info, etc.)
 # Tests: server:add, server:info, server:delete, server:install, server:firewall, server:logs,
-# server:run, mariadb:install, postgresql:install, redis:install, memcached:install
+# server:run, mariadb:install, postgresql:install, redis:install, memcached:install,
+# server:install second PHP version,
+# nginx:start|stop|restart, php:start|stop|restart, mariadb:start|stop|restart,
+# postgresql:start|stop|restart, redis:start|stop|restart, memcached:start|stop|restart,
+# supervisor:start|stop|restart
 
 load 'lib/helpers'
 load 'lib/lima'
@@ -103,6 +107,41 @@ assert_remote_service_inactive() {
 		echo "Expected service to be inactive: ${service}"
 		return 1
 	fi
+}
+
+assert_remote_service_active() {
+	local service="$1"
+	if ! ssh_exec "systemctl is-active --quiet '${service}'"; then
+		echo "Expected service to be active: ${service}"
+		return 1
+	fi
+}
+
+assert_lifecycle_command_success() {
+	local command="$1"
+	shift
+
+	run_deployer_timeout 180 "$command" \
+		--server="$TEST_SERVER_NAME" \
+		"$@"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_command_replay "$command"
+}
+
+get_first_installed_php_fpm_version() {
+	get_installed_php_fpm_versions | head -1
+}
+
+get_installed_php_fpm_versions() {
+	ssh_exec "ls -1 /etc/php/*/fpm/php-fpm.conf 2>/dev/null | sed -nE 's|/etc/php/([^/]+)/fpm/php-fpm.conf|\\1|p' | sort -Vr | uniq"
+}
+
+get_available_php_fpm_versions() {
+	ssh_exec "apt-cache pkgnames | grep -E '^php8\\.[0-9]+-fpm$' | sed -E 's/^php([0-9]+\\.[0-9]+)-fpm$/\\1/' | sort -Vr | uniq"
 }
 
 extract_display_connection_string() {
@@ -386,6 +425,14 @@ assert_kv_auth_via_credentials() {
 @test "server:install with custom deploy key uses provided key" {
 	add_test_server
 
+	local primary_php_version available_php_versions secondary_php_version
+	primary_php_version="$(get_first_installed_php_fpm_version)"
+	[[ -n "$primary_php_version" ]]
+
+	available_php_versions="$(get_available_php_fpm_versions)"
+	secondary_php_version="$(printf '%s\n' "$available_php_versions" | grep -vx "$primary_php_version" | head -1)"
+	[[ -n "$secondary_php_version" ]]
+
 	# Get the public key content from our test key
 	local expected_key
 	expected_key=$(cat "${TEST_KEY}.pub")
@@ -395,7 +442,8 @@ assert_kv_auth_via_credentials() {
 		--server="$TEST_SERVER_NAME" \
 		--custom-deploy-key="$TEST_KEY" \
 		--timezone="UTC" \
-		--php-version="8.4" \
+		--php-version="$secondary_php_version" \
+		--no-php-default \
 		--php-extensions="cli,fpm,curl,mbstring"
 
 	debug_output
@@ -407,6 +455,12 @@ assert_kv_auth_via_credentials() {
 	local remote_key
 	remote_key=$(ssh_exec "cat /home/deployer/.ssh/id_ed25519.pub")
 	[[ "$remote_key" == "$expected_key" ]]
+
+	# Verify both versions are now installed
+	local installed_php_versions
+	installed_php_versions="$(get_installed_php_fpm_versions)"
+	printf '%s\n' "$installed_php_versions" | grep -qx "$primary_php_version"
+	printf '%s\n' "$installed_php_versions" | grep -qx "$secondary_php_version"
 }
 
 # ----
@@ -732,6 +786,109 @@ assert_kv_auth_via_credentials() {
 
 	ssh_exec "systemctl is-active --quiet memcached"
 	ssh_exec "grep -q '^-l 127.0.0.1' /etc/memcached.conf"
+}
+
+# ----
+# service lifecycle commands
+# ----
+
+@test "nginx lifecycle commands stop/start/restart work" {
+	add_test_server
+
+	assert_lifecycle_command_success "nginx:restart"
+	assert_remote_service_active "nginx"
+
+	assert_lifecycle_command_success "nginx:stop"
+	assert_remote_service_inactive "nginx"
+
+	assert_lifecycle_command_success "nginx:start"
+	assert_remote_service_active "nginx"
+}
+
+@test "php lifecycle commands stop/start/restart work for at least two versions" {
+	add_test_server
+
+	local php_version php_service
+	mapfile -t installed_php_versions < <(get_installed_php_fpm_versions)
+	[[ "${#installed_php_versions[@]}" -ge 2 ]]
+
+	for php_version in "${installed_php_versions[@]:0:2}"; do
+		php_service="php${php_version}-fpm"
+
+		assert_lifecycle_command_success "php:restart" --version="$php_version"
+		assert_remote_service_active "$php_service"
+
+		assert_lifecycle_command_success "php:stop" --version="$php_version"
+		assert_remote_service_inactive "$php_service"
+
+		assert_lifecycle_command_success "php:start" --version="$php_version"
+		assert_remote_service_active "$php_service"
+	done
+}
+
+@test "mariadb lifecycle commands stop/start/restart work" {
+	add_test_server
+
+	assert_lifecycle_command_success "mariadb:restart"
+	assert_remote_service_active "mariadb"
+
+	assert_lifecycle_command_success "mariadb:stop"
+	assert_remote_service_inactive "mariadb"
+
+	assert_lifecycle_command_success "mariadb:start"
+	assert_remote_service_active "mariadb"
+}
+
+@test "postgresql lifecycle commands stop/start/restart work" {
+	add_test_server
+
+	assert_lifecycle_command_success "postgresql:restart"
+	assert_remote_service_active "postgresql"
+
+	assert_lifecycle_command_success "postgresql:stop"
+	assert_remote_service_inactive "postgresql"
+
+	assert_lifecycle_command_success "postgresql:start"
+	assert_remote_service_active "postgresql"
+}
+
+@test "redis lifecycle commands stop/start/restart work" {
+	add_test_server
+
+	assert_lifecycle_command_success "redis:restart"
+	assert_remote_service_active "redis-server"
+
+	assert_lifecycle_command_success "redis:stop"
+	assert_remote_service_inactive "redis-server"
+
+	assert_lifecycle_command_success "redis:start"
+	assert_remote_service_active "redis-server"
+}
+
+@test "memcached lifecycle commands stop/start/restart work" {
+	add_test_server
+
+	assert_lifecycle_command_success "memcached:restart"
+	assert_remote_service_active "memcached"
+
+	assert_lifecycle_command_success "memcached:stop"
+	assert_remote_service_inactive "memcached"
+
+	assert_lifecycle_command_success "memcached:start"
+	assert_remote_service_active "memcached"
+}
+
+@test "supervisor lifecycle commands stop/start/restart work" {
+	add_test_server
+
+	assert_lifecycle_command_success "supervisor:restart"
+	assert_remote_service_active "supervisor"
+
+	assert_lifecycle_command_success "supervisor:stop"
+	assert_remote_service_inactive "supervisor"
+
+	assert_lifecycle_command_success "supervisor:start"
+	assert_remote_service_active "supervisor"
 }
 
 # ----
