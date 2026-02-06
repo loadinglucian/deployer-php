@@ -815,13 +815,13 @@ assert_kv_auth_via_credentials() {
 	for php_version in "${installed_php_versions[@]:0:2}"; do
 		php_service="php${php_version}-fpm"
 
-		assert_lifecycle_command_success "php:restart" --version="$php_version"
+		assert_lifecycle_command_success "php:restart" --php-version="$php_version"
 		assert_remote_service_active "$php_service"
 
-		assert_lifecycle_command_success "php:stop" --version="$php_version"
+		assert_lifecycle_command_success "php:stop" --php-version="$php_version"
 		assert_remote_service_inactive "$php_service"
 
-		assert_lifecycle_command_success "php:start" --version="$php_version"
+		assert_lifecycle_command_success "php:start" --php-version="$php_version"
 		assert_remote_service_active "$php_service"
 	done
 }

@@ -33,7 +33,7 @@ class PhpStartCommand extends BaseCommand
         parent::configure();
 
         $this->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name');
-        $this->addOption('version', null, InputOption::VALUE_REQUIRED, 'PHP version (e.g., 8.4). If omitted, affects all installed versions');
+        $this->addOption('php-version', null, InputOption::VALUE_REQUIRED, 'PHP version (e.g., 8.4). If omitted, affects all installed versions');
     }
 
     // ----
@@ -73,7 +73,7 @@ class PhpStartCommand extends BaseCommand
         // ----
 
         /** @var string|null $version */
-        $version = $input->getOption('version');
+        $version = $input->getOption('php-version');
 
         if (null !== $version) {
             $error = $this->validatePhpVersionInput($version, $installedVersions);
@@ -122,7 +122,7 @@ class PhpStartCommand extends BaseCommand
 
         $this->commandReplay([
             'server' => $server->name,
-            'version' => $version,
+            'php-version' => $version,
         ]);
 
         return Command::SUCCESS;
