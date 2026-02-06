@@ -380,6 +380,50 @@ teardown() {
 }
 
 # ----
+# site:shared:list
+# ----
+
+@test "site:shared:list shows shared files for AWS site" {
+	require_aws_provision_config
+
+	run_deployer site:shared:list \
+		--domain="$AWS_TEST_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains ".env"
+	assert_command_replay "site:shared:list"
+}
+
+# ----
+# site:shared:pull
+# ----
+
+@test "site:shared:pull downloads shared file from AWS site" {
+	require_aws_provision_config
+
+	local download_path="${BATS_TEST_TMPDIR}/pulled.env"
+
+	run_deployer site:shared:pull \
+		--domain="$AWS_TEST_DOMAIN" \
+		--remote=".env" \
+		--local="$download_path" \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Shared file downloaded"
+	assert_command_replay "site:shared:pull"
+
+	# Verify downloaded content matches what was pushed
+	[ -f "$download_path" ]
+	grep -q "APP_MESSAGE=DeployerPHP-BATS-Test-Success" "$download_path"
+}
+
+# ----
 # site:deploy
 # ----
 

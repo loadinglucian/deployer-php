@@ -28,25 +28,6 @@ sites: []
 EOF
 }
 
-# Add test server with a site to inventory
-# Usage: add_test_site "example.com" [php_version]
-add_test_site() {
-    local domain="${1:-example.com}"
-    local php_version="${2:-8.4}"
-    cat > "$TEST_INVENTORY" << EOF
-servers:
-  - name: ${TEST_SERVER_NAME}
-    host: ${TEST_SERVER_HOST}
-    port: ${TEST_SERVER_PORT}
-    username: ${TEST_SERVER_USER}
-    privateKeyPath: ${TEST_KEY}
-sites:
-  - domain: ${domain}
-    server: ${TEST_SERVER_NAME}
-    phpVersion: "${php_version}"
-EOF
-}
-
 # Add multiple servers to inventory
 # Usage: add_multiple_servers "server1" "server2"
 add_multiple_servers() {

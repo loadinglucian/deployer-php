@@ -2,8 +2,7 @@
 
 # VM command tests (server:add, server:info, etc.)
 # Tests: server:add, server:info, server:delete, server:install, server:firewall, server:logs,
-# server:run, mariadb:install, postgresql:install, redis:install, memcached:install,
-# site:create, site:shared:push, site:shared:list, site:shared:pull
+# server:run, mariadb:install, postgresql:install, redis:install, memcached:install
 
 load 'lib/helpers'
 load 'lib/lima'
@@ -733,115 +732,6 @@ assert_kv_auth_via_credentials() {
 
 	ssh_exec "systemctl is-active --quiet memcached"
 	ssh_exec "grep -q '^-l 127.0.0.1' /etc/memcached.conf"
-}
-
-# ----
-# site:create
-# ----
-
-@test "site:create creates a new site on the server" {
-	add_test_site "deployer-test.com"
-
-	run_deployer_timeout 120 site:create \
-		--domain="deployer-test.com" \
-		--server="$TEST_SERVER_NAME" \
-		--php-version="8.4" \
-		--www-mode="redirect-to-root" \
-		--web-root="public"
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_command_replay "site:create"
-}
-
-@test "site:create builds site directory structure on remote" {
-	add_test_site "deployer-test.com"
-
-	assert_remote_dir_exists "/home/deployer/sites/deployer-test.com"
-	assert_remote_dir_exists "/home/deployer/sites/deployer-test.com/shared"
-}
-
-@test "site:create configures Nginx vhost" {
-	add_test_site "deployer-test.com"
-
-	assert_remote_file_exists "/etc/nginx/sites-available/deployer-test.com"
-}
-
-# ----
-# site:shared:push
-# ----
-
-@test "site:shared:push uploads a file to the shared directory" {
-	add_test_site "deployer-test.com"
-
-	local test_file="${BATS_TEST_TMPDIR}/test-shared.env"
-	echo "SHARED_KEY=test-value-123" > "$test_file"
-
-	run_deployer site:shared:push \
-		--domain="deployer-test.com" \
-		--local="$test_file" \
-		--remote=".env" \
-		--yes
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "Shared file uploaded"
-	assert_command_replay "site:shared:push"
-}
-
-@test "site:shared:push creates file on remote server" {
-	add_test_site "deployer-test.com"
-
-	assert_remote_file_exists "/home/deployer/sites/deployer-test.com/shared/.env"
-	assert_remote_file_contains "/home/deployer/sites/deployer-test.com/shared/.env" "SHARED_KEY=test-value-123"
-}
-
-# ----
-# site:shared:list
-# ----
-
-@test "site:shared:list shows shared files" {
-	add_test_site "deployer-test.com"
-
-	run_deployer site:shared:list \
-		--domain="deployer-test.com"
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_output_contains ".env"
-	assert_command_replay "site:shared:list"
-}
-
-# ----
-# site:shared:pull
-# ----
-
-@test "site:shared:pull downloads a shared file" {
-	add_test_site "deployer-test.com"
-
-	local download_path="${BATS_TEST_TMPDIR}/pulled.env"
-
-	run_deployer site:shared:pull \
-		--domain="deployer-test.com" \
-		--remote=".env" \
-		--local="$download_path" \
-		--yes
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "Shared file downloaded"
-	assert_command_replay "site:shared:pull"
-
-	# Verify downloaded content matches what was pushed
-	[ -f "$download_path" ]
-	grep -q "SHARED_KEY=test-value-123" "$download_path"
 }
 
 # ----
