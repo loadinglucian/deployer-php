@@ -5,7 +5,7 @@
 # ----
 # Shared functions for Lima VM management.
 # These functions take explicit parameters and have no external dependencies,
-# making them usable in both the test runner (run.sh) and BATS test context.
+# making them usable in both the test runner (bats.sh) and BATS test context.
 
 # Lima VM instance name prefix
 LIMA_PREFIX="deployer-test"

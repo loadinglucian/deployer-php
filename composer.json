@@ -71,13 +71,13 @@
             "shfmt -i 0 -bn -ci -sr -d playbooks/*.sh"
         ],
         "bats": [
-            "./tests/bats/run.sh run"
+            "./bats.sh run"
         ],
         "bats:start": [
-            "./tests/bats/run.sh start"
+            "./bats.sh start"
         ],
         "bats:stop": [
-            "./tests/bats/run.sh stop"
+            "./bats.sh stop"
         ]
     },
     "config": {

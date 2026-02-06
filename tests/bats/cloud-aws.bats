@@ -17,6 +17,7 @@ load 'lib/cloud-helpers'
 
 setup_file() {
 	require_aws_credentials
+	require_cf_credentials
 	aws_cleanup_all
 }
 

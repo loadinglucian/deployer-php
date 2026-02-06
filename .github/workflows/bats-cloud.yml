@@ -116,7 +116,7 @@ jobs:
             $DEPLOYER do:dns:delete --zone="$DO_TEST_DOMAIN" --type=A --name="$DNS_WWW" --force --yes 2>/dev/null || true
             $DEPLOYER --inventory="$INVENTORY" site:delete --domain="$DO_TEST_DOMAIN" --force --yes 2>/dev/null || true
             # DO key cleanup requires finding key ID by name
-            KEY_ID=$($DEPLOYER do:key:list 2>/dev/null | LC_ALL=C tr -cd '[:print:]\n' | grep "$SERVER_NAME" | grep -oE '[0-9]{7,8}' | head -1 || true)
+            KEY_ID=$($DEPLOYER --no-ansi do:key:list 2>/dev/null | LC_ALL=C tr -cd '[:print:]\n' | grep "$SERVER_NAME" | grep -oE '[0-9]{7,8}' | head -1 || true)
             if [[ -n "$KEY_ID" ]]; then
               $DEPLOYER do:key:delete --key="$KEY_ID" --force --yes 2>/dev/null || true
             fi

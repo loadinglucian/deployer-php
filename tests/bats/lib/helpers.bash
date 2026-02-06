@@ -25,10 +25,10 @@ if [[ ! -f "$TEST_INVENTORY" ]]; then
 fi
 export TEST_KEY="${BATS_TEST_ROOT}/fixtures/keys/id_test"
 
-# Distro configuration - set by run.sh via BATS_DISTRO environment variable
+# Distro configuration - set by bats.sh via BATS_DISTRO environment variable
 export BATS_DISTRO="${BATS_DISTRO:-ubuntu24}"
 
-# Distro port mapping (must match run.sh and lima/*.yaml)
+# Distro port mapping (must match bats.sh and lima/*.yaml)
 # Note: Only Ubuntu LTS releases are supported
 declare -A DISTRO_PORTS=(
 	["ubuntu24"]="2222"
