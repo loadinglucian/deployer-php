@@ -88,7 +88,7 @@ setup_mysql_repo() {
 	fi
 
 	# Download and add Oracle MySQL GPG key
-	if ! curl -fsSL https://repo.mysql.com/RPM-GPG-KEY-mysql-2023 | run_cmd gpg --batch --yes --dearmor -o /etc/apt/keyrings/mysql.gpg; then
+	if ! curl -fsSL https://repo.mysql.com/RPM-GPG-KEY-mysql-2025 | run_cmd gpg --batch --yes --dearmor -o /etc/apt/keyrings/mysql.gpg; then
 		echo "Error: Failed to add Oracle MySQL GPG key" >&2
 		exit 1
 	fi
