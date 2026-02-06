@@ -49,14 +49,17 @@ class SiteSharedListCommand extends BaseCommand
         // Select site and server
         // ----
 
-        $result = $this->selectSiteDeetsWithServer();
+        $site = $this->selectSiteDeets();
 
-        if (is_int($result)) {
-            return $result;
+        if (is_int($site)) {
+            return $site;
         }
 
-        $site = $result->site;
-        $server = $result->server;
+        $server = $this->getServerForSite($site);
+
+        if (is_int($server)) {
+            return $server;
+        }
 
         $validationResult = $this->ensureSiteExists($server, $site);
 
