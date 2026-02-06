@@ -277,24 +277,26 @@ trait AwsTrait
     }
 
     /**
-     * Validate AMI against available images.
+     * Validate OS image slug against available images.
      *
-     * @param array<string, string> $validImages Available AMIs
+     * @param array<string, string> $validImages Available images (slug => description)
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateAwsImage(mixed $ami, array $validImages): ?string
+    protected function validateAwsImageSlug(mixed $image, array $validImages): ?string
     {
-        if (!is_string($ami)) {
-            return 'AMI must be a string';
+        if (!is_string($image)) {
+            return 'Image must be a string';
         }
 
-        if ('' === trim($ami)) {
-            return 'AMI cannot be empty';
+        if ('' === trim($image)) {
+            return 'Image cannot be empty';
         }
 
-        if (!isset($validImages[$ami])) {
-            return "Invalid AMI: '{$ami}' is not available in this region";
+        if (!isset($validImages[$image])) {
+            $validSlugs = implode(', ', array_keys($validImages));
+
+            return "Invalid image: '{$image}'. Available images: {$validSlugs}";
         }
 
         return null;

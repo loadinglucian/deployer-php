@@ -6,6 +6,7 @@ namespace DeployerPHP\Console\Cloud\Aws;
 
 use DeployerPHP\Builders\ServerBuilder;
 use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\Enums\Distribution;
 use DeployerPHP\Exceptions\ValidationException;
 use DeployerPHP\Traits\AwsTrait;
 use DeployerPHP\Traits\KeysTrait;
@@ -41,7 +42,7 @@ class ProvisionCommand extends BaseCommand
             ->addOption('instance-type', null, InputOption::VALUE_REQUIRED, 'Full instance type (e.g., t3.large) - skips family/size prompts')
             ->addOption('instance-family', null, InputOption::VALUE_REQUIRED, 'Instance family (e.g., t3, m6i, c7g)')
             ->addOption('instance-size', null, InputOption::VALUE_REQUIRED, 'Instance size (e.g., micro, large, xlarge)')
-            ->addOption('ami', null, InputOption::VALUE_REQUIRED, 'AMI ID')
+            ->addOption('image', null, InputOption::VALUE_REQUIRED, 'OS image slug (e.g., ubuntu-24.04, debian-12)')
             ->addOption('key-pair', null, InputOption::VALUE_REQUIRED, 'AWS key pair name')
             ->addOption('private-key-path', null, InputOption::VALUE_REQUIRED, 'SSH private key path')
             ->addOption('vpc', null, InputOption::VALUE_REQUIRED, 'VPC ID')
@@ -105,7 +106,7 @@ class ProvisionCommand extends BaseCommand
         $this->commandReplay([
             'name' => $deets['name'],
             'instance-type' => $deets['instanceType'],
-            'ami' => $deets['ami'],
+            'image' => $deets['image'],
             'key-pair' => $deets['keyPair'],
             'private-key-path' => $deets['privateKeyPath'],
             'vpc' => $deets['vpcId'],
@@ -124,19 +125,24 @@ class ProvisionCommand extends BaseCommand
     /**
      * Fetch AWS account data.
      *
-     * @return array{instanceFamilies: array<string, string>, validFamilyNames: array<int, string>, keys: array<string, string>, images: array<string, string>, vpcs: array<string, string>}|int
+     * @return array{instanceFamilies: array<string, string>, validFamilyNames: array<int, string>, keys: array<string, string>, images: array<string, string>, imageAmiMap: array<string, string>, vpcs: array<string, string>}|int
      */
     protected function fetchAccountData(): array|int
     {
         try {
             return $this->io->promptSpin(
-                fn () => [
-                    'instanceFamilies' => $this->aws->account->getInstanceFamilies(),
-                    'validFamilyNames' => $this->aws->account->getValidFamilyNames(),
-                    'keys' => $this->aws->account->getPublicKeys(),
-                    'images' => $this->aws->account->getAvailableImages(),
-                    'vpcs' => $this->aws->account->getUserVpcs(),
-                ],
+                function () {
+                    $imageData = $this->aws->account->getAvailableImages();
+
+                    return [
+                        'instanceFamilies' => $this->aws->account->getInstanceFamilies(),
+                        'validFamilyNames' => $this->aws->account->getValidFamilyNames(),
+                        'keys' => $this->aws->account->getPublicKeys(),
+                        'images' => $imageData['options'],
+                        'imageAmiMap' => $imageData['amiMap'],
+                        'vpcs' => $this->aws->account->getUserVpcs(),
+                    ];
+                },
                 'Retrieving account information...'
             );
         } catch (\RuntimeException $e) {
@@ -170,7 +176,7 @@ class ProvisionCommand extends BaseCommand
     /**
      * Provision the EC2 instance.
      *
-     * @param array{name: string, instanceType: string, ami: string, amiName: string, keyPair: string, privateKeyPath: string, vpcId: string, subnetId: string, diskSize: int, monitoring: bool} $deets
+     * @param array{name: string, instanceType: string, image: string, ami: string, keyPair: string, privateKeyPath: string, vpcId: string, subnetId: string, diskSize: int, monitoring: bool} $deets
      */
     protected function provisionInstance(array $deets, string $securityGroupId): string|int
     {
@@ -202,7 +208,7 @@ class ProvisionCommand extends BaseCommand
     /**
      * Configure instance and add to inventory with automatic rollback on failure.
      *
-     * @param array{name: string, instanceType: string, ami: string, amiName: string, keyPair: string, privateKeyPath: string, vpcId: string, subnetId: string, diskSize: int, monitoring: bool} $deets
+     * @param array{name: string, instanceType: string, image: string, ami: string, keyPair: string, privateKeyPath: string, vpcId: string, subnetId: string, diskSize: int, monitoring: bool} $deets
      */
     protected function configureInstance(string $instanceId, array $deets): int
     {
@@ -238,7 +244,10 @@ class ProvisionCommand extends BaseCommand
             // Add to inventory
 
             $ipAddress = $elasticIp['publicIp'];
-            $username = $this->aws->instance->getDefaultUsername($deets['amiName']);
+
+            /** @var array{0: Distribution, 1: string} $parsed */
+            $parsed = Distribution::fromSlug($deets['image']);
+            $username = $parsed[0]->defaultSshUsername();
 
             $server = $this->getServerInfo(
                 ServerBuilder::new()
@@ -312,9 +321,9 @@ class ProvisionCommand extends BaseCommand
     /**
      * Gather provisioning details from user input or CLI options.
      *
-     * @param array{instanceFamilies: array<string, string>, validFamilyNames: array<int, string>, keys: array<string, string>, images: array<string, string>, vpcs: array<string, string>} $accountData
+     * @param array{instanceFamilies: array<string, string>, validFamilyNames: array<int, string>, keys: array<string, string>, images: array<string, string>, imageAmiMap: array<string, string>, vpcs: array<string, string>} $accountData
      *
-     * @return array{name: string, instanceType: string, ami: string, amiName: string, keyPair: string, privateKeyPath: string, vpcId: string, subnetId: string, diskSize: int, monitoring: bool}|int
+     * @return array{name: string, instanceType: string, image: string, ami: string, keyPair: string, privateKeyPath: string, vpcId: string, subnetId: string, diskSize: int, monitoring: bool}|int
      */
     protected function gatherProvisioningDeets(array $accountData): array|int
     {
@@ -346,7 +355,7 @@ class ProvisionCommand extends BaseCommand
     /**
      * Validate that required account data is available.
      *
-     * @param array{instanceFamilies: array<string, string>, validFamilyNames: array<int, string>, keys: array<string, string>, images: array<string, string>, vpcs: array<string, string>} $accountData
+     * @param array{instanceFamilies: array<string, string>, validFamilyNames: array<int, string>, keys: array<string, string>, images: array<string, string>, imageAmiMap: array<string, string>, vpcs: array<string, string>} $accountData
      *
      * @throws ValidationException
      */
@@ -366,11 +375,11 @@ class ProvisionCommand extends BaseCommand
     }
 
     /**
-     * Gather core provisioning details (name, instance type, AMI, key pair, private key path).
+     * Gather core provisioning details (name, instance type, image, key pair, private key path).
      *
-     * @param array{instanceFamilies: array<string, string>, validFamilyNames: array<int, string>, keys: array<string, string>, images: array<string, string>, vpcs: array<string, string>} $accountData
+     * @param array{instanceFamilies: array<string, string>, validFamilyNames: array<int, string>, keys: array<string, string>, images: array<string, string>, imageAmiMap: array<string, string>, vpcs: array<string, string>} $accountData
      *
-     * @return array{name: string, instanceType: string, ami: string, amiName: string, keyPair: string, privateKeyPath: string}|int
+     * @return array{name: string, instanceType: string, image: string, ami: string, keyPair: string, privateKeyPath: string}|int
      */
     protected function gatherCoreProvisioningDeets(array $accountData): array|int
     {
@@ -395,9 +404,12 @@ class ProvisionCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        /** @var string $ami */
-        $ami = $this->io->getValidatedOptionOrPrompt(
-            'ami',
+        //
+        // Image selection
+
+        /** @var string $image */
+        $image = $this->io->getValidatedOptionOrPrompt(
+            'image',
             fn ($validate) => $this->io->promptSelect(
                 label: 'Select OS image:',
                 options: $accountData['images'],
@@ -406,10 +418,10 @@ class ProvisionCommand extends BaseCommand
                 scroll: 15,
                 validate: $validate
             ),
-            fn ($value) => $this->validateAwsImage($value, $accountData['images'])
+            fn ($value) => $this->validateAwsImageSlug($value, $accountData['images'])
         );
 
-        $amiName = $accountData['images'][$ami] ?? '';
+        $ami = $accountData['imageAmiMap'][$image];
 
         /** @var string $keyPair */
         $keyPair = $this->io->getValidatedOptionOrPrompt(
@@ -427,8 +439,8 @@ class ProvisionCommand extends BaseCommand
         return [
             'name' => $name,
             'instanceType' => $instanceType,
+            'image' => $image,
             'ami' => $ami,
-            'amiName' => $amiName,
             'keyPair' => $keyPair,
             'privateKeyPath' => $privateKeyPath,
         ];
@@ -442,7 +454,7 @@ class ProvisionCommand extends BaseCommand
      * 2. --instance-family + --instance-size (CLI two-step)
      * 3. Interactive two-step prompts
      *
-     * @param array{instanceFamilies: array<string, string>, validFamilyNames: array<int, string>, keys: array<string, string>, images: array<string, string>, vpcs: array<string, string>} $accountData
+     * @param array{instanceFamilies: array<string, string>, validFamilyNames: array<int, string>, keys: array<string, string>, images: array<string, string>, imageAmiMap: array<string, string>, vpcs: array<string, string>} $accountData
      *
      * @return string|int Instance type string on success, Command::FAILURE on error
      */

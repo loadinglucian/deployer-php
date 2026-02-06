@@ -30,6 +30,7 @@ teardown_file() {
 		return 0
 	fi
 	aws_cleanup_all
+	rm -f "$TEST_INVENTORY"
 }
 
 setup() {
@@ -114,7 +115,7 @@ setup() {
 	run_deployer aws:provision \
 		--name="$AWS_TEST_SERVER_NAME" \
 		--instance-type="$AWS_TEST_INSTANCE_TYPE" \
-		--ami="$AWS_TEST_AMI" \
+		--image="$AWS_TEST_IMAGE" \
 		--key-pair="$AWS_TEST_KEY_PAIR" \
 		--private-key-path="$AWS_TEST_PRIVATE_KEY_PATH" \
 		--vpc="$AWS_TEST_VPC" \
@@ -218,7 +219,7 @@ setup() {
 # cf:dns:set
 # ----
 
-@test "cf:dns:set creates A record for root domain (proxied)" {
+@test "cf:dns:set creates A record for root domain (non-proxied)" {
 	# Skip if AWS credentials/SSH key not available (CF DNS tests need AWS-provisioned server IP)
 	if ! aws_provision_config_available; then
 		skip "AWS credentials not configured or SSH key missing"
@@ -236,7 +237,7 @@ setup() {
 		--name="$CF_TEST_DNS_ROOT" \
 		--value="$server_ip" \
 		--ttl="60" \
-		--proxied
+		--no-proxied
 
 	debug_output
 

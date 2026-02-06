@@ -151,6 +151,46 @@ enum Distribution: string
     }
 
     // ----
+    // Slug Methods
+    // ----
+
+    /**
+     * Build an OS slug from this distribution and a version string.
+     *
+     * Example: Distribution::UBUNTU->toSlug('24.04') → 'ubuntu-24.04'
+     */
+    public function toSlug(string $version): string
+    {
+        return $this->value . '-' . $version;
+    }
+
+    /**
+     * Parse an OS slug into its distribution and version.
+     *
+     * Returns null if the slug format is invalid or the distribution is unrecognised.
+     *
+     * @return array{0: self, 1: string}|null
+     */
+    public static function fromSlug(string $slug): ?array
+    {
+        $parts = explode('-', $slug, 2);
+
+        if (2 !== count($parts)) {
+            return null;
+        }
+
+        [$distro, $version] = $parts;
+
+        $distribution = self::tryFrom($distro);
+
+        if (null === $distribution) {
+            return null;
+        }
+
+        return [$distribution, $version];
+    }
+
+    // ----
     // Static Helpers
     // ----
 

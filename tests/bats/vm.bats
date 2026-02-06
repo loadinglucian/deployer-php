@@ -11,6 +11,10 @@ load 'lib/inventory'
 # Setup/Teardown
 # ----
 
+teardown_file() {
+	rm -f "$TEST_INVENTORY"
+}
+
 setup() {
 	reset_inventory
 }

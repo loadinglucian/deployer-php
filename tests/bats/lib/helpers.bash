@@ -8,7 +8,21 @@
 export BATS_TEST_ROOT="${BATS_TEST_DIRNAME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 export PROJECT_ROOT="$(cd "${BATS_TEST_ROOT}/../.." && pwd)"
 export DEPLOYER_BIN="${PROJECT_ROOT}/bin/deployer"
-export TEST_INVENTORY="${BATS_TEST_ROOT}/fixtures/inventory/test-deployer.yml"
+# Per-suite inventory isolation (enables parallel test execution)
+# Uses BATS_INVENTORY_SUFFIX (set by bats.sh for VM tests) instead of BATS_DISTRO
+# to avoid leakage from helpers.bash's own default on line 27 via BATS subprocess model
+_bats_suite="${BATS_TEST_FILENAME##*/}"
+_bats_suite="${_bats_suite%.bats}"
+if [[ -n "${BATS_INVENTORY_SUFFIX:-}" ]]; then
+	_bats_suite="${_bats_suite}-${BATS_INVENTORY_SUFFIX}"
+fi
+export TEST_INVENTORY="${BATS_TEST_ROOT}/fixtures/inventory/${_bats_suite}.yml"
+
+# Ensure inventory file exists (idempotent — safe across parallel suites)
+mkdir -p "$(dirname "$TEST_INVENTORY")"
+if [[ ! -f "$TEST_INVENTORY" ]]; then
+	printf 'servers: []\nsites: []\n' > "$TEST_INVENTORY"
+fi
 export TEST_KEY="${BATS_TEST_ROOT}/fixtures/keys/id_test"
 
 # Distro configuration - set by run.sh via BATS_DISTRO environment variable

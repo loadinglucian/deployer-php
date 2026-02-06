@@ -241,7 +241,9 @@ class AwsAccountService extends BaseAwsService
     /**
      * Get available AMIs (filtered to Ubuntu and Debian only).
      *
-     * @return array<string, string> Array of AMI ID => description
+     * Returns slug-keyed maps for both prompt display and AMI resolution.
+     *
+     * @return array{options: array<string, string>, amiMap: array<string, string>}
      */
     public function getAvailableImages(): array
     {
@@ -283,21 +285,33 @@ class AwsAccountService extends BaseAwsService
             $latestImages = $this->filterLatestImages($images);
 
             $options = [];
+            $amiMap = [];
+
             foreach ($latestImages as $image) {
                 /** @var string $amiId */
                 $amiId = $image['ImageId'];
                 /** @var string $name */
                 $name = $image['Name'];
+                /** @var string $distro */
+                $distro = $image['_distro'];
+                /** @var string $version */
+                $version = $image['_version'];
+
                 $description = $this->formatImageDescription($name);
 
                 if ('' !== $description) {
-                    $options[$amiId] = $description;
+                    $slug = Distribution::from($distro)->toSlug($version);
+                    $options[$slug] = $description;
+                    $amiMap[$slug] = $amiId;
                 }
             }
 
             asort($options);
 
-            return $options;
+            return [
+                'options' => $options,
+                'amiMap' => $amiMap,
+            ];
         } catch (\Throwable $e) {
             throw new \RuntimeException('Failed to fetch AMIs: ' . $e->getMessage(), 0, $e);
         }

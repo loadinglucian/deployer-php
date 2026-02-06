@@ -14,6 +14,19 @@ if [[ -f "${PROJECT_ROOT}/.env" ]]; then
 	set +a
 fi
 
+# ----
+# Run-Scoped Resource Isolation
+# ----
+# Ensures cloud resource names are unique per run and stable across all tests.
+# CI: last 6 chars of workflow run ID (set via BATS_RUN_SUFFIX env var)
+# Local: bats.sh PID (stable because bats.sh is a single long-lived process)
+
+if [[ -n "${BATS_RUN_SUFFIX:-}" ]]; then
+	export BATS_RUN_SUFFIX="${BATS_RUN_SUFFIX: -6}"
+else
+	export BATS_RUN_SUFFIX="$$"
+fi
+
 # CI mode detection - bypasses interactive menus
 CI_MODE="${CI:-false}"
 
@@ -112,15 +125,7 @@ setup_keys() {
 }
 
 setup_inventory() {
-	local inventory_dir="${BATS_DIR}/fixtures/inventory"
-	local inventory_file="${inventory_dir}/test-deployer.yml"
-
-	mkdir -p "$inventory_dir"
-
-	cat > "$inventory_file" << 'EOF'
-servers: []
-sites: []
-EOF
+	mkdir -p "${BATS_DIR}/fixtures/inventory"
 }
 
 #
@@ -486,6 +491,7 @@ run_tests_for_distro() {
 
 	print_distro_header "$distro"
 	export BATS_DISTRO="$distro"
+	export BATS_INVENTORY_SUFFIX="$distro"
 
 	# Use minimal output - only show details on failure
 	# BATS default behavior shows test names with ✓/✗ and full output on failures

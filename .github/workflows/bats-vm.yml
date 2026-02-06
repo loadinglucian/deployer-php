@@ -39,7 +39,6 @@ jobs:
         run: |
           mkdir -p tests/bats/fixtures/keys tests/bats/fixtures/inventory
           ssh-keygen -t ed25519 -f tests/bats/fixtures/keys/id_test -N "" -C "deployer-bats-test"
-          echo -e "servers: []\nsites: []" > tests/bats/fixtures/inventory/test-deployer.yml
 
       - name: Setup environment file
         run: |

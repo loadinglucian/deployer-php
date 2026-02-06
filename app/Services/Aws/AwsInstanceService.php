@@ -242,29 +242,6 @@ class AwsInstanceService extends BaseAwsService
         }
     }
 
-    /**
-     * Determine the default SSH username based on AMI name.
-     *
-     * @param string $amiName The AMI name or description
-     *
-     * @return string The default SSH username
-     */
-    public function getDefaultUsername(string $amiName): string
-    {
-        $amiNameLower = strtolower($amiName);
-
-        if (str_contains($amiNameLower, 'ubuntu')) {
-            return 'ubuntu';
-        }
-
-        if (str_contains($amiNameLower, 'debian')) {
-            return 'admin';
-        }
-
-        // Default to ubuntu for unknown AMIs
-        return 'ubuntu';
-    }
-
     // ----
     // Elastic IP
     // ----

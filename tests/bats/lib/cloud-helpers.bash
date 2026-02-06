@@ -11,15 +11,9 @@ export CLOUD_TEST_KEY_PATH="${CLOUD_TEST_KEY_PATH:-${BATS_TEST_ROOT}/fixtures/ke
 # ----
 # Run-Scoped Resource Isolation
 # ----
-# CI: last 6 chars of GITHUB_RUN_ID (unique per workflow run)
-# Local: shell PID for basic isolation
+# Set by bats.sh before invoking bats. Fallback for direct bats invocation.
 
-if [[ -n "${GITHUB_RUN_ID:-}" ]]; then
-	BATS_RUN_SUFFIX="${GITHUB_RUN_ID: -6}"
-else
-	BATS_RUN_SUFFIX="$$"
-fi
-export BATS_RUN_SUFFIX
+export BATS_RUN_SUFFIX="${BATS_RUN_SUFFIX:-unknown}"
 
 # ----
 # AWS Test Configuration
@@ -29,7 +23,7 @@ export BATS_RUN_SUFFIX
 export AWS_TEST_KEY_NAME="${AWS_TEST_KEY_NAME:-deployer-bats-aws-${BATS_RUN_SUFFIX}}"
 export AWS_TEST_SERVER_NAME="${AWS_TEST_SERVER_NAME:-deployer-bats-aws-${BATS_RUN_SUFFIX}}"
 export AWS_TEST_INSTANCE_TYPE="${AWS_TEST_INSTANCE_TYPE:-}"
-export AWS_TEST_AMI="${AWS_TEST_AMI:-}"
+export AWS_TEST_IMAGE="${AWS_TEST_IMAGE:-}"
 export AWS_TEST_KEY_PAIR="${AWS_TEST_KEY_PAIR:-}"
 export AWS_TEST_VPC="${AWS_TEST_VPC:-}"
 export AWS_TEST_SUBNET="${AWS_TEST_SUBNET:-}"
@@ -95,7 +89,7 @@ aws_credentials_available() {
 aws_provision_config_available() {
 	aws_credentials_available \
 		&& [[ -n "$AWS_TEST_INSTANCE_TYPE" ]] \
-		&& [[ -n "$AWS_TEST_AMI" ]] \
+		&& [[ -n "$AWS_TEST_IMAGE" ]] \
 		&& [[ -n "$AWS_TEST_KEY_PAIR" ]] \
 		&& [[ -n "$AWS_TEST_VPC" ]] \
 		&& [[ -n "$AWS_TEST_SUBNET" ]] \

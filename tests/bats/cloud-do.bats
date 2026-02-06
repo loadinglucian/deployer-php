@@ -30,6 +30,7 @@ teardown_file() {
 		return 0
 	fi
 	do_cleanup_all
+	rm -f "$TEST_INVENTORY"
 }
 
 setup() {

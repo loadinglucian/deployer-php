@@ -28,7 +28,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_TEST_AMI: ${{ vars.AWS_TEST_AMI }}
+      AWS_TEST_IMAGE: ${{ vars.AWS_TEST_IMAGE }}
       AWS_TEST_INSTANCE_TYPE: ${{ secrets.AWS_TEST_INSTANCE_TYPE }}
       AWS_TEST_DISK_SIZE: ${{ secrets.AWS_TEST_DISK_SIZE }}
       AWS_TEST_KEY_PAIR: ${{ vars.AWS_TEST_KEY_PAIR }}
@@ -82,7 +82,7 @@ jobs:
         run: |
           SUFFIX="${BATS_RUN_SUFFIX: -6}"
           DEPLOYER="php bin/deployer"
-          INVENTORY="tests/bats/fixtures/inventory/servers.json"
+          INVENTORY="tests/bats/fixtures/inventory/cloud-${{ matrix.provider }}.yml"
 
           # ----
           # Tier 1: Deployer CLI cleanup
