@@ -278,7 +278,7 @@ create_deployer_database() {
 
 	echo "→ Creating deployer database..."
 
-	if ! run_cmd su - postgres -c "psql -c \"CREATE DATABASE ${DEPLOYER_DATABASE} OWNER ${DEPLOYER_USER} ENCODING 'UTF8' LC_COLLATE 'en_US.UTF-8' LC_CTYPE 'en_US.UTF-8' TEMPLATE template0;\"" > /dev/null 2>&1; then
+	if ! run_cmd su - postgres -c "psql -c \"CREATE DATABASE ${DEPLOYER_DATABASE} OWNER ${DEPLOYER_USER} ENCODING 'UTF8' LC_COLLATE 'C.UTF-8' LC_CTYPE 'C.UTF-8' TEMPLATE template0;\"" > /dev/null 2>&1; then
 		echo "Error: Failed to create deployer database" >&2
 		exit 1
 	fi
