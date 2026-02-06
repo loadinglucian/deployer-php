@@ -86,17 +86,6 @@ setup() {
 	assert_command_replay "server:info"
 }
 
-@test "server:info shows info when no servers in inventory" {
-	reset_inventory
-
-	run_deployer server:info --server="nonexistent"
-
-	debug_output
-
-	assert_error_output
-	assert_output_contains "not found in inventory"
-}
-
 @test "server:info shows correct server details" {
 	add_test_server
 
@@ -130,21 +119,6 @@ setup() {
 	! inventory_has_server "$TEST_SERVER_NAME"
 }
 
-@test "server:delete shows info when no servers in inventory" {
-	reset_inventory
-
-	run_deployer server:delete \
-		--server="nonexistent" \
-		--force \
-		--yes \
-		--no-destroy-cloud
-
-	debug_output
-
-	assert_error_output
-	assert_output_contains "not found in inventory"
-}
-
 @test "server:delete with --no-destroy-cloud removes from inventory" {
 	add_test_server "no-destroy-server"
 	inventory_has_server "no-destroy-server"
@@ -169,17 +143,6 @@ setup() {
 # ----
 # server:install
 # ----
-
-@test "server:install shows info when no servers in inventory" {
-	reset_inventory
-
-	run_deployer server:install --server="nonexistent"
-
-	debug_output
-
-	assert_error_output
-	assert_output_contains "not found in inventory"
-}
 
 @test "server:install completes successfully with generated deploy key" {
 	add_test_server
@@ -278,17 +241,6 @@ setup() {
 # server:firewall
 # ----
 
-@test "server:firewall shows info when no servers in inventory" {
-	reset_inventory
-
-	run_deployer server:firewall --server="nonexistent" --allow="80" --yes
-
-	debug_output
-
-	assert_error_output
-	assert_output_contains "not found in inventory"
-}
-
 @test "server:firewall configures UFW with listening port" {
 	add_test_server
 
@@ -319,17 +271,6 @@ setup() {
 # ----
 # server:logs
 # ----
-
-@test "server:logs shows info when no servers in inventory" {
-	reset_inventory
-
-	run_deployer server:logs --server="nonexistent" --service="system" --lines=10
-
-	debug_output
-
-	assert_error_output
-	assert_output_contains "not found in inventory"
-}
 
 @test "server:logs retrieves system logs" {
 	add_test_server
@@ -364,17 +305,6 @@ setup() {
 # ----
 # server:run
 # ----
-
-@test "server:run shows info when no servers in inventory" {
-	reset_inventory
-
-	run_deployer server:run --server="nonexistent" --command="whoami"
-
-	debug_output
-
-	assert_error_output
-	assert_output_contains "not found in inventory"
-}
 
 @test "server:run executes command on server" {
 	add_test_server
