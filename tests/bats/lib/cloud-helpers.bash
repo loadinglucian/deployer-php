@@ -97,6 +97,67 @@ aws_provision_config_available() {
 		&& [[ -f "$AWS_TEST_PRIVATE_KEY_PATH" ]]
 }
 
+# ----
+# Requirement Guards (fail with diagnostics when config is missing)
+# ----
+
+# Require AWS credentials or fail with diagnostics
+require_aws_credentials() {
+	if aws_credentials_available; then return 0; fi
+	echo "AWS credentials not configured"
+	[[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && echo "  Missing: AWS_ACCESS_KEY_ID"
+	[[ -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && echo "  Missing: AWS_SECRET_ACCESS_KEY"
+	[[ -z "${AWS_REGION:-}" ]] && echo "  Missing: AWS_REGION"
+	return 1
+}
+
+# Require full AWS provisioning config or fail with diagnostics
+require_aws_provision_config() {
+	if aws_provision_config_available; then return 0; fi
+	echo "AWS provisioning configuration incomplete"
+	[[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && echo "  Missing: AWS_ACCESS_KEY_ID"
+	[[ -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && echo "  Missing: AWS_SECRET_ACCESS_KEY"
+	[[ -z "${AWS_REGION:-}" ]] && echo "  Missing: AWS_REGION"
+	[[ -z "$AWS_TEST_INSTANCE_TYPE" ]] && echo "  Missing: AWS_TEST_INSTANCE_TYPE"
+	[[ -z "$AWS_TEST_IMAGE" ]] && echo "  Missing: AWS_TEST_IMAGE"
+	[[ -z "$AWS_TEST_KEY_PAIR" ]] && echo "  Missing: AWS_TEST_KEY_PAIR"
+	[[ -z "$AWS_TEST_VPC" ]] && echo "  Missing: AWS_TEST_VPC"
+	[[ -z "$AWS_TEST_SUBNET" ]] && echo "  Missing: AWS_TEST_SUBNET"
+	[[ -z "$AWS_TEST_DISK_SIZE" ]] && echo "  Missing: AWS_TEST_DISK_SIZE"
+	[[ ! -f "$AWS_TEST_PRIVATE_KEY_PATH" ]] && echo "  Missing: SSH key at $AWS_TEST_PRIVATE_KEY_PATH"
+	return 1
+}
+
+# Require Cloudflare credentials or fail with diagnostics
+require_cf_credentials() {
+	if cf_credentials_available; then return 0; fi
+	echo "Cloudflare credentials not configured"
+	[[ -z "${CLOUDFLARE_API_TOKEN:-}" ]] && [[ -z "${CF_API_TOKEN:-}" ]] && echo "  Missing: CLOUDFLARE_API_TOKEN or CF_API_TOKEN"
+	return 1
+}
+
+# Require DO credentials or fail with diagnostics
+require_do_credentials() {
+	if do_credentials_available; then return 0; fi
+	echo "DigitalOcean credentials not configured"
+	[[ -z "${DIGITALOCEAN_API_TOKEN:-}" ]] && [[ -z "${DO_API_TOKEN:-}" ]] && echo "  Missing: DIGITALOCEAN_API_TOKEN or DO_API_TOKEN"
+	return 1
+}
+
+# Require full DO provisioning config or fail with diagnostics
+require_do_provision_config() {
+	if do_provision_config_available; then return 0; fi
+	echo "DigitalOcean provisioning configuration incomplete"
+	[[ -z "${DIGITALOCEAN_API_TOKEN:-}" ]] && [[ -z "${DO_API_TOKEN:-}" ]] && echo "  Missing: DIGITALOCEAN_API_TOKEN or DO_API_TOKEN"
+	[[ -z "$DO_TEST_SSH_KEY_ID" ]] && echo "  Missing: DO_TEST_SSH_KEY_ID"
+	[[ -z "$DO_TEST_REGION" ]] && echo "  Missing: DO_TEST_REGION"
+	[[ -z "$DO_TEST_SIZE" ]] && echo "  Missing: DO_TEST_SIZE"
+	[[ -z "$DO_TEST_IMAGE" ]] && echo "  Missing: DO_TEST_IMAGE"
+	[[ -z "$DO_TEST_VPC_UUID" ]] && echo "  Missing: DO_TEST_VPC_UUID"
+	[[ ! -f "$DO_TEST_PRIVATE_KEY_PATH" ]] && echo "  Missing: SSH key at $DO_TEST_PRIVATE_KEY_PATH"
+	return 1
+}
+
 # Cleanup AWS test key (idempotent - ignores "not found")
 aws_cleanup_test_key() {
 	"$DEPLOYER_BIN" aws:key:delete \

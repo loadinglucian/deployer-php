@@ -16,12 +16,7 @@ load 'lib/cloud-helpers'
 # ----
 
 setup_file() {
-	# Skip all tests if DO credentials not configured
-	if ! do_credentials_available; then
-		skip "DigitalOcean credentials not configured"
-	fi
-
-	# Clean up any leftover resources from previous runs
+	require_do_credentials
 	do_cleanup_all
 }
 
@@ -34,10 +29,7 @@ teardown_file() {
 }
 
 setup() {
-	# Skip individual test if credentials unavailable
-	if ! do_credentials_available; then
-		skip "DigitalOcean credentials not configured"
-	fi
+	require_do_credentials
 }
 
 # ----
@@ -111,10 +103,7 @@ setup() {
 # ----
 
 @test "do:provision creates droplet and adds to inventory" {
-	# Skip if DO credentials or SSH key not available
-	if ! do_provision_config_available; then
-		skip "DO credentials not configured or SSH key missing"
-	fi
+	require_do_provision_config
 
 	# Cleanup any leftover test server
 	do_cleanup_test_server
@@ -142,10 +131,7 @@ setup() {
 }
 
 @test "server:install configures DigitalOcean provisioned server" {
-	# Skip if DO credentials or SSH key not available
-	if ! do_provision_config_available; then
-		skip "DO credentials not configured or SSH key missing"
-	fi
+	require_do_provision_config
 
 	# Full install takes time - use longer timeout
 	run timeout 600 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:install \
@@ -169,10 +155,7 @@ setup() {
 # ----
 
 @test "do:dns:set creates A record for root domain" {
-	# Skip if DO credentials or SSH key not available
-	if ! do_provision_config_available; then
-		skip "DO credentials not configured or SSH key missing"
-	fi
+	require_do_provision_config
 
 	# Get server IP from inventory
 	local server_ip
@@ -197,10 +180,7 @@ setup() {
 }
 
 @test "do:dns:set creates A record for www subdomain" {
-	# Skip if DO credentials or SSH key not available
-	if ! do_provision_config_available; then
-		skip "DO credentials not configured or SSH key missing"
-	fi
+	require_do_provision_config
 
 	# Get server IP from inventory
 	local server_ip
@@ -229,10 +209,7 @@ setup() {
 # ----
 
 @test "site:create creates site on DigitalOcean provisioned server" {
-	# Skip if DO credentials or SSH key not available
-	if ! do_provision_config_available; then
-		skip "DO credentials not configured or SSH key missing"
-	fi
+	require_do_provision_config
 
 	# Cleanup any leftover test site
 	cleanup_test_site "$DO_TEST_DOMAIN"
@@ -257,10 +234,7 @@ setup() {
 # ----
 
 @test "site:shared:push uploads .env to DigitalOcean site" {
-	# Skip if DO credentials or SSH key not available
-	if ! do_provision_config_available; then
-		skip "DO credentials not configured or SSH key missing"
-	fi
+	require_do_provision_config
 
 	run_deployer site:shared:push \
 		--domain="$DO_TEST_DOMAIN" \
@@ -280,10 +254,7 @@ setup() {
 # ----
 
 @test "site:deploy deploys application to DigitalOcean site" {
-	# Skip if DO credentials or SSH key not available
-	if ! do_provision_config_available; then
-		skip "DO credentials not configured or SSH key missing"
-	fi
+	require_do_provision_config
 
 	# Deploy takes time - use longer timeout
 	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:deploy \
@@ -306,10 +277,7 @@ setup() {
 # ----
 
 @test "deployed DigitalOcean site responds to HTTP requests" {
-	# Skip if DO credentials or SSH key not available
-	if ! do_provision_config_available; then
-		skip "DO credentials not configured or SSH key missing"
-	fi
+	require_do_provision_config
 
 	# Get server IP to bypass DNS (faster than waiting for propagation)
 	local server_ip
@@ -324,10 +292,7 @@ setup() {
 # ----
 
 @test "server:delete removes DigitalOcean droplet" {
-	# Skip if DO credentials or SSH key not available
-	if ! do_provision_config_available; then
-		skip "DO credentials not configured or SSH key missing"
-	fi
+	require_do_provision_config
 
 	run_deployer server:delete \
 		--server="$DO_TEST_SERVER_NAME" \
