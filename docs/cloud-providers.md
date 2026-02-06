@@ -32,7 +32,7 @@ Set your AWS credentials as environment variables:
 ```shell
 export AWS_ACCESS_KEY_ID="your-access-key"
 export AWS_SECRET_ACCESS_KEY="your-secret-key"
-export AWS_REGION="eu-central-1"
+export AWS_REGION="your-region"
 ```
 
 Or create a `.env` file in your project:
@@ -40,7 +40,7 @@ Or create a `.env` file in your project:
 ```env
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_REGION=eu-central-1
+AWS_REGION=your-region
 ```
 
 ### IAM Permissions

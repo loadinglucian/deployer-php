@@ -47,7 +47,7 @@ trait AwsTrait
             $secretAccessKey = $this->env->get(['AWS_SECRET_ACCESS_KEY']);
 
             /** @var string $region */
-            $region = $this->env->get(['AWS_REGION'], required: false) ?? 'eu-central-1';
+            $region = $this->env->get(['AWS_REGION']);
 
             // Initialize AWS API
             $this->io->promptSpin(
@@ -56,10 +56,9 @@ trait AwsTrait
             );
 
             return Command::SUCCESS;
-        } catch (\InvalidArgumentException) {
+        } catch (\InvalidArgumentException $e) {
             // Credential configuration issue
-            $this->nay('AWS credentials not found in environment.');
-            $this->nay('Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in your .env file (AWS_REGION defaults to eu-central-1).');
+            $this->nay($e->getMessage());
 
             return Command::FAILURE;
         } catch (\RuntimeException $e) {
