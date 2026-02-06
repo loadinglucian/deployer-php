@@ -202,6 +202,23 @@ teardown() {
 }
 
 # ----
+# aws:dns:list
+# ----
+
+@test "aws:dns:list shows created records" {
+	require_aws_provision_config
+
+	run_deployer aws:dns:list \
+		--zone="$AWS_TEST_HOSTED_ZONE"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains "$AWS_TEST_HOSTED_ZONE"
+	assert_command_replay "aws:dns:list"
+}
+
+# ----
 # cf:dns:set
 # ----
 

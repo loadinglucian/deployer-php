@@ -210,6 +210,23 @@ teardown() {
 }
 
 # ----
+# do:dns:list
+# ----
+
+@test "do:dns:list shows created records" {
+	require_do_provision_config
+
+	run_deployer do:dns:list \
+		--zone="$DO_TEST_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains "$DO_TEST_DOMAIN"
+	assert_command_replay "do:dns:list"
+}
+
+# ----
 # site:create
 # ----
 
