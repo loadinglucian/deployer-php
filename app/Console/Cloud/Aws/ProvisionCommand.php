@@ -42,7 +42,7 @@ class ProvisionCommand extends BaseCommand
             ->addOption('instance-type', null, InputOption::VALUE_REQUIRED, 'Full instance type (e.g., t3.large) - skips family/size prompts')
             ->addOption('instance-family', null, InputOption::VALUE_REQUIRED, 'Instance family (e.g., t3, m6i, c7g)')
             ->addOption('instance-size', null, InputOption::VALUE_REQUIRED, 'Instance size (e.g., micro, large, xlarge)')
-            ->addOption('image', null, InputOption::VALUE_REQUIRED, 'OS image slug (e.g., ubuntu-24.04, debian-13)')
+            ->addOption('image', null, InputOption::VALUE_REQUIRED, 'OS image slug (e.g., ubuntu-24.04)')
             ->addOption('key-pair', null, InputOption::VALUE_REQUIRED, 'AWS key pair name')
             ->addOption('private-key-path', null, InputOption::VALUE_REQUIRED, 'SSH private key path')
             ->addOption('vpc', null, InputOption::VALUE_REQUIRED, 'VPC ID')
@@ -244,10 +244,7 @@ class ProvisionCommand extends BaseCommand
             // Add to inventory
 
             $ipAddress = $elasticIp['publicIp'];
-
-            /** @var array{0: Distribution, 1: string} $parsed */
-            $parsed = Distribution::fromSlug($deets['image']);
-            $username = $parsed[0]->defaultSshUsername();
+            $username = Distribution::UBUNTU->defaultSshUsername();
 
             $server = $this->getServerInfo(
                 ServerBuilder::new()

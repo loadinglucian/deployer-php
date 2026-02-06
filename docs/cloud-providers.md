@@ -67,7 +67,7 @@ Your IAM user needs permissions for EC2 and Route53 operations. Here's the compl
 - `ec2:DescribeSubnets` - List subnets
 - `ec2:DescribeRegions` - List AWS regions
 - `ec2:DescribeInstanceTypes` - Query instance availability
-- `ec2:DescribeImages` - Find OS images (Ubuntu, Debian)
+- `ec2:DescribeImages` - Find OS images (Ubuntu)
 
 **Route53 Permissions** (for DNS management):
 
@@ -168,7 +168,7 @@ If any step fails after the instance is created, DeployerPHP automatically rolls
 After provisioning, run `deployer server:install` to set up the server.
 
 > [!NOTE]
-> The command replay uses durable OS image slugs (e.g., `ubuntu-24.04`, `debian-13`) that resolve to the latest AMI at runtime, so you can safely reuse the output in CI pipelines without worrying about image deprecation.
+> The command replay uses durable OS image slugs (e.g., `ubuntu-24.04`) that resolve to the latest AMI at runtime, so you can safely reuse the output in CI pipelines without worrying about image deprecation.
 
 <!-- -->
 

@@ -8,7 +8,6 @@
 # Output:
 #   distro: ubuntu
 #   version: "24.04"
-#   family: debian
 #   permissions: root
 #   hardware:
 #     cpu_cores: 4
@@ -57,71 +56,21 @@ fi
 # ----
 
 #
-# Detect Linux Distribution
-# Returns: exact distribution name (ubuntu|debian|fedora|centos|rocky|alma|rhel|amazon|unknown)
+# Returns: distribution ID from os-release (e.g., ubuntu) or 'unknown'
 
 detect_distro() {
 	local distro='unknown'
 
-	if [[ -f /etc/os-release ]]; then
-		# Try to get the ID field first for exact distro name
-		if grep -q '^ID=' /etc/os-release; then
-			distro=$(grep '^ID=' /etc/os-release | cut -d'=' -f2 | tr -d '"' | tr -d "'")
-
-			# Normalize some common variations
-			case $distro in
-				almalinux) distro='alma' ;;
-				rocky | rockylinux) distro='rocky' ;;
-				rhel | redhat) distro='rhel' ;;
-				amzn) distro='amazon' ;;
-			esac
-		fi
-	elif [[ -f /etc/redhat-release ]]; then
-		# Fallback for older systems without /etc/os-release
-		if grep -qi 'centos' /etc/redhat-release; then
-			distro='centos'
-		elif grep -qi 'red hat' /etc/redhat-release; then
-			distro='rhel'
-		else
-			distro='unknown'
-		fi
-	elif [[ -f /etc/debian_version ]]; then
-		# Fallback for Debian systems
-		distro='debian'
+	if [[ -f /etc/os-release ]] && grep -q '^ID=' /etc/os-release; then
+		distro=$(grep '^ID=' /etc/os-release | cut -d'=' -f2 | tr -d '"' | tr -d "'")
 	fi
 
 	echo "$distro"
 }
 
 #
-# Detect Distribution Family
-# Returns: debian|fedora|redhat|amazon|unknown
-
-detect_family() {
-	local distro=$1
-	local family='unknown'
-
-	case $distro in
-		ubuntu | debian)
-			family='debian'
-			;;
-		fedora)
-			family='fedora'
-			;;
-		centos | rocky | alma | rhel)
-			family='redhat'
-			;;
-		amazon)
-			family='amazon'
-			;;
-	esac
-
-	echo "$family"
-}
-
-#
 # Detect Distribution Version
-# Returns: version string (e.g., "24.04" for Ubuntu, "12" for Debian)
+# Returns: version string (e.g., "24.04" for Ubuntu)
 
 detect_version() {
 	local version='unknown'
@@ -490,7 +439,7 @@ get_sites_config() {
 # ----
 
 main() {
-	local distro version family permissions
+	local distro version permissions
 	local cpu_cores ram_mb disk_type
 	local php_versions php_default
 
@@ -500,8 +449,6 @@ main() {
 	echo "→ Detecting distribution..."
 	distro=$(detect_distro)
 	version=$(detect_version)
-	family=$(detect_family "$distro")
-
 	echo "→ Checking permissions..."
 	permissions=$(check_permissions)
 
@@ -566,7 +513,6 @@ main() {
 	if ! cat > "$DEPLOYER_OUTPUT_FILE" <<- EOF; then
 		distro: $distro
 		version: "$version"
-		family: $family
 		permissions: $permissions
 		hardware:
 		  cpu_cores: $cpu_cores

@@ -106,8 +106,8 @@ Available log sources for `server:logs`:
 | `system`                         | System journal logs                   |
 | `nginx`                          | Nginx service logs                    |
 | `php{version}-fpm`               | PHP-FPM logs (e.g., `php8.3-fpm`)     |
-| `mysql`, `mariadb`, `postgresql` | Database logs                         |
-| `redis`, `valkey`, `memcached`   | Cache service logs                    |
+| `mariadb`, `postgresql`          | Database logs                         |
+| `redis`, `memcached`             | Cache service logs                    |
 | `supervisor`                     | Supervisor service logs               |
 | `cron`                           | Cron service logs                     |
 | `{domain}`                       | Site access logs                      |

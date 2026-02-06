@@ -23,7 +23,6 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
-[[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 export DEPLOYER_PERMS
 
@@ -170,58 +169,28 @@ main() {
 	# PHP repository
 	# ----
 
-	case $DEPLOYER_DISTRO in
-		ubuntu)
+	#
+	# Ensure add-apt-repository is available
 
-			#
-			# Ensure add-apt-repository is available (Ubuntu only)
+	if ! command -v add-apt-repository > /dev/null 2>&1; then
+		echo "→ Installing software-properties-common..."
+		if ! apt_get_with_retry install -y software-properties-common; then
+			echo "Error: Failed to install software-properties-common" >&2
+			exit 1
+		fi
+	fi
 
-			if ! command -v add-apt-repository > /dev/null 2>&1; then
-				echo "→ Installing software-properties-common..."
-				if ! apt_get_with_retry install -y software-properties-common; then
-					echo "Error: Failed to install software-properties-common" >&2
-					exit 1
-				fi
-			fi
+	#
+	# PHP PPA
 
-			#
-			# PHP PPA (Ubuntu only)
-
-			if ! grep -qr "ondrej/php" /etc/apt/sources.list /etc/apt/sources.list.d/ 2> /dev/null; then
-				echo "→ Adding PHP PPA..."
-				if ! run_cmd env DEBIAN_FRONTEND=noninteractive add-apt-repository -y ppa:ondrej/php 2>&1; then
-					echo "Error: Failed to add PHP PPA" >&2
-					exit 1
-				fi
-				repo_added=true
-			fi
-			;;
-		debian)
-
-			#
-			# Sury PHP repository (Debian only)
-
-			if ! [[ -f /usr/share/keyrings/php-sury-archive-keyring.gpg ]]; then
-				echo "→ Adding PHP Sury GPG key..."
-				if ! curl -fsSL 'https://packages.sury.org/php/apt.gpg' | run_cmd gpg --batch --yes --dearmor -o /usr/share/keyrings/php-sury-archive-keyring.gpg; then
-					echo "Error: Failed to add Sury PHP GPG key" >&2
-					exit 1
-				fi
-				repo_added=true
-			fi
-
-			if ! [[ -f /etc/apt/sources.list.d/php-sury.list ]]; then
-				echo "→ Adding PHP Sury repository..."
-				local debian_codename
-				debian_codename=$(lsb_release -sc)
-				if ! echo "deb [signed-by=/usr/share/keyrings/php-sury-archive-keyring.gpg] https://packages.sury.org/php/ ${debian_codename} main" | run_cmd tee /etc/apt/sources.list.d/php-sury.list > /dev/null; then
-					echo "Error: Failed to add Sury PHP repository" >&2
-					exit 1
-				fi
-				repo_added=true
-			fi
-			;;
-	esac
+	if ! grep -qr "ondrej/php" /etc/apt/sources.list /etc/apt/sources.list.d/ 2> /dev/null; then
+		echo "→ Adding PHP PPA..."
+		if ! run_cmd env DEBIAN_FRONTEND=noninteractive add-apt-repository -y ppa:ondrej/php 2>&1; then
+			echo "Error: Failed to add PHP PPA" >&2
+			exit 1
+		fi
+		repo_added=true
+	fi
 
 	#
 	# Update apt again, only if we added new repositories

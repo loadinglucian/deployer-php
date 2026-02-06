@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace DeployerPHP\Console\Server;
 
 use DeployerPHP\Contracts\BaseCommand;
-use DeployerPHP\Enums\Distribution;
 use DeployerPHP\Traits\PlaybooksTrait;
 use DeployerPHP\Traits\ServersTrait;
 use DeployerPHP\Traits\ServicesTrait;
@@ -82,8 +81,7 @@ class ServerInfoCommand extends BaseCommand
     {
         /** @var string $distroSlug */
         $distroSlug = $info['distro'] ?? 'unknown';
-        $distribution = Distribution::tryFrom($distroSlug);
-        $distroName = $distribution?->displayName() ?? 'Unknown';
+        $distroName = 'ubuntu' === $distroSlug ? 'Ubuntu' : 'Unsupported';
 
         $permissionsText = match ($info['permissions'] ?? 'none') {
             'root' => 'root',

@@ -21,7 +21,6 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
-[[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 export DEPLOYER_PERMS
 
@@ -33,50 +32,6 @@ POSTGRES_PASS=""
 DEPLOYER_USER="deployer"
 DEPLOYER_PASS=""
 DEPLOYER_DATABASE="deployer"
-
-# ----
-# Repository Setup
-# ----
-
-#
-# Add PostgreSQL Global Development Group (PGDG) repository
-
-setup_postgresql_repo() {
-	echo "→ Adding PGDG repository..."
-
-	# Determine codename for the repository
-	local codename
-	codename=$(lsb_release -cs 2> /dev/null || echo "")
-
-	if [[ -z $codename ]]; then
-		echo "Error: Could not determine distribution codename" >&2
-		exit 1
-	fi
-
-	# Create keyrings directory if it doesn't exist
-	if [[ ! -d /etc/apt/keyrings ]]; then
-		run_cmd mkdir -p /etc/apt/keyrings
-	fi
-
-	# Download and add PGDG GPG key
-	if ! curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | run_cmd gpg --batch --yes --dearmor -o /etc/apt/keyrings/postgresql.gpg; then
-		echo "Error: Failed to add PGDG GPG key" >&2
-		exit 1
-	fi
-
-	# Add PGDG repository
-	local repo_file="/etc/apt/sources.list.d/postgresql.list"
-	if ! echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt/ ${codename}-pgdg main" | run_cmd tee "$repo_file" > /dev/null; then
-		echo "Error: Failed to add PGDG repository" >&2
-		exit 1
-	fi
-
-	# Update package list
-	if ! run_cmd apt-get update -q; then
-		echo "Error: Failed to update package list after adding PGDG repository" >&2
-		exit 1
-	fi
-}
 
 # ----
 # Installation Functions
@@ -92,7 +47,7 @@ setup_postgresql_repo() {
 install_packages() {
 	echo "→ Installing PostgreSQL..."
 
-	local packages=(postgresql-17 postgresql-client-17)
+	local packages=(postgresql postgresql-client)
 
 	if ! apt_get_with_retry install -y "${packages[@]}" 2>&1; then
 		echo "Error: Failed to install PostgreSQL packages" >&2
@@ -389,7 +344,6 @@ main() {
 	DEPLOYER_PASS=$(openssl rand -base64 24)
 
 	# Execute installation tasks
-	setup_postgresql_repo
 	install_packages
 	configure_logging
 	set_postgres_password

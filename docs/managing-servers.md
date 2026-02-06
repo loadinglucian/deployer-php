@@ -29,7 +29,7 @@ This displays:
 - **Distribution** - OS version and architecture
 - **User permissions** - Whether you're connecting as root or a standard user
 - **Hardware** - CPU cores, memory, and disk usage
-- **Services** - Status of installed services (MySQL, Redis, etc.)
+- **Services** - Status of installed services (MariaDB, Redis, etc.)
 - **Firewall** - UFW status and allowed ports
 - **Nginx** - Whether Nginx is running and its configuration status
 - **PHP versions** - All installed PHP versions and the default CLI version
@@ -95,7 +95,7 @@ deployer server:logs
 DeployerPHP presents a multiselect prompt where you can choose from:
 
 - **System logs** - syslog and authentication logs
-- **Service logs** - Nginx, MySQL, PostgreSQL, Redis, and other installed services
+- **Service logs** - Nginx, MariaDB, PostgreSQL, Redis, and other installed services
 - **Site access logs** - Nginx access logs for your sites
 - **Cron logs** - Output from scheduled cron jobs
 - **Supervisor logs** - Output from supervisor-managed processes

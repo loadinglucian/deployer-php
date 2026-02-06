@@ -19,7 +19,6 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
-[[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 [[ -z $DEPLOYER_SITE_DOMAIN ]] && echo "Error: DEPLOYER_SITE_DOMAIN required" && exit 1
 [[ -z $DEPLOYER_SITE_REPO ]] && echo "Error: DEPLOYER_SITE_REPO required" && exit 1
@@ -55,7 +54,7 @@ export DEPLOYER_KEEP_RELEASES
 # access to deployment context (paths, domain, PHP version, etc).
 # Used by run_as_deployer() in helpers.sh with sudo --preserve-env.
 # shellcheck disable=SC2034 # Used by inlined helpers.sh
-PRESERVE_ENV_VARS="DEPLOYER_RELEASE_PATH,DEPLOYER_SHARED_PATH,DEPLOYER_CURRENT_PATH,DEPLOYER_REPO_PATH,DEPLOYER_DOMAIN,DEPLOYER_BRANCH,DEPLOYER_PHP_VERSION,DEPLOYER_PHP,DEPLOYER_KEEP_RELEASES,DEPLOYER_DISTRO,DEPLOYER_PERMS"
+PRESERVE_ENV_VARS="DEPLOYER_RELEASE_PATH,DEPLOYER_SHARED_PATH,DEPLOYER_CURRENT_PATH,DEPLOYER_REPO_PATH,DEPLOYER_DOMAIN,DEPLOYER_BRANCH,DEPLOYER_PHP_VERSION,DEPLOYER_PHP,DEPLOYER_KEEP_RELEASES,DEPLOYER_PERMS"
 
 # ----
 # Helper Functions

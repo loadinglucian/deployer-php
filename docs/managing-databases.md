@@ -3,12 +3,10 @@
 <!-- toc -->
 
 - [Relational Databases](#relational-databases)
-    - [MySQL](#mysql)
     - [MariaDB](#mariadb)
     - [PostgreSQL](#postgresql)
 - [Key-Value Stores](#key-value-stores)
     - [Redis](#redis)
-    - [Valkey](#valkey)
     - [Memcached](#memcached)
 - [Credentials](#credentials)
     - [What Gets Generated](#what-gets-generated)
@@ -17,42 +15,22 @@
 
 <!-- /toc -->
 
-Most applications need persistent data storage. DeployerPHP supports installing and managing relational databases (MySQL, MariaDB, PostgreSQL) and key-value stores (Redis, Valkey, Memcached) on your servers.
+Most applications need persistent data storage. DeployerPHP supports installing and managing relational databases (MariaDB, PostgreSQL) and key-value stores (Redis, Memcached) on your servers.
 
 > [!NOTE]
-> DeployerPHP installs the latest LTS version of each database from official maintainer APT repositories, ensuring consistent versions across Ubuntu and Debian.
+> DeployerPHP installs databases from your Ubuntu release's native packages and handles all configuration automatically.
 
 ## Relational Databases
 
-### MySQL
-
-MySQL is a popular open-source relational database. DeployerPHP installs the latest LTS version from the official Oracle APT repository. Install it with:
-
-```shell
-deployer mysql:install
-```
-
-During installation, DeployerPHP installs the MySQL server package, generates a secure root password, creates a `deployer` database user with its own password, and creates a `deployer` database ready for your application.
-
-Control the service with:
-
-```shell
-deployer mysql:start
-deployer mysql:stop
-deployer mysql:restart
-```
-
-To view MySQL logs, use `server:logs` and select the mysqld service.
-
 ### MariaDB
 
-MariaDB is a community-developed fork of MySQL with enhanced features. It's fully compatible with MySQL clients and most applications. DeployerPHP installs the latest LTS version from the official MariaDB Foundation repository. Install it with:
+MariaDB is a community-developed, open-source relational database with enhanced features and active development. Install it with:
 
 ```shell
 deployer mariadb:install
 ```
 
-The installation process mirrors MySQL: it generates secure credentials and creates a `deployer` user and database.
+During installation, DeployerPHP installs the MariaDB server package, generates a secure root password, creates a `deployer` database user with its own password, and creates a `deployer` database ready for your application.
 
 Control the service with:
 
@@ -64,18 +42,15 @@ deployer mariadb:restart
 
 To view MariaDB logs, use `server:logs` and select the mariadb service.
 
-> [!WARNING]
-> MySQL and MariaDB are mutually exclusive. Install only one on each server.
-
 ### PostgreSQL
 
-PostgreSQL is a powerful, open-source object-relational database system known for its reliability and feature set. DeployerPHP installs the latest stable version from the official PGDG repository. Install it with:
+PostgreSQL is a powerful, open-source object-relational database system known for its reliability and feature set. Install it with:
 
 ```shell
 deployer postgresql:install
 ```
 
-Like MySQL and MariaDB, this creates credentials for the `deployer` user and a `deployer` database.
+Like MariaDB, this creates credentials for the `deployer` user and a `deployer` database.
 
 Control the service with:
 
@@ -91,7 +66,7 @@ To view PostgreSQL logs, use `server:logs` and select the postgres service.
 
 ### Redis
 
-Redis is an in-memory data structure store, commonly used for caching, sessions, and queues. DeployerPHP installs the latest stable version from the official Redis repository. Install it with:
+Redis is an in-memory data structure store, commonly used for caching, sessions, and queues. Install it with:
 
 ```shell
 deployer redis:install
@@ -108,29 +83,6 @@ deployer redis:restart
 ```
 
 To view Redis logs, use `server:logs` and select the redis-server service.
-
-### Valkey
-
-Valkey is an open-source fork of Redis, fully compatible with Redis clients and commands. DeployerPHP installs the latest stable version from the official Valkey repository. If you prefer Valkey over Redis, install it with:
-
-```shell
-deployer valkey:install
-```
-
-The installation process mirrors Redis: it generates a secure password and configures the server to bind to localhost only.
-
-Control the service with:
-
-```shell
-deployer valkey:start
-deployer valkey:stop
-deployer valkey:restart
-```
-
-To view Valkey logs, use `server:logs` and select the valkey-server service.
-
-> [!WARNING]
-> Valkey and Redis are mutually exclusive. Install only one on each server.
 
 ### Memcached
 
@@ -152,17 +104,17 @@ To view Memcached logs, use `server:logs` and select the memcached service.
 
 ## Credentials
 
-When installing databases and key-value stores that require authentication (MySQL, MariaDB, PostgreSQL, Redis, Valkey), DeployerPHP generates secure credentials during installation. These credentials are for accessing the database on the remote server, but they're saved to your local machine where you're running the `deployer` command.
+When installing databases and key-value stores that require authentication (MariaDB, PostgreSQL, Redis), DeployerPHP generates secure credentials during installation. These credentials are for accessing the database on the remote server, but they're saved to your local machine where you're running the `deployer` command.
 
 ### What Gets Generated
 
-**Relational databases** (MySQL, MariaDB, PostgreSQL) generate:
+**Relational databases** (MariaDB, PostgreSQL) generate:
 
 - Root/admin password for full database access
 - Application user (`deployer`) with its own password
 - Application database (`deployer`) ready for your app
 
-**Key-value stores** (Redis, Valkey) generate:
+**Key-value stores** (Redis) generate:
 
 - A single authentication password
 
@@ -173,7 +125,7 @@ During installation, you'll be prompted to choose how to receive the credentials
 - **Display on screen** - Shows credentials in your terminal (default)
 - **Save to file** - Downloads credentials to your local machine
 
-If you choose to save, DeployerPHP prompts for a file path. The default suggestions are `.env.mysql`, `.env.postgresql`, `.env.redis`, etc. The path is relative to your current working directory, so credentials are typically saved alongside your project files.
+If you choose to save, DeployerPHP prompts for a file path. The default suggestions are `.env.mariadb`, `.env.postgresql`, `.env.redis`, etc. The path is relative to your current working directory, so credentials are typically saved alongside your project files.
 
 Credential files are created with `0600` permissions (owner read/write only) for security. If the file already exists, new credentials are appended with a separator, making it easy to store credentials for multiple servers in one file.
 
@@ -182,11 +134,11 @@ Credential files are created with `0600` permissions (owner read/write only) for
 Saved credential files use `.env` format with environment variables and ready-to-use connection strings:
 
 ```env
-# MySQL Credentials for production
-MYSQL_ROOT_PASSWORD=...
-MYSQL_DATABASE=deployer
-MYSQL_USER=deployer
-MYSQL_PASSWORD=...
+# MariaDB Credentials for production
+MARIADB_ROOT_PASSWORD=...
+MARIADB_DATABASE=deployer
+MARIADB_USER=deployer
+MARIADB_PASSWORD=...
 DATABASE_URL=mysql://deployer:...@localhost/deployer
 ```
 

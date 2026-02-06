@@ -210,11 +210,9 @@ All service commands follow the pattern `{service}:{action}`.
 | ---------- | -------------------- | ------------------ | ----------------- | -------------------- |
 | Nginx      | via `server:install` | `nginx:start`      | `nginx:stop`      | `nginx:restart`      |
 | PHP-FPM    | via `server:install` | `php:start`        | `php:stop`        | `php:restart`        |
-| MySQL      | `mysql:install`      | `mysql:start`      | `mysql:stop`      | `mysql:restart`      |
 | MariaDB    | `mariadb:install`    | `mariadb:start`    | `mariadb:stop`    | `mariadb:restart`    |
 | PostgreSQL | `postgresql:install` | `postgresql:start` | `postgresql:stop` | `postgresql:restart` |
 | Redis      | `redis:install`      | `redis:start`      | `redis:stop`      | `redis:restart`      |
-| Valkey     | `valkey:install`     | `valkey:start`     | `valkey:stop`     | `valkey:restart`     |
 | Memcached  | `memcached:install`  | `memcached:start`  | `memcached:stop`  | `memcached:restart`  |
 
 ### Cron Management
@@ -296,8 +294,8 @@ Available log sources:
 | `system`                         | System journal logs                   |
 | `nginx`                          | Nginx service logs                    |
 | `php{version}-fpm`               | PHP-FPM logs (e.g., `php8.3-fpm`)     |
-| `mysql`, `mariadb`, `postgresql` | Database logs                         |
-| `redis`, `valkey`, `memcached`   | Cache service logs                    |
+| `mariadb`, `postgresql`          | Database logs                         |
+| `redis`, `memcached`             | Cache service logs                    |
 | `supervisor`                     | Supervisor service logs               |
 | `cron`                           | Cron service logs                     |
 | `{domain}`                       | Site access logs                      |
@@ -427,5 +425,5 @@ The `server:run` command executes via non-interactive SSH without a terminal (no
 | `less`, `more`         | `cat`, `head -n`, `tail -n`          |
 | `top`, `htop`          | `top -b -n 1`, `ps aux`              |
 | `vim`, `vi`, `nano`    | `cat` to view, `sed` for edits       |
-| `mysql`, `psql` (REPL) | Single queries with `-e` flag        |
+| `psql` (REPL)          | Single queries with `-e` flag        |
 | `ssh` (nested)         | Not supported                        |

@@ -13,7 +13,6 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
-[[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 [[ -z $DEPLOYER_PHP_VERSION ]] && echo "Error: DEPLOYER_PHP_VERSION required" && exit 1
 [[ -z $DEPLOYER_PHP_SET_DEFAULT ]] && echo "Error: DEPLOYER_PHP_SET_DEFAULT required" && exit 1

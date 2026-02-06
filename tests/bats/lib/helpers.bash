@@ -28,12 +28,9 @@ export TEST_KEY="${BATS_TEST_ROOT}/fixtures/keys/id_test"
 # Distro configuration - set by bats.sh via BATS_DISTRO environment variable
 export BATS_DISTRO="${BATS_DISTRO:-ubuntu24}"
 
-# Distro port mapping (must match bats.sh and lima/*.yaml)
-# Note: Only Ubuntu LTS releases are supported
-declare -A DISTRO_PORTS=(
-	["ubuntu24"]="2222"
-	["debian13"]="2225"
-)
+# Source canonical distro/port mapping shared with bats.sh
+# shellcheck source=tests/bats/lib/vm-matrix.bash
+source "${BATS_TEST_ROOT}/lib/vm-matrix.bash"
 
 # Test server connection - derived from BATS_DISTRO
 export TEST_SERVER_HOST="127.0.0.1"

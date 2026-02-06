@@ -18,7 +18,6 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
-[[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 export DEPLOYER_PERMS
 
@@ -27,75 +26,6 @@ export DEPLOYER_PERMS
 
 # Credentials (generated in main)
 REDIS_PASS=""
-
-# ----
-# Conflict Detection
-# ----
-
-#
-# Check for Valkey conflict before installation
-
-check_valkey_conflict() {
-	# Check if Valkey service is running
-	if systemctl is-active --quiet valkey 2> /dev/null || systemctl is-active --quiet valkey-server 2> /dev/null; then
-		echo "Error: Valkey is already installed and running on this server" >&2
-		echo "Both Redis and Valkey use port 6379 and cannot coexist." >&2
-		echo "Please uninstall Valkey first if you want to use Redis." >&2
-		exit 1
-	fi
-
-	# Check if Valkey packages are installed (even if service is stopped)
-	if dpkg -l valkey-server 2> /dev/null | grep -q '^ii'; then
-		echo "Error: Valkey packages are installed on this server" >&2
-		echo "Both Redis and Valkey use port 6379 and cannot coexist." >&2
-		echo "Please remove Valkey packages first: apt-get purge valkey-server" >&2
-		exit 1
-	fi
-}
-
-# ----
-# Repository Setup
-# ----
-
-#
-# Add Redis official repository
-
-setup_redis_repo() {
-	echo "-> Adding Redis official repository..."
-
-	# Determine codename for the repository
-	local codename
-	codename=$(lsb_release -cs 2> /dev/null || echo "")
-
-	if [[ -z $codename ]]; then
-		echo "Error: Could not determine distribution codename" >&2
-		exit 1
-	fi
-
-	# Create keyrings directory if it doesn't exist
-	if [[ ! -d /etc/apt/keyrings ]]; then
-		run_cmd mkdir -p /etc/apt/keyrings
-	fi
-
-	# Download and add Redis GPG key
-	if ! curl -fsSL https://packages.redis.io/gpg | run_cmd gpg --batch --yes --dearmor -o /etc/apt/keyrings/redis.gpg; then
-		echo "Error: Failed to add Redis GPG key" >&2
-		exit 1
-	fi
-
-	# Add Redis repository
-	local repo_file="/etc/apt/sources.list.d/redis.list"
-	if ! echo "deb [signed-by=/etc/apt/keyrings/redis.gpg] https://packages.redis.io/deb ${codename} main" | run_cmd tee "$repo_file" > /dev/null; then
-		echo "Error: Failed to add Redis repository" >&2
-		exit 1
-	fi
-
-	# Update package list
-	if ! run_cmd apt-get update -q; then
-		echo "Error: Failed to update package list after adding Redis repository" >&2
-		exit 1
-	fi
-}
 
 # ----
 # Installation Functions
@@ -228,9 +158,6 @@ config_logrotate() {
 # ----
 
 main() {
-	# Check for Valkey conflict FIRST (before any installation)
-	check_valkey_conflict
-
 	# Check if Redis is already installed - exit gracefully if so
 	if systemctl is-active --quiet redis-server 2> /dev/null; then
 		echo "-> Redis server is already installed and running"
@@ -250,7 +177,6 @@ main() {
 	REDIS_PASS=$(openssl rand -base64 24)
 
 	# Execute installation tasks
-	setup_redis_repo
 	install_packages
 	configure_authentication
 	config_logrotate

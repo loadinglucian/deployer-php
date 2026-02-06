@@ -239,7 +239,7 @@ class AwsAccountService extends BaseAwsService
     }
 
     /**
-     * Get available AMIs (filtered to Ubuntu and Debian only).
+     * Get available AMIs (filtered to Ubuntu only).
      *
      * Returns slug-keyed maps for both prompt display and AMI resolution.
      *
@@ -262,26 +262,10 @@ class AwsAccountService extends BaseAwsService
                 ],
             ]);
 
-            // Fetch Debian images (Debian official)
-            $debianResult = $ec2->describeImages([
-                'Owners' => ['136693071363'], // Debian
-                'Filters' => [
-                    ['Name' => 'name', 'Values' => ['debian-*-amd64-*']],
-                    ['Name' => 'state', 'Values' => ['available']],
-                    ['Name' => 'architecture', 'Values' => ['x86_64']],
-                    ['Name' => 'virtualization-type', 'Values' => ['hvm']],
-                    ['Name' => 'root-device-type', 'Values' => ['ebs']],
-                ],
-            ]);
+            /** @var array<int, array<string, mixed>> $images */
+            $images = $ubuntuResult['Images'] ?? [];
 
-            /** @var array<int, array<string, mixed>> $ubuntuImages */
-            $ubuntuImages = $ubuntuResult['Images'] ?? [];
-            /** @var array<int, array<string, mixed>> $debianImages */
-            $debianImages = $debianResult['Images'] ?? [];
-
-            $images = array_merge($ubuntuImages, $debianImages);
-
-            // Group by distribution and version, keep only the latest
+            // Group by version and keep only the latest image per version
             $latestImages = $this->filterLatestImages($images);
 
             $options = [];
@@ -290,20 +274,11 @@ class AwsAccountService extends BaseAwsService
             foreach ($latestImages as $image) {
                 /** @var string $amiId */
                 $amiId = $image['ImageId'];
-                /** @var string $name */
-                $name = $image['Name'];
-                /** @var string $distro */
-                $distro = $image['_distro'];
                 /** @var string $version */
                 $version = $image['_version'];
-
-                $description = $this->formatImageDescription($name);
-
-                if ('' !== $description) {
-                    $slug = Distribution::from($distro)->toSlug($version);
-                    $options[$slug] = $description;
-                    $amiMap[$slug] = $amiId;
-                }
+                $slug = Distribution::UBUNTU->toSlug($version);
+                $options[$slug] = Distribution::UBUNTU->formatVersion($version);
+                $amiMap[$slug] = $amiId;
             }
 
             asort($options);
@@ -492,7 +467,7 @@ class AwsAccountService extends BaseAwsService
     }
 
     /**
-     * Filter images to keep only the latest 2 versions per distribution.
+     * Filter images to keep only the latest 2 Ubuntu LTS versions.
      *
      * @param array<int, array<string, mixed>> $images
      *
@@ -500,60 +475,38 @@ class AwsAccountService extends BaseAwsService
      */
     private function filterLatestImages(array $images): array
     {
-        // Group by version key and keep latest image per version
-        $grouped = [];
+        // Group by version and keep latest image per version
+        $latestByVersion = [];
         foreach ($images as $image) {
             /** @var string $name */
             $name = $image['Name'] ?? '';
-            $parsed = $this->parseImageVersion($name);
+            $version = $this->parseImageVersion($name);
 
-            if (null === $parsed) {
+            if (null === $version) {
                 continue;
             }
-
-            [$distro, $version] = $parsed;
-            $key = $distro . '-' . $version;
 
             /** @var string $creationDate */
             $creationDate = $image['CreationDate'] ?? '';
 
-            if (!isset($grouped[$key]) || $creationDate > $grouped[$key]['CreationDate']) {
-                $grouped[$key] = $image + ['_distro' => $distro, '_version' => $version];
+            if (!isset($latestByVersion[$version]) || $creationDate > $latestByVersion[$version]['CreationDate']) {
+                $latestByVersion[$version] = $image + ['_version' => $version];
             }
         }
 
-        // Separate by distro
-        $ubuntu = [];
-        $debian = [];
-
-        foreach ($grouped as $image) {
-            /** @var string $version */
-            $version = $image['_version'];
-
-            if ('ubuntu' === $image['_distro']) {
-                $ubuntu[$version] = $image;
-            } else {
-                $debian[$version] = $image;
-            }
-        }
-
-        // Sort versions descending and limit to latest 2 each
+        // Sort versions descending and limit to latest 2
         // Cast to string because PHP converts numeric keys like "12" to int
-        uksort($ubuntu, fn ($a, $b) => version_compare((string) $b, (string) $a));
-        uksort($debian, fn ($a, $b) => version_compare((string) $b, (string) $a));
+        uksort($latestByVersion, fn ($a, $b) => version_compare((string) $b, (string) $a));
 
-        $ubuntu = array_slice($ubuntu, 0, 2, true);
-        $debian = array_slice($debian, 0, 2, true);
-
-        return array_values(array_merge($ubuntu, $debian));
+        return array_values(array_slice($latestByVersion, 0, 2, true));
     }
 
     /**
-     * Parse image name to extract distribution and version.
+     * Parse image name to extract Ubuntu LTS version.
      *
-     * @return array{0: string, 1: string}|null Returns [distro, version] or null
+     * @return string|null Returns version (e.g., "24.04") or null
      */
-    private function parseImageVersion(string $name): ?array
+    private function parseImageVersion(string $name): ?string
     {
         // Ubuntu LTS only (xx.04 versions where xx is even)
         if (preg_match('/ubuntu[^0-9]*(\d+\.04)/', $name, $matches)) {
@@ -562,37 +515,10 @@ class AwsAccountService extends BaseAwsService
                 return null;
             }
 
-            return ['ubuntu', $version];
-        }
-
-        // Debian major versions
-        if (preg_match('/debian-(\d+)/', $name, $matches)) {
-            $version = $matches[1];
-            if (!Distribution::DEBIAN->isValidVersion($version)) {
-                return null;
-            }
-
-            return ['debian', $version];
+            return $version;
         }
 
         return null;
-    }
-
-    /**
-     * Format image description for display.
-     */
-    private function formatImageDescription(string $name): string
-    {
-        $parsed = $this->parseImageVersion($name);
-
-        if (null === $parsed) {
-            return '';
-        }
-
-        [$distro, $version] = $parsed;
-        $distribution = Distribution::from($distro);
-
-        return $distribution->formatVersion($version);
     }
 
     /**

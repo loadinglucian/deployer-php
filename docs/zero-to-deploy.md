@@ -25,7 +25,7 @@ It may seem overwhelming, but you only need to run a few simple commands and res
 
 ## Step 1: Add A Server
 
-Before we can deploy anything we'll need a fresh new server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can connect to it via SSH and it is running a version of `Ubuntu LTS >= 24.04` or `Debian >= 13` as specified by the [Requirements](/docs/introduction#requirements).
+Before we can deploy anything we'll need a fresh new server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can connect to it via SSH and it is running `Ubuntu LTS >= 24.04` as specified by the [Requirements](/docs/introduction#requirements).
 
 Run the `server:add` command to add a new server to your inventory:
 
@@ -122,14 +122,12 @@ For more information, please read [Managing Services](/docs/managing-services).
 
 Install your preferred database or cache server by running one of the dedicated installation commands:
 
-| Command              | Description                                       |
-| -------------------- | ------------------------------------------------- |
-| `mysql:install`      | Install MySQL database server                     |
-| `mariadb:install`    | Install MariaDB database server                   |
-| `postgresql:install` | Install PostgreSQL database server                |
-| `redis:install`      | Install Redis key-value store                     |
-| `valkey:install`     | Install Valkey key-value store (Redis-compatible) |
-| `memcached:install`  | Install Memcached caching server                  |
+| Command              | Description                        |
+| -------------------- | ---------------------------------- |
+| `mariadb:install`    | Install MariaDB database server    |
+| `postgresql:install` | Install PostgreSQL database server |
+| `redis:install`      | Install Redis key-value store      |
+| `memcached:install`  | Install Memcached caching server   |
 
 For more information, please read [Managing Databases](/docs/managing-databases).
 

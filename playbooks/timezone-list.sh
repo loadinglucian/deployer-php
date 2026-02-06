@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #
-# Timezone List Playbook - Ubuntu/Debian Only
+# Timezone List Playbook - Ubuntu Only
 #
 # Lists all available system timezones using timedatectl.
 # ----

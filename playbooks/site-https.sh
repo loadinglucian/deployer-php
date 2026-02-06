@@ -8,7 +8,6 @@
 #
 # Required Environment Variables:
 #   DEPLOYER_OUTPUT_FILE  - Output file path
-#   DEPLOYER_DISTRO       - Distribution: ubuntu|debian
 #   DEPLOYER_PERMS        - Permissions: root|sudo|none
 #   DEPLOYER_SITE_DOMAIN  - Domain name
 #   DEPLOYER_WWW_MODE     - WWW mode: redirect-to-root|redirect-to-www
@@ -25,7 +24,6 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
-[[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 [[ -z $DEPLOYER_SITE_DOMAIN ]] && echo "Error: DEPLOYER_SITE_DOMAIN required" && exit 1
 [[ -z $DEPLOYER_WWW_MODE ]] && echo "Error: DEPLOYER_WWW_MODE required" && exit 1

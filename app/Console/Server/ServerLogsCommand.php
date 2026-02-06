@@ -53,11 +53,9 @@ class ServerLogsCommand extends BaseCommand
         'nginx' => ['type' => 'journalctl', 'unit' => 'nginx'],
         'mariadb' => ['type' => 'both', 'unit' => 'mariadb', 'path' => '/var/log/mysql/error.log'],
         'memcached' => ['type' => 'both', 'unit' => 'memcached', 'path' => '/var/log/memcached.log'],
-        'mysqld' => ['type' => 'both', 'unit' => 'mysql', 'path' => '/var/log/mysql/error.log'],
         'postgres' => ['type' => 'both', 'unit' => 'postgresql', 'path' => '/var/log/postgresql/postgresql.log'],
         'redis-server' => ['type' => 'both', 'unit' => 'redis-server', 'path' => '/var/log/redis/redis-server.log'],
         'sshd' => ['type' => 'journalctl', 'unit' => 'ssh'],
-        'valkey-server' => ['type' => 'both', 'unit' => 'valkey-server', 'path' => '/var/log/valkey/valkey-server.log'],
     ];
 
     // ----

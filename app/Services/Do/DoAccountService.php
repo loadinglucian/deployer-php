@@ -103,7 +103,7 @@ class DoAccountService extends BaseDoService
     }
 
     /**
-     * Get available OS images (filtered to latest 2 versions per distribution).
+     * Get available OS images (filtered to latest 2 Ubuntu LTS versions).
      *
      * @return array<string, string> Array of image slug => description
      */
@@ -115,9 +115,8 @@ class DoAccountService extends BaseDoService
             $imageApi = $client->image();
             $images = $imageApi->getAll(['type' => 'distribution']);
 
-            // Parse and collect all valid images
+            // Parse and collect all valid Ubuntu images
             $ubuntu = [];
-            $debian = [];
 
             foreach ($images as $image) {
                 /** @var ImageEntity $image */
@@ -126,31 +125,21 @@ class DoAccountService extends BaseDoService
                     continue;
                 }
 
-                [$distribution, $slug, $version] = $parsed;
-
-                if (Distribution::UBUNTU === $distribution) {
-                    $ubuntu[$version] = ['slug' => $slug, 'version' => $version];
-                } else {
-                    $debian[$version] = ['slug' => $slug, 'version' => $version];
-                }
+                [$slug, $version] = $parsed;
+                $ubuntu[$version] = ['slug' => $slug, 'version' => $version];
             }
 
-            // Sort versions descending and limit to latest 2 each
+            // Sort versions descending and limit to latest 2
             // Cast to string because PHP converts numeric keys like "12" to int
             uksort($ubuntu, fn ($a, $b) => version_compare((string) $b, (string) $a));
-            uksort($debian, fn ($a, $b) => version_compare((string) $b, (string) $a));
 
             $ubuntu = array_slice($ubuntu, 0, 2, true);
-            $debian = array_slice($debian, 0, 2, true);
 
             // Build options with formatted display
             $options = [];
 
             foreach ($ubuntu as $data) {
                 $options[$data['slug']] = Distribution::UBUNTU->formatVersion($data['version']);
-            }
-            foreach ($debian as $data) {
-                $options[$data['slug']] = Distribution::DEBIAN->formatVersion($data['version']);
             }
 
             asort($options);
@@ -164,7 +153,7 @@ class DoAccountService extends BaseDoService
     /**
      * Parse and validate an image entity.
      *
-     * @return array{0: Distribution, 1: string, 2: string}|null Returns [Distribution, slug, version] or null
+     * @return array{0: string, 1: string}|null Returns [slug, version] or null
      */
     private function parseValidImage(ImageEntity $image): ?array
     {
@@ -184,17 +173,7 @@ class DoAccountService extends BaseDoService
                 return null;
             }
 
-            return [Distribution::UBUNTU, $slug, $version];
-        }
-
-        // Debian: debian-13-x64
-        if (preg_match('/^debian-(\d+)/', $slug, $matches)) {
-            $version = $matches[1];
-            if (!Distribution::DEBIAN->isValidVersion($version)) {
-                return null;
-            }
-
-            return [Distribution::DEBIAN, $slug, $version];
+            return [$slug, $version];
         }
 
         return null;

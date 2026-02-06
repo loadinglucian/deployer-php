@@ -51,10 +51,8 @@ deployer server:add
 
 # 4. Install your preferred database service:
 # deployer mariadb:install
-# deployer mysql:install
 # deployer postgresql:install
 # deployer redis:install
-# deployer valkey:install
 # deployer memcached:install
 
 # 5. Install Nginx, PHP, Bun and generate a deploy key
@@ -90,7 +88,7 @@ There aren't any limits or restrictions on how many servers and sites you can de
 
 ### No Vendor Lock-In
 
-You can manage servers and deploy sites with any hosting or cloud provider. If your server runs Ubuntu LTS or Debian and you can SSH into it, you can deploy sites there using DeployerPHP.
+You can manage servers and deploy sites with any hosting or cloud provider. If your server runs Ubuntu LTS and you can SSH into it, you can deploy sites there using DeployerPHP.
 
 <a name="end-to-end-management"></a>
 

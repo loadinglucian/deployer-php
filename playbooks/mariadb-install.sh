@@ -21,7 +21,6 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
-[[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 export DEPLOYER_PERMS
 
@@ -33,75 +32,6 @@ ROOT_PASS=""
 DEPLOYER_USER="deployer"
 DEPLOYER_PASS=""
 DEPLOYER_DATABASE="deployer"
-
-# ----
-# Conflict Detection
-# ----
-
-#
-# Check for MySQL conflict before installation
-
-check_mysql_conflict() {
-	# Check if MySQL service is running
-	if systemctl is-active --quiet mysql 2> /dev/null || systemctl is-active --quiet mysqld 2> /dev/null; then
-		echo "Error: MySQL is already installed and running on this server" >&2
-		echo "Both MySQL and MariaDB use port 3306 and cannot coexist." >&2
-		echo "Please uninstall MySQL first if you want to use MariaDB." >&2
-		exit 1
-	fi
-
-	# Check if MySQL packages are installed (even if service is stopped)
-	if dpkg -l mysql-server 2> /dev/null | grep -q '^ii'; then
-		echo "Error: MySQL packages are installed on this server" >&2
-		echo "Both MySQL and MariaDB use port 3306 and cannot coexist." >&2
-		echo "Please remove MySQL packages first: apt-get purge mysql-server mysql-client" >&2
-		exit 1
-	fi
-}
-
-# ----
-# Repository Setup
-# ----
-
-#
-# Add MariaDB Foundation repository for 11.8 LTS
-
-setup_mariadb_repo() {
-	echo "→ Adding MariaDB Foundation repository..."
-
-	# Determine codename for the repository
-	local codename
-	codename=$(lsb_release -cs 2> /dev/null || echo "")
-
-	if [[ -z $codename ]]; then
-		echo "Error: Could not determine distribution codename" >&2
-		exit 1
-	fi
-
-	# Create keyrings directory if it doesn't exist
-	if [[ ! -d /etc/apt/keyrings ]]; then
-		run_cmd mkdir -p /etc/apt/keyrings
-	fi
-
-	# Download and add MariaDB GPG key
-	if ! curl -fsSL https://supplychain.mariadb.com/MariaDB-Server-GPG-KEY | run_cmd gpg --batch --yes --dearmor -o /etc/apt/keyrings/mariadb.gpg; then
-		echo "Error: Failed to add MariaDB GPG key" >&2
-		exit 1
-	fi
-
-	# Add MariaDB repository
-	local repo_file="/etc/apt/sources.list.d/mariadb.list"
-	if ! echo "deb [signed-by=/etc/apt/keyrings/mariadb.gpg] https://deb.mariadb.org/11.8/${DEPLOYER_DISTRO} ${codename} main" | run_cmd tee "$repo_file" > /dev/null; then
-		echo "Error: Failed to add MariaDB repository" >&2
-		exit 1
-	fi
-
-	# Update package list
-	if ! run_cmd apt-get update -q; then
-		echo "Error: Failed to update package list after adding MariaDB repository" >&2
-		exit 1
-	fi
-}
 
 # ----
 # Installation Functions
@@ -286,9 +216,6 @@ config_logrotate() {
 # ----
 
 main() {
-	# Check for MySQL conflict FIRST (before any installation)
-	check_mysql_conflict
-
 	# Check if MariaDB is already installed - exit gracefully if so
 	if systemctl is-active --quiet mariadb 2> /dev/null; then
 		echo "→ MariaDB server is already installed and running"
@@ -309,7 +236,6 @@ main() {
 	DEPLOYER_PASS=$(openssl rand -base64 24)
 
 	# Execute installation tasks
-	setup_mariadb_repo
 	install_packages
 	secure_installation
 	create_deployer_user

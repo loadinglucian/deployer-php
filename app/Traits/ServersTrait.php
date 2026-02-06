@@ -239,13 +239,14 @@ trait ServersTrait
 
         /** @var string $distro */
         $distro = $info['distro'] ?? 'unknown';
-        $distribution = Distribution::tryFrom($distro);
 
-        if (null === $distribution) {
-            $this->info('DeployerPHP only supports Debian and Ubuntu.');
+        if ('ubuntu' !== $distro) {
+            $this->info('DeployerPHP only supports Ubuntu LTS.');
 
             return Command::FAILURE;
         }
+
+        $distribution = Distribution::UBUNTU;
 
         //
         // Validate version (Ubuntu requires LTS)

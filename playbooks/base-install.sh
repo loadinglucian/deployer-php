@@ -8,7 +8,6 @@
 #
 # Required Environment Variables:
 #   DEPLOYER_OUTPUT_FILE  - Output file path
-#   DEPLOYER_DISTRO       - Distribution: ubuntu|debian
 #   DEPLOYER_PERMS        - Permissions: root|sudo|none
 #   DEPLOYER_SSH_PORT     - SSH port to allow through firewall
 #
@@ -20,7 +19,6 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
-[[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 [[ -z $DEPLOYER_SSH_PORT ]] && echo "Error: DEPLOYER_SSH_PORT required" && exit 1
 export DEPLOYER_PERMS
@@ -39,25 +37,12 @@ export DEPLOYER_PERMS
 install_packages() {
 	echo "→ Installing packages..."
 
-	local common_packages=(curl zip unzip nginx certbot python3-certbot-nginx git rsync ufw jq supervisor tree)
-	local distro_packages
+	local packages=(curl zip unzip nginx certbot python3-certbot-nginx git rsync ufw jq supervisor tree software-properties-common)
 
-	case $DEPLOYER_DISTRO in
-		ubuntu)
-			distro_packages=(software-properties-common)
-			if ! apt_get_with_retry install -y "${common_packages[@]}" "${distro_packages[@]}"; then
-				echo "Error: Failed to install packages" >&2
-				exit 1
-			fi
-			;;
-		debian)
-			distro_packages=(apt-transport-https lsb-release ca-certificates)
-			if ! apt_get_with_retry install -y "${common_packages[@]}" "${distro_packages[@]}"; then
-				echo "Error: Failed to install packages" >&2
-				exit 1
-			fi
-			;;
-	esac
+	if ! apt_get_with_retry install -y "${packages[@]}"; then
+		echo "Error: Failed to install packages" >&2
+		exit 1
+	fi
 }
 
 #

@@ -41,16 +41,9 @@ NC='\033[0m'
 TEST_SERVER_HOST="127.0.0.1"
 TEST_KEY="${BATS_DIR}/fixtures/keys/id_test"
 
-# Available distros and their SSH ports
-# Add new distros here - tests will run against all of them
-# Note: Only Ubuntu LTS releases are supported (interim releases like 25.04 are not)
-declare -A DISTRO_PORTS=(
-	["ubuntu24"]="2222"
-	["debian13"]="2225"
-)
-
-# Get ordered list of distro names
-DISTROS=("ubuntu24" "debian13")
+# Source canonical distro/port mapping
+# shellcheck source=tests/bats/lib/vm-matrix.bash
+source "${BATS_DIR}/lib/vm-matrix.bash"
 
 # Source shared Lima core functions (LIMA_PREFIX, lima_instance_name, lima_is_running, lima_exists)
 # shellcheck source=lib/lima-core.bash
@@ -125,6 +118,37 @@ setup_keys() {
 
 setup_inventory() {
 	mkdir -p "${BATS_DIR}/fixtures/inventory"
+}
+
+validate_vm_matrix() {
+	local distro expected_port config_path actual_port
+
+	for distro in "${DISTROS[@]}"; do
+		expected_port="${DISTRO_PORTS[$distro]:-}"
+
+		if [[ -z "$expected_port" ]]; then
+			echo -e "${RED}Missing DISTRO_PORTS mapping for ${distro}${NC}"
+			exit 1
+		fi
+
+		config_path="$(lima_config_path "$distro")"
+		if [[ ! -f "$config_path" ]]; then
+			echo -e "${RED}Missing Lima config for ${distro}: ${config_path}${NC}"
+			exit 1
+		fi
+
+		actual_port="$(awk '/^[[:space:]]*localPort:[[:space:]]*[0-9]+/{print $2; exit}' "$config_path")"
+		if [[ -z "$actual_port" ]]; then
+			echo -e "${RED}Could not read localPort from ${config_path}${NC}"
+			exit 1
+		fi
+
+		if [[ "$actual_port" != "$expected_port" ]]; then
+			echo -e "${RED}VM matrix mismatch for ${distro}: map=${expected_port}, yaml=${actual_port}${NC}"
+			echo "Update ${BATS_DIR}/lib/vm-matrix.bash or ${config_path} to match."
+			exit 1
+		fi
+	done
 }
 
 #
@@ -710,7 +734,7 @@ show_usage() {
 	echo "Interactive menu flow:"
 	echo "  Select test category:"
 	echo "    1) cloud    -> Select provider: all, aws, do"
-	echo "    2) vm       -> Select distro: all, debian13, ubuntu24"
+	echo "    2) vm       -> Select distro: all, ubuntu24"
 	echo ""
 	echo "Examples:"
 	echo "  $0 run            # Interactive: category menu -> submenu"
@@ -720,7 +744,7 @@ show_usage() {
 	echo "  $0 run cloud-do   # Run DigitalOcean API tests directly (no VM)"
 	echo "  $0 start          # Start all VMs"
 	echo "  $0 start ubuntu24 # Start only ubuntu24 VM"
-	echo "  $0 stop debian13  # Stop only debian13 VM"
+	echo "  $0 stop ubuntu24  # Stop only ubuntu24 VM"
 	echo "  $0 ssh ubuntu24   # SSH into ubuntu24 VM"
 	echo ""
 	echo "CI mode (non-interactive):"
@@ -728,7 +752,6 @@ show_usage() {
 	echo "  CI=true $0 ci cloud do       # Run DigitalOcean cloud tests"
 	echo "  CI=true $0 ci cloud all      # Run all cloud tests"
 	echo "  CI=true $0 ci vm ubuntu24    # Run VM tests on ubuntu24"
-	echo "  CI=true $0 ci vm debian13    # Run VM tests on debian13"
 	echo ""
 	echo "Available distros: ${DISTROS[*]}"
 	echo "Cloud providers: ${CLOUD_PROVIDERS[*]}"
@@ -753,6 +776,7 @@ print_header
 case "${1:-run}" in
 	run)
 		check_dependencies true
+		validate_vm_matrix
 		setup_keys
 		setup_inventory
 		run_tests "${2:-}"
@@ -761,6 +785,7 @@ case "${1:-run}" in
 		;;
 	start)
 		check_dependencies true
+		validate_vm_matrix
 		setup_keys
 		setup_inventory
 		distro="${2:-}"
@@ -785,6 +810,7 @@ case "${1:-run}" in
 		;;
 	stop)
 		check_dependencies true
+		validate_vm_matrix
 		distro="${2:-}"
 		if [[ -n "$distro" && -z "${DISTRO_PORTS[$distro]:-}" ]]; then
 			echo -e "${RED}Unknown distro: ${distro}${NC}"
@@ -795,6 +821,7 @@ case "${1:-run}" in
 		;;
 	reset)
 		check_dependencies true
+		validate_vm_matrix
 		setup_keys
 		setup_inventory
 		distro="${2:-}"
@@ -807,6 +834,7 @@ case "${1:-run}" in
 		;;
 	clean)
 		check_dependencies true
+		validate_vm_matrix
 		distro="${2:-}"
 		if [[ -n "$distro" ]]; then
 			if [[ -z "${DISTRO_PORTS[$distro]:-}" ]]; then
@@ -823,6 +851,7 @@ case "${1:-run}" in
 		;;
 	ssh)
 		check_dependencies true
+		validate_vm_matrix
 		distro="${2:-}"
 		if [[ -z "$distro" ]]; then
 			echo -e "${RED}Usage: $0 ssh <distro>${NC}"
@@ -855,11 +884,12 @@ case "${1:-run}" in
 			exit 1
 		fi
 		# Check dependencies - lima not required for cloud tests
-		if [[ "$test_type" == "cloud" ]]; then
-			check_dependencies false
-		else
-			check_dependencies true
-		fi
+			if [[ "$test_type" == "cloud" ]]; then
+				check_dependencies false
+			else
+				check_dependencies true
+				validate_vm_matrix
+			fi
 		setup_keys
 		setup_inventory
 		run_ci_tests "$test_type" "$target"

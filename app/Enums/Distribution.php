@@ -12,7 +12,6 @@ namespace DeployerPHP\Enums;
 enum Distribution: string
 {
     case UBUNTU = 'ubuntu';
-    case DEBIAN = 'debian';
 
     // ----
     // Version Support
@@ -23,11 +22,6 @@ enum Distribution: string
      */
     private const MIN_UBUNTU_VERSION = '24.04';
 
-    /**
-     * Minimum supported Debian version.
-     */
-    private const MIN_DEBIAN_VERSION = '13';
-
     // ----
     // Codename Mappings
     // ----
@@ -35,11 +29,6 @@ enum Distribution: string
     private const UBUNTU_CODENAMES = [
         '24.04' => 'Noble Numbat',
         '26.04' => 'TBD',
-    ];
-
-    private const DEBIAN_CODENAMES = [
-        '13' => 'Trixie',
-        '14' => 'Forky',
     ];
 
     // ----
@@ -51,10 +40,7 @@ enum Distribution: string
      */
     public function displayName(): string
     {
-        return match ($this) {
-            self::UBUNTU => 'Ubuntu',
-            self::DEBIAN => 'Debian',
-        };
+        return 'Ubuntu';
     }
 
     /**
@@ -62,10 +48,7 @@ enum Distribution: string
      */
     public function codename(string $version): string
     {
-        return match ($this) {
-            self::UBUNTU => self::UBUNTU_CODENAMES[$version] ?? 'LTS',
-            self::DEBIAN => self::DEBIAN_CODENAMES[$version] ?? 'Stable',
-        };
+        return self::UBUNTU_CODENAMES[$version] ?? 'LTS';
     }
 
     /**
@@ -75,12 +58,9 @@ enum Distribution: string
     {
         $codename = $this->codename($version);
 
-        return match ($this) {
-            self::UBUNTU => $this->isUbuntuLts($version)
-                ? "{$this->displayName()} {$version} LTS ({$codename})"
-                : "{$this->displayName()} {$version} ({$codename})",
-            self::DEBIAN => "{$this->displayName()} {$version} ({$codename})",
-        };
+        return $this->isUbuntuLts($version)
+            ? "{$this->displayName()} {$version} LTS ({$codename})"
+            : "{$this->displayName()} {$version} ({$codename})";
     }
 
     // ----
@@ -92,10 +72,7 @@ enum Distribution: string
      */
     public function defaultSshUsername(): string
     {
-        return match ($this) {
-            self::UBUNTU => 'ubuntu',
-            self::DEBIAN => 'admin',
-        };
+        return 'ubuntu';
     }
 
     // ----
@@ -108,16 +85,11 @@ enum Distribution: string
      * Ubuntu only supports LTS versions (24.04+). LTS releases follow a
      * predictable pattern: even years with .04 suffix (24.04, 26.04, 28.04...).
      * Ondřej PHP PPA only publishes packages for LTS releases.
-     *
-     * Debian supports all stable versions 13+.
      */
     public function isValidVersion(string $version): bool
     {
-        return match ($this) {
-            self::UBUNTU => $this->isUbuntuLts($version)
-                && version_compare($version, self::MIN_UBUNTU_VERSION, '>='),
-            self::DEBIAN => version_compare($version, self::MIN_DEBIAN_VERSION, '>='),
-        };
+        return $this->isUbuntuLts($version)
+            && version_compare($version, self::MIN_UBUNTU_VERSION, '>=');
     }
 
     /**
@@ -143,10 +115,7 @@ enum Distribution: string
      */
     public function supportedVersions(): string
     {
-        return match ($this) {
-            self::UBUNTU => self::MIN_UBUNTU_VERSION . ' LTS or newer LTS releases',
-            self::DEBIAN => self::MIN_DEBIAN_VERSION . ' or newer',
-        };
+        return self::MIN_UBUNTU_VERSION . ' LTS or newer LTS releases';
     }
 
     // ----
@@ -172,21 +141,17 @@ enum Distribution: string
      */
     public static function fromSlug(string $slug): ?array
     {
-        $parts = explode('-', $slug, 2);
-
-        if (2 !== count($parts)) {
+        $prefix = self::UBUNTU->value . '-';
+        if (!str_starts_with($slug, $prefix)) {
             return null;
         }
 
-        [$distro, $version] = $parts;
-
-        $distribution = self::tryFrom($distro);
-
-        if (null === $distribution) {
+        $version = substr($slug, strlen($prefix));
+        if ('' === $version) {
             return null;
         }
 
-        return [$distribution, $version];
+        return [self::UBUNTU, $version];
     }
 
     // ----
@@ -200,6 +165,6 @@ enum Distribution: string
      */
     public static function slugs(): array
     {
-        return array_map(fn (self $dist) => $dist->value, self::cases());
+        return [self::UBUNTU->value];
     }
 }

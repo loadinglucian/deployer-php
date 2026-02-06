@@ -12,7 +12,7 @@ memory: "2GiB"
 disk: "10GiB"
 
 ssh:
-  localPort: 2222
+  localPort: 2224
   loadDotSSHPubKeys: false
 
 containerd:

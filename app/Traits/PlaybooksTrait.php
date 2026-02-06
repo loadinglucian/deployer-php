@@ -43,7 +43,6 @@ trait PlaybooksTrait
      *   - DEPLOYER_OUTPUT_FILE: Output file path (always provided)
      *   - DEPLOYER_SERVER_NAME: Server name - from server
      *   - DEPLOYER_SSH_PORT: SSH port - from server
-     *   - DEPLOYER_DISTRO: Exact distribution (ubuntu|debian) - from server->info
      *   - DEPLOYER_PERMS: User permissions (root|sudo|none) - from server->info
      *   - DEPLOYER_SITE_DOMAIN: Site domain - from site (when SiteServerDTO context)
      *   - DEPLOYER_PHP_VERSION: PHP version - from site (when SiteServerDTO context)
@@ -81,12 +80,9 @@ trait PlaybooksTrait
 
         // Auto-inject server info vars (when info has been gathered)
         if (null !== $server->info) {
-            /** @var string $distro */
-            $distro = $server->info['distro'] ?? 'unknown';
             /** @var string $permissions */
             $permissions = $server->info['permissions'] ?? 'none';
 
-            $baseVars['DEPLOYER_DISTRO'] = $distro;
             $baseVars['DEPLOYER_PERMS'] = $permissions;
         }
 

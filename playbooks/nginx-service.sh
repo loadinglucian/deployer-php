@@ -7,7 +7,6 @@
 #
 # Required Environment Variables:
 #   DEPLOYER_OUTPUT_FILE  - Output file path
-#   DEPLOYER_DISTRO       - Distribution: ubuntu|debian
 #   DEPLOYER_PERMS        - Permissions: root|sudo|none
 #   DEPLOYER_ACTION       - Action: start|stop|restart|reload
 #
@@ -19,7 +18,6 @@ set -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
-[[ -z $DEPLOYER_DISTRO ]] && echo "Error: DEPLOYER_DISTRO required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 [[ -z $DEPLOYER_ACTION ]] && echo "Error: DEPLOYER_ACTION required" && exit 1
 export DEPLOYER_PERMS

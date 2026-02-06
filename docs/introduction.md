@@ -38,7 +38,6 @@ DeployerPHP has some basic requirements:
 Your target servers should run a supported Linux distribution:
 
 - Ubuntu LTS (such as 24.04, 26.04, etc., no interim releases like 25.04)
-- Debian 13 or newer
 
 ## The Commands
 
@@ -54,8 +53,8 @@ DeployerPHP has a wide range of commands and capabilities. All commands are orga
 - **`site:*`**: Create, deploy, delete, and manage sites
 - **`cron:*`** and **`supervisor:*`**: Scheduled tasks and background processes
 - **`nginx:*`** and **`php:*`**: Web server and PHP-FPM control
-- **`mariadb:*`**, **`mysql:*`**, **`postgresql:*`**: Database services
-- **`memcached:*`**, **`redis:*`**, **`valkey:*`**: Cache services
+- **`mariadb:*`**, **`postgresql:*`**: Database services
+- **`memcached:*`**, **`redis:*`**: Cache services
 - **`scaffold:*`**: Generate cron, hook, supervisor, and AI skills config files
 - **`aws:*`**, **`cf:*`**, **`do:*`**: Cloud provider integrations
 

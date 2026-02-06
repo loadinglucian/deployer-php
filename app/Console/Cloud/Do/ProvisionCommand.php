@@ -39,7 +39,7 @@ class ProvisionCommand extends BaseCommand
         $this
             ->addOption('name', null, InputOption::VALUE_REQUIRED, 'Server name for inventory')
             ->addOption('region', null, InputOption::VALUE_REQUIRED, 'DigitalOcean region (e.g., nyc3, sfo3)')
-            ->addOption('image', null, InputOption::VALUE_REQUIRED, 'OS image (e.g., ubuntu-22-04-x64)')
+            ->addOption('image', null, InputOption::VALUE_REQUIRED, 'OS image (e.g., ubuntu-24-04-x64)')
             ->addOption('private-key-path', null, InputOption::VALUE_REQUIRED, 'SSH private key path')
             ->addOption('size', null, InputOption::VALUE_REQUIRED, 'Droplet size (e.g., s-1vcpu-1gb)')
             ->addOption('ssh-key-id', null, InputOption::VALUE_REQUIRED, 'SSH key ID')

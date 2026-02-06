@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #
-# Timezone Configuration Playbook - Ubuntu/Debian Only
+# Timezone Configuration Playbook - Ubuntu Only
 #
 # Configures the system timezone using timedatectl.
 # ----

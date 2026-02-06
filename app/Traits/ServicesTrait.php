@@ -20,11 +20,9 @@ trait ServicesTrait
         'nginx' => 'Nginx',
         'mariadb' => 'MariaDB',
         'memcached' => 'Memcached',
-        'mysqld' => 'MySQL',
         'postgres' => 'PostgreSQL',
         'redis-server' => 'Redis',
         'sshd' => 'SSH',
-        'valkey-server' => 'Valkey',
     ];
 
     // ----

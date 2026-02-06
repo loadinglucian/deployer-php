@@ -20,7 +20,7 @@ class DoDropletService extends BaseDoService
      * @param string $name Droplet name
      * @param string $region Region slug (e.g., nyc3)
      * @param string $size Size slug (e.g., s-1vcpu-1gb)
-     * @param string $image Image slug or ID (e.g., ubuntu-22-04-x64)
+     * @param string $image Image slug or ID (e.g., ubuntu-24-04-x64)
      * @param array<int, int> $sshKeys SSH key IDs
      * @param bool $backups Enable backups
      * @param bool $monitoring Enable monitoring
