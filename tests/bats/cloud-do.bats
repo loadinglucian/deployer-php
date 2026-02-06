@@ -29,7 +29,12 @@ teardown_file() {
 }
 
 setup() {
+	cloud_check_failed
 	require_do_credentials
+}
+
+teardown() {
+	cloud_mark_failed
 }
 
 # ----

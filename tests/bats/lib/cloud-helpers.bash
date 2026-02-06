@@ -383,6 +383,30 @@ wait_for_http() {
 }
 
 # ----
+# Fail-Fast Support
+# ----
+# Sequential cloud tests (provision → install → DNS → deploy) should abort
+# after the first failure to avoid wasting CI time and cloud API calls.
+# Uses a sentinel file in BATS_FILE_TMPDIR (per-file, auto-cleaned by BATS).
+
+# Mark current test as failed (call from teardown)
+# BATS_TEST_COMPLETED is empty when test body failed, "1" when passed
+cloud_mark_failed() {
+	if [[ -z "${BATS_TEST_COMPLETED:-}" ]]; then
+		printf '%s' "${BATS_TEST_DESCRIPTION:-unknown}" > "${BATS_FILE_TMPDIR}/cloud_failed"
+	fi
+}
+
+# Skip remaining tests if a previous test failed (call from setup)
+cloud_check_failed() {
+	if [[ -f "${BATS_FILE_TMPDIR}/cloud_failed" ]]; then
+		local failed_test
+		failed_test=$(<"${BATS_FILE_TMPDIR}/cloud_failed")
+		skip "Aborted: '${failed_test}' failed"
+	fi
+}
+
+# ----
 # Orchestration (cleanup all resources for a provider)
 # ----
 
