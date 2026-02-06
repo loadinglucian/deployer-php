@@ -235,6 +235,26 @@ teardown() {
 }
 
 # ----
+# site:dns:check
+# ----
+
+@test "site:dns:check resolves DNS for DigitalOcean site" {
+	require_do_provision_config
+
+	run_deployer site:dns:check \
+		--domain="$DO_TEST_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains "Check DNS"
+	assert_output_contains "Domain: $DO_TEST_DOMAIN"
+	assert_output_contains "A:"
+	assert_output_contains "AAAA:"
+	assert_command_replay "site:dns:check"
+}
+
+# ----
 # site:shared:push
 # ----
 

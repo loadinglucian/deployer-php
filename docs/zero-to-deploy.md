@@ -159,7 +159,13 @@ Before you can access your site or enable HTTPS, configure your domain's DNS set
 - **A Record**: Point your domain to your server's IP address
 - **CNAME Record** (optional): Point www subdomain to your main domain
 
-DNS propagation typically takes a few minutes to 24 hours. You can check if your DNS is ready using an online tool like [whatsmydns.net](https://www.whatsmydns.net/), a free DNS checker that shows propagation status across multiple locations worldwide.
+DNS propagation typically takes a few minutes to 24 hours. You can check your current DNS resolution directly from DeployerPHP:
+
+```shell
+deployer site:dns:check
+```
+
+This resolves A (IPv4) and AAAA (IPv6) records for your site domain using Google Public DNS and also checks `www.{domain}`.
 
 If you use one of the supported DNS providers, you can configure DNS using one of the cloud provider commands. For more information, please read [Cloud Providers](/docs/cloud-providers).
 

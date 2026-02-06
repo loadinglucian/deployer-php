@@ -6,6 +6,7 @@
     - [Listing Files](#listing-files)
     - [Pushing Files](#pushing-files)
     - [Pulling Files](#pulling-files)
+- [Checking DNS](#checking-dns)
 - [SSH Access](#ssh-access)
 - [Viewing Logs](#viewing-logs)
 - [Cron Jobs](#cron-jobs)
@@ -67,6 +68,22 @@ You'll be prompted for the site, the remote filename, and the local destination 
 
 > [!NOTE]
 > The `site:shared:*` commands support single files. Create directory structures your application needs in the deploy script as described in [Zero to Deploy](/docs/zero-to-deploy).
+
+## Checking DNS
+
+The `site:dns:check` command resolves your site's current DNS records using Google Public DNS:
+
+```shell
+deployer site:dns:check
+```
+
+This command checks:
+
+- **A records** - IPv4 addresses for your apex domain
+- **AAAA records** - IPv6 addresses for your apex domain
+- **www subdomain** - If `www` resolves to IPs, they are shown in a separate block
+
+If `www` has no resolved IPs, DeployerPHP prints an informational message and still exits successfully.
 
 ## SSH Access
 
