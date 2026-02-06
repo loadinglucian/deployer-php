@@ -59,7 +59,7 @@ trait AwsTrait
         } catch (\InvalidArgumentException) {
             // Credential configuration issue
             $this->nay('AWS credentials not found in environment.');
-            $this->nay('Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION in your .env file.');
+            $this->nay('Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in your .env file (AWS_REGION defaults to eu-central-1).');
 
             return Command::FAILURE;
         } catch (\RuntimeException $e) {

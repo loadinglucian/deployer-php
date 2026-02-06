@@ -170,6 +170,8 @@ After provisioning, run `deployer server:install` to set up the server.
 > [!NOTE]
 > The command replay uses durable OS image slugs (e.g., `ubuntu-24.04`, `debian-12`) that resolve to the latest AMI at runtime, so you can safely reuse the output in CI pipelines without worrying about image deprecation.
 
+<!-- -->
+
 > [!NOTE]
 > When you delete a server provisioned through AWS, DeployerPHP also terminates the EC2 instance and releases the Elastic IP.
 
