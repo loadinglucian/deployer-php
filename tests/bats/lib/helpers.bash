@@ -32,7 +32,6 @@ export BATS_DISTRO="${BATS_DISTRO:-ubuntu24}"
 # Note: Only Ubuntu LTS releases are supported
 declare -A DISTRO_PORTS=(
 	["ubuntu24"]="2222"
-	["debian12"]="2223"
 	["debian13"]="2225"
 )
 

@@ -54,6 +54,50 @@ check_valkey_conflict() {
 }
 
 # ----
+# Repository Setup
+# ----
+
+#
+# Add Redis official repository
+
+setup_redis_repo() {
+	echo "-> Adding Redis official repository..."
+
+	# Determine codename for the repository
+	local codename
+	codename=$(lsb_release -cs 2> /dev/null || echo "")
+
+	if [[ -z $codename ]]; then
+		echo "Error: Could not determine distribution codename" >&2
+		exit 1
+	fi
+
+	# Create keyrings directory if it doesn't exist
+	if [[ ! -d /etc/apt/keyrings ]]; then
+		run_cmd mkdir -p /etc/apt/keyrings
+	fi
+
+	# Download and add Redis GPG key
+	if ! curl -fsSL https://packages.redis.io/gpg | run_cmd gpg --batch --yes --dearmor -o /etc/apt/keyrings/redis.gpg; then
+		echo "Error: Failed to add Redis GPG key" >&2
+		exit 1
+	fi
+
+	# Add Redis repository
+	local repo_file="/etc/apt/sources.list.d/redis.list"
+	if ! echo "deb [signed-by=/etc/apt/keyrings/redis.gpg] https://packages.redis.io/deb ${codename} main" | run_cmd tee "$repo_file" > /dev/null; then
+		echo "Error: Failed to add Redis repository" >&2
+		exit 1
+	fi
+
+	# Update package list
+	if ! run_cmd apt-get update -q; then
+		echo "Error: Failed to update package list after adding Redis repository" >&2
+		exit 1
+	fi
+}
+
+# ----
 # Installation Functions
 # ----
 
@@ -206,6 +250,7 @@ main() {
 	REDIS_PASS=$(openssl rand -base64 24)
 
 	# Execute installation tasks
+	setup_redis_repo
 	install_packages
 	configure_authentication
 	config_logrotate

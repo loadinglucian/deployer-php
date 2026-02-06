@@ -26,7 +26,7 @@ enum Distribution: string
     /**
      * Minimum supported Debian version.
      */
-    private const MIN_DEBIAN_VERSION = '12';
+    private const MIN_DEBIAN_VERSION = '13';
 
     // ----
     // Codename Mappings
@@ -38,7 +38,6 @@ enum Distribution: string
     ];
 
     private const DEBIAN_CODENAMES = [
-        '12' => 'Bookworm',
         '13' => 'Trixie',
         '14' => 'Forky',
     ];
@@ -110,7 +109,7 @@ enum Distribution: string
      * predictable pattern: even years with .04 suffix (24.04, 26.04, 28.04...).
      * Ondřej PHP PPA only publishes packages for LTS releases.
      *
-     * Debian supports all stable versions 12+.
+     * Debian supports all stable versions 13+.
      */
     public function isValidVersion(string $version): bool
     {

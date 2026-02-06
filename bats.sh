@@ -46,12 +46,11 @@ TEST_KEY="${BATS_DIR}/fixtures/keys/id_test"
 # Note: Only Ubuntu LTS releases are supported (interim releases like 25.04 are not)
 declare -A DISTRO_PORTS=(
 	["ubuntu24"]="2222"
-	["debian12"]="2223"
 	["debian13"]="2225"
 )
 
 # Get ordered list of distro names
-DISTROS=("ubuntu24" "debian12" "debian13")
+DISTROS=("ubuntu24" "debian13")
 
 # Source shared Lima core functions (LIMA_PREFIX, lima_instance_name, lima_is_running, lima_exists)
 # shellcheck source=lib/lima-core.bash
@@ -711,7 +710,7 @@ show_usage() {
 	echo "Interactive menu flow:"
 	echo "  Select test category:"
 	echo "    1) cloud    -> Select provider: all, aws, do"
-	echo "    2) vm       -> Select distro: all, debian12, debian13, ubuntu24"
+	echo "    2) vm       -> Select distro: all, debian13, ubuntu24"
 	echo ""
 	echo "Examples:"
 	echo "  $0 run            # Interactive: category menu -> submenu"
@@ -721,7 +720,7 @@ show_usage() {
 	echo "  $0 run cloud-do   # Run DigitalOcean API tests directly (no VM)"
 	echo "  $0 start          # Start all VMs"
 	echo "  $0 start ubuntu24 # Start only ubuntu24 VM"
-	echo "  $0 stop debian12  # Stop only debian12 VM"
+	echo "  $0 stop debian13  # Stop only debian13 VM"
 	echo "  $0 ssh ubuntu24   # SSH into ubuntu24 VM"
 	echo ""
 	echo "CI mode (non-interactive):"
@@ -729,7 +728,7 @@ show_usage() {
 	echo "  CI=true $0 ci cloud do       # Run DigitalOcean cloud tests"
 	echo "  CI=true $0 ci cloud all      # Run all cloud tests"
 	echo "  CI=true $0 ci vm ubuntu24    # Run VM tests on ubuntu24"
-	echo "  CI=true $0 ci vm debian12    # Run VM tests on debian12"
+	echo "  CI=true $0 ci vm debian13    # Run VM tests on debian13"
 	echo ""
 	echo "Available distros: ${DISTROS[*]}"
 	echo "Cloud providers: ${CLOUD_PROVIDERS[*]}"

@@ -70,6 +70,8 @@ cleanup_sql_stack() {
 			| xargs -r apt-get purge -y > /dev/null 2>&1 || true
 		apt-get autoremove -y > /dev/null 2>&1 || true
 		rm -rf /etc/mysql /var/lib/mysql /var/log/mysql 2> /dev/null || true
+		rm -f /etc/apt/sources.list.d/mysql.list /etc/apt/keyrings/mysql.gpg 2>/dev/null || true
+		rm -f /etc/apt/sources.list.d/mariadb.list /etc/apt/keyrings/mariadb.gpg 2>/dev/null || true
 	"
 }
 
@@ -81,6 +83,8 @@ cleanup_kv_stack() {
 			| xargs -r apt-get purge -y > /dev/null 2>&1 || true
 		apt-get autoremove -y > /dev/null 2>&1 || true
 		rm -rf /etc/redis /etc/valkey /var/lib/redis /var/lib/valkey /var/log/redis /var/log/valkey 2> /dev/null || true
+		rm -f /etc/apt/sources.list.d/redis.list /etc/apt/keyrings/redis.gpg 2>/dev/null || true
+		rm -f /etc/apt/sources.list.d/valkey.list /etc/apt/keyrings/valkey.gpg 2>/dev/null || true
 	"
 }
 
@@ -92,6 +96,7 @@ cleanup_postgresql_stack() {
 			| xargs -r apt-get purge -y > /dev/null 2>&1 || true
 		apt-get autoremove -y > /dev/null 2>&1 || true
 		rm -rf /etc/postgresql /var/lib/postgresql /var/log/postgresql 2> /dev/null || true
+		rm -f /etc/apt/sources.list.d/postgresql.list /etc/apt/keyrings/postgresql.gpg 2>/dev/null || true
 	"
 }
 

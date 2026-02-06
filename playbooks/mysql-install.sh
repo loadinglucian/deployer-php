@@ -64,13 +64,9 @@ check_mariadb_conflict() {
 # ----
 
 #
-# Add Oracle MySQL repository on Debian (Ubuntu ships MySQL in default repos)
+# Add Oracle MySQL 8.4 LTS repository
 
 setup_mysql_repo() {
-	if [[ $DEPLOYER_DISTRO != "debian" ]]; then
-		return 0
-	fi
-
 	echo "→ Adding Oracle MySQL repository..."
 
 	# Determine codename for the repository
@@ -80,6 +76,11 @@ setup_mysql_repo() {
 	if [[ -z $codename ]]; then
 		echo "Error: Could not determine distribution codename" >&2
 		exit 1
+	fi
+
+	# Oracle doesn't support trixie yet — fall back to bookworm
+	if [[ $codename == "trixie" ]]; then
+		codename="bookworm"
 	fi
 
 	# Create keyrings directory if it doesn't exist
@@ -95,7 +96,7 @@ setup_mysql_repo() {
 
 	# Add MySQL repository
 	local repo_file="/etc/apt/sources.list.d/mysql.list"
-	if ! echo "deb [signed-by=/etc/apt/keyrings/mysql.gpg] http://repo.mysql.com/apt/debian/ ${codename} mysql-8.0" | run_cmd tee "$repo_file" > /dev/null; then
+	if ! echo "deb [signed-by=/etc/apt/keyrings/mysql.gpg] http://repo.mysql.com/apt/${DEPLOYER_DISTRO}/ ${codename} mysql-8.4-lts" | run_cmd tee "$repo_file" > /dev/null; then
 		echo "Error: Failed to add MySQL repository" >&2
 		exit 1
 	fi
@@ -167,11 +168,11 @@ install_packages() {
 secure_installation() {
 	echo "→ Securing MySQL installation..."
 
-	# Set root password for mysql_native_password auth (for remote tools)
+	# Set root password (MySQL 8.4 defaults to caching_sha2_password)
 	# Socket authentication for local root access is preserved
 	# Use heredoc to pass SQL via stdin (avoids exposing password in process listings)
 	if ! run_cmd mysql <<- EOSQL 2> /dev/null; then
-		ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '${ROOT_PASS}';
+		ALTER USER 'root'@'localhost' IDENTIFIED BY '${ROOT_PASS}';
 		FLUSH PRIVILEGES;
 	EOSQL
 		echo "Error: Failed to set root password" >&2
@@ -216,7 +217,7 @@ create_deployer_user() {
 
 	# Use heredoc to pass SQL via stdin (avoids exposing password in process listings)
 	if ! run_cmd mysql -u root <<- EOSQL 2> /dev/null; then
-		CREATE USER '${DEPLOYER_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DEPLOYER_PASS}';
+		CREATE USER '${DEPLOYER_USER}'@'localhost' IDENTIFIED BY '${DEPLOYER_PASS}';
 	EOSQL
 		echo "Error: Failed to create deployer user" >&2
 		exit 1

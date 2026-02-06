@@ -19,11 +19,14 @@
 
 Most applications need persistent data storage. DeployerPHP supports installing and managing relational databases (MySQL, MariaDB, PostgreSQL) and key-value stores (Redis, Valkey, Memcached) on your servers.
 
+> [!NOTE]
+> DeployerPHP installs the latest LTS version of each database from official maintainer APT repositories, ensuring consistent versions across Ubuntu and Debian.
+
 ## Relational Databases
 
 ### MySQL
 
-MySQL is a popular open-source relational database. Install it with:
+MySQL is a popular open-source relational database. DeployerPHP installs the latest LTS version from the official Oracle APT repository. Install it with:
 
 ```shell
 deployer mysql:install
@@ -43,7 +46,7 @@ To view MySQL logs, use `server:logs` and select the mysqld service.
 
 ### MariaDB
 
-MariaDB is a community-developed fork of MySQL with enhanced features. It's fully compatible with MySQL clients and most applications. Install it with:
+MariaDB is a community-developed fork of MySQL with enhanced features. It's fully compatible with MySQL clients and most applications. DeployerPHP installs the latest LTS version from the official MariaDB Foundation repository. Install it with:
 
 ```shell
 deployer mariadb:install
@@ -66,7 +69,7 @@ To view MariaDB logs, use `server:logs` and select the mariadb service.
 
 ### PostgreSQL
 
-PostgreSQL is a powerful, open-source object-relational database system known for its reliability and feature set. Install it with:
+PostgreSQL is a powerful, open-source object-relational database system known for its reliability and feature set. DeployerPHP installs the latest stable version from the official PGDG repository. Install it with:
 
 ```shell
 deployer postgresql:install
@@ -88,7 +91,7 @@ To view PostgreSQL logs, use `server:logs` and select the postgres service.
 
 ### Redis
 
-Redis is an in-memory data structure store, commonly used for caching, sessions, and queues. Install it with:
+Redis is an in-memory data structure store, commonly used for caching, sessions, and queues. DeployerPHP installs the latest stable version from the official Redis repository. Install it with:
 
 ```shell
 deployer redis:install
@@ -108,7 +111,7 @@ To view Redis logs, use `server:logs` and select the redis-server service.
 
 ### Valkey
 
-Valkey is an open-source fork of Redis, fully compatible with Redis clients and commands. If you prefer Valkey over Redis, install it with:
+Valkey is an open-source fork of Redis, fully compatible with Redis clients and commands. DeployerPHP installs the latest stable version from the official Valkey repository. If you prefer Valkey over Redis, install it with:
 
 ```shell
 deployer valkey:install

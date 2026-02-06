@@ -25,7 +25,7 @@ It may seem overwhelming, but you only need to run a few simple commands and res
 
 ## Step 1: Add A Server
 
-Before we can deploy anything we'll need a fresh new server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can connect to it via SSH and it is running a version of `Ubuntu LTS >= 24.04` or `Debian >= 12` as specified by the [Requirements](/docs/introduction#requirements).
+Before we can deploy anything we'll need a fresh new server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can connect to it via SSH and it is running a version of `Ubuntu LTS >= 24.04` or `Debian >= 13` as specified by the [Requirements](/docs/introduction#requirements).
 
 Run the `server:add` command to add a new server to your inventory:
 

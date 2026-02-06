@@ -60,6 +60,50 @@ check_mysql_conflict() {
 }
 
 # ----
+# Repository Setup
+# ----
+
+#
+# Add MariaDB Foundation repository for 11.8 LTS
+
+setup_mariadb_repo() {
+	echo "→ Adding MariaDB Foundation repository..."
+
+	# Determine codename for the repository
+	local codename
+	codename=$(lsb_release -cs 2> /dev/null || echo "")
+
+	if [[ -z $codename ]]; then
+		echo "Error: Could not determine distribution codename" >&2
+		exit 1
+	fi
+
+	# Create keyrings directory if it doesn't exist
+	if [[ ! -d /etc/apt/keyrings ]]; then
+		run_cmd mkdir -p /etc/apt/keyrings
+	fi
+
+	# Download and add MariaDB GPG key
+	if ! curl -fsSL https://supplychain.mariadb.com/MariaDB-Server-GPG-KEY | run_cmd gpg --batch --yes --dearmor -o /etc/apt/keyrings/mariadb.gpg; then
+		echo "Error: Failed to add MariaDB GPG key" >&2
+		exit 1
+	fi
+
+	# Add MariaDB repository
+	local repo_file="/etc/apt/sources.list.d/mariadb.list"
+	if ! echo "deb [signed-by=/etc/apt/keyrings/mariadb.gpg] https://deb.mariadb.org/11.8/${DEPLOYER_DISTRO} ${codename} main" | run_cmd tee "$repo_file" > /dev/null; then
+		echo "Error: Failed to add MariaDB repository" >&2
+		exit 1
+	fi
+
+	# Update package list
+	if ! run_cmd apt-get update -q; then
+		echo "Error: Failed to update package list after adding MariaDB repository" >&2
+		exit 1
+	fi
+}
+
+# ----
 # Installation Functions
 # ----
 
@@ -265,6 +309,7 @@ main() {
 	DEPLOYER_PASS=$(openssl rand -base64 24)
 
 	# Execute installation tasks
+	setup_mariadb_repo
 	install_packages
 	secure_installation
 	create_deployer_user
