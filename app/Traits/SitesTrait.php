@@ -314,17 +314,28 @@ trait SitesTrait
      */
     protected function ensureSiteExists(ServerDTO $server, SiteDTO $site): ?int
     {
+        $sitePath = '/home/deployer/sites/' . $site->domain;
+        $nginxPath = '/etc/nginx/sites-available/' . $site->domain;
+
         try {
             $result = $this->ssh->executeCommand(
                 $server,
                 sprintf(
-                    'test -d /home/deployer/sites/%s && test -f /etc/nginx/sites-available/%s',
-                    escapeshellarg($site->domain),
-                    escapeshellarg($site->domain)
+                    'if command -v sudo >/dev/null 2>&1; then sudo -n test -d %1$s && sudo -n test -f %2$s; else test -d %1$s && test -f %2$s; fi',
+                    escapeshellarg($sitePath),
+                    escapeshellarg($nginxPath)
                 )
             );
 
             if (0 !== $result['exit_code']) {
+                $output = trim((string) $result['output']);
+
+                if ('' !== $output) {
+                    $this->nay($output);
+
+                    return Command::FAILURE;
+                }
+
                 $this->warn("Site '{$site->domain}' has not been created on the server");
                 $this->info('Run <|cyan>site:create</> to create the site first');
 

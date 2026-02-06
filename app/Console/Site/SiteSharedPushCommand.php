@@ -58,17 +58,14 @@ class SiteSharedPushCommand extends BaseCommand
         // Select site and server
         // ----
 
-        $site = $this->selectSiteDeets();
+        $result = $this->selectSiteDeetsWithServer();
 
-        if (is_int($site)) {
-            return $site;
+        if (is_int($result)) {
+            return $result;
         }
 
-        $server = $this->getServerForSite($site);
-
-        if (is_int($server)) {
-            return $server;
-        }
+        $site = $result->site;
+        $server = $result->server;
 
         $validationResult = $this->ensureSiteExists($server, $site);
 
