@@ -190,7 +190,9 @@ configure_authentication() {
 	echo "-> Verifying Valkey authentication..."
 	local max_wait=10
 	local waited=0
-	while ! VALKEYCLI_AUTH="$VALKEY_PASS" run_cmd valkey-cli ping 2> /dev/null | grep -q PONG; do
+	# valkey-cli on supported VM test distros authenticates via REDISCLI_AUTH.
+	# Avoid -a to keep the password out of command arguments/process listings.
+	while ! REDISCLI_AUTH="$VALKEY_PASS" run_cmd valkey-cli ping 2> /dev/null | grep -q PONG; do
 		if ((waited >= max_wait)); then
 			echo "Error: Valkey is not accepting authenticated connections" >&2
 			exit 1

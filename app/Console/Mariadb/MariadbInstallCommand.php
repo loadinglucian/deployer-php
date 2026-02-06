@@ -148,6 +148,7 @@ class MariadbInstallCommand extends BaseCommand
                 } catch (\RuntimeException $e) {
                     $this->nay($e->getMessage());
                     $this->info('Credentials will be displayed on screen instead:');
+                    $saveCredentialsPath = null;
                     $this->displayCredentialsOnScreen($rootPass, $deployerUser, $deployerPass, $deployerDatabase);
                 }
             }
@@ -236,8 +237,11 @@ class MariadbInstallCommand extends BaseCommand
         $fileExists = $this->fs->exists($filePath);
 
         $oldUmask = umask(0077);
-        $this->fs->appendFile($filePath, ($fileExists ? "\n\n" : '') . $content);
-        umask($oldUmask);
+        try {
+            $this->fs->appendFile($filePath, ($fileExists ? "\n\n" : '') . $content);
+        } finally {
+            umask($oldUmask);
+        }
         $this->fs->chmod($filePath, 0600);
 
         $action = $fileExists ? 'appended to' : 'saved to';

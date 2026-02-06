@@ -77,6 +77,8 @@ class MemcachedInstallCommand extends BaseCommand
             $this->yay('Memcached installation completed successfully');
         }
 
+        $this->info('Memcached does not generate credentials. Access is restricted to localhost by default.');
+
         //
         // Show command replay
         // ----

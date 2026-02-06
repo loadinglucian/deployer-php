@@ -1,7 +1,9 @@
 #!/usr/bin/env bats
 
 # VM command tests (server:add, server:info, etc.)
-# Tests: server:add, server:info, server:delete, server:install, server:firewall, server:logs, server:run
+# Tests: server:add, server:info, server:delete, server:install, server:firewall, server:logs,
+# server:run, mysql:install, mariadb:install, postgresql:install, redis:install, valkey:install,
+# memcached:install
 
 load 'lib/helpers'
 load 'lib/lima'
@@ -17,6 +19,174 @@ teardown_file() {
 
 setup() {
 	reset_inventory
+}
+
+# ----
+# Install Test Helpers
+# ----
+
+run_deployer_timeout() {
+	local seconds="$1"
+	shift
+	run timeout "$seconds" "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi "$@"
+}
+
+assert_file_mode_600() {
+	local path="$1"
+	local mode
+	mode=$(stat -c '%a' "$path" 2> /dev/null || stat -f '%Lp' "$path" 2> /dev/null)
+
+	if [[ "$mode" != "600" ]]; then
+		echo "Expected file mode 600 for ${path}, got ${mode}"
+		return 1
+	fi
+}
+
+read_env_value() {
+	local path="$1"
+	local key="$2"
+	grep "^${key}=" "$path" | tail -1 | cut -d'=' -f2-
+}
+
+assert_env_key_present() {
+	local path="$1"
+	local key="$2"
+	if ! grep -q "^${key}=" "$path"; then
+		echo "Expected key ${key} in ${path}"
+		return 1
+	fi
+}
+
+cleanup_local_credential_file() {
+	local path="$1"
+	rm -f "$path"
+}
+
+cleanup_sql_stack() {
+	ssh_exec "
+		export DEBIAN_FRONTEND=noninteractive
+		systemctl stop mysql mariadb mysqld 2>/dev/null || true
+		dpkg -l | awk '/^ii/ && (\$2 ~ /^mysql/ || \$2 ~ /^mariadb/) {print \$2}' \
+			| xargs -r apt-get purge -y > /dev/null 2>&1 || true
+		apt-get autoremove -y > /dev/null 2>&1 || true
+		rm -rf /etc/mysql /var/lib/mysql /var/log/mysql 2> /dev/null || true
+	"
+}
+
+cleanup_kv_stack() {
+	ssh_exec "
+		export DEBIAN_FRONTEND=noninteractive
+		systemctl stop redis redis-server valkey valkey-server 2>/dev/null || true
+		dpkg -l | awk '/^ii/ && (\$2 ~ /^redis/ || \$2 ~ /^valkey/) {print \$2}' \
+			| xargs -r apt-get purge -y > /dev/null 2>&1 || true
+		apt-get autoremove -y > /dev/null 2>&1 || true
+		rm -rf /etc/redis /etc/valkey /var/lib/redis /var/lib/valkey /var/log/redis /var/log/valkey 2> /dev/null || true
+	"
+}
+
+cleanup_postgresql_stack() {
+	ssh_exec "
+		export DEBIAN_FRONTEND=noninteractive
+		systemctl stop postgresql 2>/dev/null || true
+		dpkg -l | awk '/^ii/ && (\$2 ~ /^postgresql/) {print \$2}' \
+			| xargs -r apt-get purge -y > /dev/null 2>&1 || true
+		apt-get autoremove -y > /dev/null 2>&1 || true
+		rm -rf /etc/postgresql /var/lib/postgresql /var/log/postgresql 2> /dev/null || true
+	"
+}
+
+assert_remote_service_inactive() {
+	local service="$1"
+	if ssh_exec "systemctl is-active --quiet '${service}'"; then
+		echo "Expected service to be inactive: ${service}"
+		return 1
+	fi
+}
+
+extract_display_connection_string() {
+	local scheme="$1"
+	printf '%s\n' "$output" | sed -nE "s|.*(${scheme}://[^[:space:]]+).*|\\1|p" | tail -1
+}
+
+extract_sql_root_password_from_display() {
+	printf '%s\n' "$output" | awk '
+		/Root Credentials \(admin access\):/ { in_section=1; next }
+		in_section && /Application Credentials:/ { in_section=0 }
+		in_section && /Password:[[:space:]]*/ {
+			line = $0;
+			sub(/^.*Password:[[:space:]]*/, "", line);
+			print line;
+			exit;
+		}
+	'
+}
+
+extract_postgres_root_password_from_display() {
+	printf '%s\n' "$output" | awk '
+		/Postgres Credentials \(admin access\):/ { in_section=1; next }
+		in_section && /Application Credentials:/ { in_section=0 }
+		in_section && /Password:[[:space:]]*/ {
+			line = $0;
+			sub(/^.*Password:[[:space:]]*/, "", line);
+			print line;
+			exit;
+		}
+	'
+}
+
+extract_sql_username_from_dsn() {
+	local dsn="$1"
+	local rest
+	rest="${dsn#*://}"
+	printf '%s\n' "${rest%%:*}"
+}
+
+extract_sql_password_from_dsn() {
+	local dsn="$1"
+	local rest after_user
+	rest="${dsn#*://}"
+	after_user="${rest#*:}"
+	printf '%s\n' "${after_user%@localhost/*}"
+}
+
+extract_sql_database_from_dsn() {
+	local dsn="$1"
+	local db_part
+	db_part="${dsn#*@localhost/}"
+	printf '%s\n' "${db_part%%\?*}"
+}
+
+extract_kv_password_from_dsn() {
+	local dsn="$1"
+	printf '%s\n' "$dsn" | sed -nE 's|^redis://:([^@]+)@.*$|\1|p'
+}
+
+assert_mysql_auth_via_credentials() {
+	local root_pass="$1"
+	local db_user="$2"
+	local db_pass="$3"
+	local db_name="$4"
+	local client_bin="$5"
+
+	ssh_exec "MYSQL_PWD='${root_pass}' ${client_bin} -u root -e 'SELECT 1;' > /dev/null"
+	ssh_exec "MYSQL_PWD='${db_pass}' ${client_bin} -u '${db_user}' -D '${db_name}' -e 'SELECT 1;' > /dev/null"
+}
+
+assert_postgresql_auth_via_credentials() {
+	local postgres_pass="$1"
+	local db_user="$2"
+	local db_pass="$3"
+	local db_name="$4"
+
+	ssh_exec "PGPASSWORD='${postgres_pass}' psql -h localhost -U postgres -d postgres -c 'SELECT 1;' > /dev/null"
+	ssh_exec "PGPASSWORD='${db_pass}' psql -h localhost -U '${db_user}' -d '${db_name}' -c 'SELECT 1;' > /dev/null"
+}
+
+assert_kv_auth_via_credentials() {
+	local kv_pass="$1"
+	local client_bin="$2"
+
+	ssh_exec "${client_bin} -a '${kv_pass}' ping | grep -q '^PONG$'"
 }
 
 # ----
@@ -331,6 +501,383 @@ setup() {
 
 	[ "$status" -eq 0 ]
 	assert_output_contains "hello-deployer-test"
+}
+
+# ----
+# install command happy paths
+# ----
+
+@test "mysql:install saves credentials file and authenticates" {
+	add_test_server
+	cleanup_sql_stack
+	assert_remote_service_inactive "mariadb"
+	assert_remote_service_inactive "mysql"
+
+	local creds_file="${BATS_TEST_TMPDIR}/mysql.credentials"
+	cleanup_local_credential_file "$creds_file"
+
+	run_deployer_timeout 420 mysql:install \
+		--server="$TEST_SERVER_NAME" \
+		--save-credentials="$creds_file"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "MySQL installation completed successfully"
+	assert_command_replay "mysql:install"
+	assert_output_contains "--save-credentials='${creds_file}'"
+	[ -f "$creds_file" ]
+	assert_file_mode_600 "$creds_file"
+	assert_env_key_present "$creds_file" "MYSQL_ROOT_PASSWORD"
+	assert_env_key_present "$creds_file" "MYSQL_USER"
+	assert_env_key_present "$creds_file" "MYSQL_PASSWORD"
+	assert_env_key_present "$creds_file" "DATABASE_URL"
+
+	local root_pass mysql_user mysql_pass mysql_database
+	root_pass=$(read_env_value "$creds_file" "MYSQL_ROOT_PASSWORD")
+	mysql_user=$(read_env_value "$creds_file" "MYSQL_USER")
+	mysql_pass=$(read_env_value "$creds_file" "MYSQL_PASSWORD")
+	mysql_database=$(read_env_value "$creds_file" "MYSQL_DATABASE")
+
+	[[ -n "$root_pass" ]]
+	[[ -n "$mysql_user" ]]
+	[[ -n "$mysql_pass" ]]
+	[[ -n "$mysql_database" ]]
+
+	assert_mysql_auth_via_credentials "$root_pass" "$mysql_user" "$mysql_pass" "$mysql_database" "mysql"
+}
+
+@test "mysql:install displays credentials and authenticates" {
+	add_test_server
+	cleanup_sql_stack
+	assert_remote_service_inactive "mariadb"
+	assert_remote_service_inactive "mysql"
+
+	run_deployer_timeout 420 mysql:install \
+		--server="$TEST_SERVER_NAME" \
+		--display-credentials
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "MySQL installation completed successfully"
+	assert_output_contains "Root Credentials (admin access):"
+	assert_output_contains "Connection string:"
+	assert_command_replay "mysql:install"
+	assert_output_contains "--display-credentials"
+
+	local mysql_dsn root_pass mysql_user mysql_pass mysql_database
+	mysql_dsn=$(extract_display_connection_string "mysql")
+	root_pass=$(extract_sql_root_password_from_display)
+	mysql_user=$(extract_sql_username_from_dsn "$mysql_dsn")
+	mysql_pass=$(extract_sql_password_from_dsn "$mysql_dsn")
+	mysql_database=$(extract_sql_database_from_dsn "$mysql_dsn")
+
+	[[ -n "$mysql_dsn" ]]
+	[[ -n "$root_pass" ]]
+	[[ -n "$mysql_user" ]]
+	[[ -n "$mysql_pass" ]]
+	[[ -n "$mysql_database" ]]
+
+	assert_mysql_auth_via_credentials "$root_pass" "$mysql_user" "$mysql_pass" "$mysql_database" "mysql"
+}
+
+@test "mariadb:install saves credentials file and authenticates" {
+	add_test_server
+	cleanup_sql_stack
+	assert_remote_service_inactive "mysql"
+	assert_remote_service_inactive "mysqld"
+
+	local creds_file="${BATS_TEST_TMPDIR}/mariadb.credentials"
+	cleanup_local_credential_file "$creds_file"
+
+	run_deployer_timeout 420 mariadb:install \
+		--server="$TEST_SERVER_NAME" \
+		--save-credentials="$creds_file"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "MariaDB installation completed successfully"
+	assert_command_replay "mariadb:install"
+	assert_output_contains "--save-credentials='${creds_file}'"
+	[ -f "$creds_file" ]
+	assert_file_mode_600 "$creds_file"
+	assert_env_key_present "$creds_file" "MARIADB_ROOT_PASSWORD"
+	assert_env_key_present "$creds_file" "MARIADB_USER"
+	assert_env_key_present "$creds_file" "MARIADB_PASSWORD"
+	assert_env_key_present "$creds_file" "DATABASE_URL"
+
+	local root_pass mariadb_user mariadb_pass mariadb_database
+	root_pass=$(read_env_value "$creds_file" "MARIADB_ROOT_PASSWORD")
+	mariadb_user=$(read_env_value "$creds_file" "MARIADB_USER")
+	mariadb_pass=$(read_env_value "$creds_file" "MARIADB_PASSWORD")
+	mariadb_database=$(read_env_value "$creds_file" "MARIADB_DATABASE")
+
+	[[ -n "$root_pass" ]]
+	[[ -n "$mariadb_user" ]]
+	[[ -n "$mariadb_pass" ]]
+	[[ -n "$mariadb_database" ]]
+
+	assert_mysql_auth_via_credentials "$root_pass" "$mariadb_user" "$mariadb_pass" "$mariadb_database" "mariadb"
+}
+
+@test "mariadb:install displays credentials and authenticates" {
+	add_test_server
+	cleanup_sql_stack
+	assert_remote_service_inactive "mysql"
+	assert_remote_service_inactive "mysqld"
+
+	run_deployer_timeout 420 mariadb:install \
+		--server="$TEST_SERVER_NAME" \
+		--display-credentials
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "MariaDB installation completed successfully"
+	assert_output_contains "Root Credentials (admin access):"
+	assert_output_contains "Connection string:"
+	assert_command_replay "mariadb:install"
+	assert_output_contains "--display-credentials"
+
+	local mariadb_dsn root_pass mariadb_user mariadb_pass mariadb_database
+	mariadb_dsn=$(extract_display_connection_string "mysql")
+	root_pass=$(extract_sql_root_password_from_display)
+	mariadb_user=$(extract_sql_username_from_dsn "$mariadb_dsn")
+	mariadb_pass=$(extract_sql_password_from_dsn "$mariadb_dsn")
+	mariadb_database=$(extract_sql_database_from_dsn "$mariadb_dsn")
+
+	[[ -n "$mariadb_dsn" ]]
+	[[ -n "$root_pass" ]]
+	[[ -n "$mariadb_user" ]]
+	[[ -n "$mariadb_pass" ]]
+	[[ -n "$mariadb_database" ]]
+
+	assert_mysql_auth_via_credentials "$root_pass" "$mariadb_user" "$mariadb_pass" "$mariadb_database" "mariadb"
+}
+
+@test "postgresql:install saves credentials file and authenticates" {
+	add_test_server
+	cleanup_postgresql_stack
+	assert_remote_service_inactive "postgresql"
+
+	local creds_file="${BATS_TEST_TMPDIR}/postgresql.credentials"
+	cleanup_local_credential_file "$creds_file"
+
+	run_deployer_timeout 420 postgresql:install \
+		--server="$TEST_SERVER_NAME" \
+		--save-credentials="$creds_file"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "PostgreSQL installation completed successfully"
+	assert_command_replay "postgresql:install"
+	assert_output_contains "--save-credentials='${creds_file}'"
+	[ -f "$creds_file" ]
+	assert_file_mode_600 "$creds_file"
+	assert_env_key_present "$creds_file" "POSTGRES_PASSWORD"
+	assert_env_key_present "$creds_file" "POSTGRES_USER"
+	assert_env_key_present "$creds_file" "POSTGRES_USER_PASSWORD"
+	assert_env_key_present "$creds_file" "DATABASE_URL"
+
+	local postgres_pass postgres_user postgres_user_pass postgres_database
+	postgres_pass=$(read_env_value "$creds_file" "POSTGRES_PASSWORD")
+	postgres_user=$(read_env_value "$creds_file" "POSTGRES_USER")
+	postgres_user_pass=$(read_env_value "$creds_file" "POSTGRES_USER_PASSWORD")
+	postgres_database=$(read_env_value "$creds_file" "POSTGRES_DATABASE")
+
+	[[ -n "$postgres_pass" ]]
+	[[ -n "$postgres_user" ]]
+	[[ -n "$postgres_user_pass" ]]
+	[[ -n "$postgres_database" ]]
+
+	assert_postgresql_auth_via_credentials "$postgres_pass" "$postgres_user" "$postgres_user_pass" "$postgres_database"
+}
+
+@test "postgresql:install displays credentials and authenticates" {
+	add_test_server
+	cleanup_postgresql_stack
+	assert_remote_service_inactive "postgresql"
+
+	run_deployer_timeout 420 postgresql:install \
+		--server="$TEST_SERVER_NAME" \
+		--display-credentials
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "PostgreSQL installation completed successfully"
+	assert_output_contains "Postgres Credentials (admin access):"
+	assert_output_contains "Connection string:"
+	assert_command_replay "postgresql:install"
+	assert_output_contains "--display-credentials"
+
+	local postgres_dsn postgres_pass postgres_user postgres_user_pass postgres_database
+	postgres_dsn=$(extract_display_connection_string "postgresql")
+	postgres_pass=$(extract_postgres_root_password_from_display)
+	postgres_user=$(extract_sql_username_from_dsn "$postgres_dsn")
+	postgres_user_pass=$(extract_sql_password_from_dsn "$postgres_dsn")
+	postgres_database=$(extract_sql_database_from_dsn "$postgres_dsn")
+
+	[[ -n "$postgres_dsn" ]]
+	[[ -n "$postgres_pass" ]]
+	[[ -n "$postgres_user" ]]
+	[[ -n "$postgres_user_pass" ]]
+	[[ -n "$postgres_database" ]]
+
+	assert_postgresql_auth_via_credentials "$postgres_pass" "$postgres_user" "$postgres_user_pass" "$postgres_database"
+}
+
+@test "redis:install saves credentials file and authenticates" {
+	add_test_server
+	cleanup_kv_stack
+	assert_remote_service_inactive "valkey"
+	assert_remote_service_inactive "valkey-server"
+
+	local creds_file="${BATS_TEST_TMPDIR}/redis.credentials"
+	cleanup_local_credential_file "$creds_file"
+
+	run_deployer_timeout 300 redis:install \
+		--server="$TEST_SERVER_NAME" \
+		--save-credentials="$creds_file"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Redis installation completed successfully"
+	assert_command_replay "redis:install"
+	assert_output_contains "--save-credentials='${creds_file}'"
+	[ -f "$creds_file" ]
+	assert_file_mode_600 "$creds_file"
+	assert_env_key_present "$creds_file" "REDIS_PASSWORD"
+	assert_env_key_present "$creds_file" "REDIS_URL"
+
+	local redis_pass
+	redis_pass=$(read_env_value "$creds_file" "REDIS_PASSWORD")
+
+	[[ -n "$redis_pass" ]]
+
+	assert_kv_auth_via_credentials "$redis_pass" "redis-cli"
+}
+
+@test "redis:install displays credentials and authenticates" {
+	add_test_server
+	cleanup_kv_stack
+	assert_remote_service_inactive "valkey"
+	assert_remote_service_inactive "valkey-server"
+
+	run_deployer_timeout 300 redis:install \
+		--server="$TEST_SERVER_NAME" \
+		--display-credentials
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Redis installation completed successfully"
+	assert_output_contains "Redis Password:"
+	assert_output_contains "Connection string:"
+	assert_command_replay "redis:install"
+	assert_output_contains "--display-credentials"
+
+	local redis_dsn redis_pass
+	redis_dsn=$(extract_display_connection_string "redis")
+	redis_pass=$(extract_kv_password_from_dsn "$redis_dsn")
+
+	[[ -n "$redis_dsn" ]]
+	[[ -n "$redis_pass" ]]
+
+	assert_kv_auth_via_credentials "$redis_pass" "redis-cli"
+}
+
+@test "valkey:install saves credentials file and authenticates" {
+	add_test_server
+	cleanup_kv_stack
+	assert_remote_service_inactive "redis"
+	assert_remote_service_inactive "redis-server"
+
+	local creds_file="${BATS_TEST_TMPDIR}/valkey.credentials"
+	cleanup_local_credential_file "$creds_file"
+
+	run_deployer_timeout 300 valkey:install \
+		--server="$TEST_SERVER_NAME" \
+		--save-credentials="$creds_file"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Valkey installation completed successfully"
+	assert_command_replay "valkey:install"
+	assert_output_contains "--save-credentials='${creds_file}'"
+	[ -f "$creds_file" ]
+	assert_file_mode_600 "$creds_file"
+	assert_env_key_present "$creds_file" "VALKEY_PASSWORD"
+	assert_env_key_present "$creds_file" "REDIS_URL"
+
+	local valkey_pass
+	valkey_pass=$(read_env_value "$creds_file" "VALKEY_PASSWORD")
+
+	[[ -n "$valkey_pass" ]]
+
+	assert_kv_auth_via_credentials "$valkey_pass" "valkey-cli"
+}
+
+@test "valkey:install displays credentials and authenticates" {
+	add_test_server
+	cleanup_kv_stack
+	assert_remote_service_inactive "redis"
+	assert_remote_service_inactive "redis-server"
+
+	run_deployer_timeout 300 valkey:install \
+		--server="$TEST_SERVER_NAME" \
+		--display-credentials
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Valkey installation completed successfully"
+	assert_output_contains "Valkey Password:"
+	assert_output_contains "Connection string:"
+	assert_command_replay "valkey:install"
+	assert_output_contains "--display-credentials"
+
+	local valkey_dsn valkey_pass
+	valkey_dsn=$(extract_display_connection_string "redis")
+	valkey_pass=$(extract_kv_password_from_dsn "$valkey_dsn")
+
+	[[ -n "$valkey_dsn" ]]
+	[[ -n "$valkey_pass" ]]
+
+	assert_kv_auth_via_credentials "$valkey_pass" "valkey-cli"
+}
+
+@test "memcached:install completes successfully and configures localhost-only access" {
+	add_test_server
+
+	run_deployer_timeout 300 memcached:install \
+		--server="$TEST_SERVER_NAME"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Memcached installation completed successfully"
+	assert_output_contains "Memcached does not generate credentials"
+	assert_command_replay "memcached:install"
+
+	ssh_exec "systemctl is-active --quiet memcached"
+	ssh_exec "grep -q '^-l 127.0.0.1' /etc/memcached.conf"
 }
 
 # ----
