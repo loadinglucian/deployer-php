@@ -223,17 +223,6 @@ class SiteSharedPushCommand extends BaseCommand
         return $this->normalizeRelativePath($remoteInput);
     }
 
-    private function runRemoteCommand(ServerDTO $server, string $command): void
-    {
-        $result = $this->ssh->executeCommand($server, $command);
-        if (0 !== $result['exit_code']) {
-            $output = trim((string) $result['output']);
-            $message = '' === $output ? "Remote command failed: {$command}" : $output;
-
-            throw new \RuntimeException($message);
-        }
-    }
-
     private function remoteFileExists(ServerDTO $server, string $remotePath): bool
     {
         $result = $this->ssh->executeCommand(

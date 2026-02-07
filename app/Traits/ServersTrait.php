@@ -38,6 +38,21 @@ trait ServersTrait
     // ----
 
     /**
+     * Execute a remote command and throw on non-zero exit.
+     */
+    protected function runRemoteCommand(ServerDTO $server, string $command): void
+    {
+        $result = $this->ssh->executeCommand($server, $command);
+
+        if (0 !== $result['exit_code']) {
+            $output = trim((string) $result['output']);
+            $message = '' === $output ? "Remote command failed: {$command}" : $output;
+
+            throw new \RuntimeException($message);
+        }
+    }
+
+    /**
      * Extract port numbers from UFW rule strings.
      *
      * @param array<int, string> $rules UFW rules in format "port/proto" (e.g., "22/tcp")
