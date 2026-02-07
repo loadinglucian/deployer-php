@@ -142,20 +142,16 @@ teardown() {
 @test "server:install configures AWS provisioned server" {
 	require_aws_provision_config
 
-	local latest_php_version previous_php_version installed_php_versions
-	local -a target_php_versions
-	mapfile -t target_php_versions < <(get_latest_two_php_fpm_versions_for_server "$AWS_TEST_SERVER_NAME")
-	latest_php_version="${target_php_versions[0]}"
-	previous_php_version="${target_php_versions[1]}"
-	[[ -n "$latest_php_version" ]]
-	[[ -n "$previous_php_version" ]]
+	local primary_php_version secondary_php_version installed_php_versions
+	primary_php_version="$CLOUD_TEST_PHP_PRIMARY_VERSION"
+	secondary_php_version="$CLOUD_TEST_PHP_SECONDARY_VERSION"
 
 	# Full install takes time - use longer timeout
 	run timeout 600 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:install \
 		--server="$AWS_TEST_SERVER_NAME" \
 		--generate-deploy-key \
 		--timezone="UTC" \
-		--php-version="$latest_php_version" \
+		--php-version="$primary_php_version" \
 		--php-extensions="$CLOUD_TEST_PHP_EXTENSIONS"
 
 	debug_output
@@ -166,12 +162,12 @@ teardown() {
 	assert_output_contains "public key"
 	assert_command_replay "server:install"
 
-	# Install previous PHP-FPM version on the same server (keep latest as default)
+	# Install secondary PHP-FPM version on the same server (keep primary as default)
 	run timeout 600 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:install \
 		--server="$AWS_TEST_SERVER_NAME" \
 		--generate-deploy-key \
 		--timezone="UTC" \
-		--php-version="$previous_php_version" \
+		--php-version="$secondary_php_version" \
 		--no-php-default \
 		--php-extensions="$CLOUD_TEST_PHP_EXTENSIONS"
 
@@ -183,8 +179,8 @@ teardown() {
 	assert_command_replay "server:install"
 
 	installed_php_versions="$(get_installed_php_fpm_versions_for_server "$AWS_TEST_SERVER_NAME")"
-	printf '%s\n' "$installed_php_versions" | grep -qx "$latest_php_version"
-	printf '%s\n' "$installed_php_versions" | grep -qx "$previous_php_version"
+	printf '%s\n' "$installed_php_versions" | grep -qx "$primary_php_version"
+	printf '%s\n' "$installed_php_versions" | grep -qx "$secondary_php_version"
 }
 
 # ----
@@ -194,17 +190,13 @@ teardown() {
 @test "site:create creates site ${AWS_TEST_SITE_DOMAIN} on AWS provisioned server" {
 	require_aws_provision_config
 
-	local latest_php_version
-	latest_php_version="$(get_latest_php_fpm_version_for_server "$AWS_TEST_SERVER_NAME")"
-	[[ -n "$latest_php_version" ]]
-
 	# Cleanup any leftover test site
 	cleanup_test_site "$AWS_TEST_SITE_DOMAIN"
 
 	run_deployer site:create \
 		--domain="$AWS_TEST_SITE_DOMAIN" \
 		--server="$AWS_TEST_SERVER_NAME" \
-		--php-version="$latest_php_version" \
+		--php-version="$CLOUD_TEST_PHP_PRIMARY_VERSION" \
 		--web-root="/"
 
 	debug_output
@@ -218,17 +210,13 @@ teardown() {
 @test "site:create creates secondary site ${AWS_TEST_SITE_DOMAIN_SECONDARY} on AWS provisioned server" {
 	require_aws_provision_config
 
-	local previous_php_version
-	previous_php_version="$(get_previous_php_fpm_version_for_server "$AWS_TEST_SERVER_NAME")"
-	[[ -n "$previous_php_version" ]]
-
 	# Cleanup any leftover secondary test site
 	cleanup_test_site "$AWS_TEST_SITE_DOMAIN_SECONDARY"
 
 	run_deployer site:create \
 		--domain="$AWS_TEST_SITE_DOMAIN_SECONDARY" \
 		--server="$AWS_TEST_SERVER_NAME" \
-		--php-version="$previous_php_version" \
+		--php-version="$CLOUD_TEST_PHP_SECONDARY_VERSION" \
 		--web-root="/"
 
 	debug_output

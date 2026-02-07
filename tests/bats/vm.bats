@@ -136,25 +136,6 @@ get_installed_php_fpm_versions() {
 	ssh_exec "ls -1 /etc/php/*/fpm/php-fpm.conf 2>/dev/null | sed -nE 's|/etc/php/([^/]+)/fpm/php-fpm.conf|\\1|p' | sort -Vr | uniq"
 }
 
-get_available_php_fpm_versions() {
-	ssh_exec "apt-cache pkgnames | grep -E '^php8\\.[0-9]+-fpm$' | sed -E 's/^php([0-9]+\\.[0-9]+)-fpm$/\\1/' | sort -Vr | uniq"
-}
-
-get_latest_two_available_php_fpm_versions() {
-	local versions latest previous
-	versions="$(get_available_php_fpm_versions)"
-	latest="$(printf '%s\n' "$versions" | sed -n '1p')"
-	previous="$(printf '%s\n' "$versions" | sed -n '2p')"
-
-	if [[ -z "$latest" || -z "$previous" ]]; then
-		echo "Expected at least two available php8.x-fpm versions"
-		[[ -n "$versions" ]] && echo "Available versions: ${versions//$'\n'/, }"
-		return 1
-	fi
-
-	printf '%s\n%s\n' "$latest" "$previous"
-}
-
 extract_display_connection_string() {
 	local scheme="$1"
 	printf '%s\n' "$output" | sed -nE "s|.*(${scheme}://[^[:space:]]+).*|\\1|p" | tail -1
@@ -369,18 +350,14 @@ assert_kv_auth_via_credentials() {
 @test "server:install completes successfully with generated deploy key" {
 	add_test_server
 
-	local latest_php_version
-	local -a target_php_versions
-	mapfile -t target_php_versions < <(get_latest_two_available_php_fpm_versions)
-	latest_php_version="${target_php_versions[0]}"
-	[[ -n "$latest_php_version" ]]
+	local primary_php_version="${VM_TEST_PHP_PRIMARY_VERSION:-8.5}"
 
 	# Full install takes time - use longer timeout
 	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:install \
 		--server="$TEST_SERVER_NAME" \
 		--generate-deploy-key \
 		--timezone="UTC" \
-		--php-version="$latest_php_version" \
+		--php-version="$primary_php_version" \
 		--php-extensions="cli,fpm,curl,mbstring"
 
 	debug_output
@@ -442,13 +419,9 @@ assert_kv_auth_via_credentials() {
 @test "server:install with custom deploy key uses provided key" {
 	add_test_server
 
-	local latest_php_version secondary_php_version
-	local -a target_php_versions
-	mapfile -t target_php_versions < <(get_latest_two_available_php_fpm_versions)
-	latest_php_version="${target_php_versions[0]}"
-	secondary_php_version="${target_php_versions[1]}"
-	[[ -n "$latest_php_version" ]]
-	[[ -n "$secondary_php_version" ]]
+	local primary_php_version secondary_php_version
+	primary_php_version="${VM_TEST_PHP_PRIMARY_VERSION:-8.5}"
+	secondary_php_version="${VM_TEST_PHP_SECONDARY_VERSION:-8.4}"
 
 	# Get the public key content from our test key
 	local expected_key
@@ -476,7 +449,7 @@ assert_kv_auth_via_credentials() {
 	# Verify both versions are now installed
 	local installed_php_versions
 	installed_php_versions="$(get_installed_php_fpm_versions)"
-	printf '%s\n' "$installed_php_versions" | grep -qx "$latest_php_version"
+	printf '%s\n' "$installed_php_versions" | grep -qx "$primary_php_version"
 	printf '%s\n' "$installed_php_versions" | grep -qx "$secondary_php_version"
 }
 

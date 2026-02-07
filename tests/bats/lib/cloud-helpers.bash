@@ -114,6 +114,8 @@ export CF_TEST_SITE_DOMAIN="${CF_TEST_DNS_ROOT_FQDN}"
 # ----
 
 export CLOUD_TEST_PHP_EXTENSIONS="${CLOUD_TEST_PHP_EXTENSIONS:-fpm,bcmath,curl,mbstring,xml,zip}"
+export CLOUD_TEST_PHP_PRIMARY_VERSION="${CLOUD_TEST_PHP_PRIMARY_VERSION:-8.5}"
+export CLOUD_TEST_PHP_SECONDARY_VERSION="${CLOUD_TEST_PHP_SECONDARY_VERSION:-8.4}"
 export CLOUD_TEST_DEPLOY_REPO="${CLOUD_TEST_DEPLOY_REPO:-https://github.com/loadinglucian/deploy-me.git}"
 export CLOUD_TEST_DEPLOY_BRANCH="${CLOUD_TEST_DEPLOY_BRANCH:-main}"
 export CLOUD_TEST_APP_MESSAGE="${CLOUD_TEST_APP_MESSAGE:-DeployerPHP-BATS-Test-Success}"
@@ -506,23 +508,6 @@ get_server_command_output() {
 		--command="$command" 2> /dev/null
 }
 
-get_available_php_fpm_versions_for_server() {
-	local server_name="$1"
-	local output
-	local command="set -o pipefail; SUDO=''; if [[ \$(id -u) -ne 0 ]]; then SUDO='sudo -n'; fi; export DEBIAN_FRONTEND=noninteractive; if ! command -v add-apt-repository >/dev/null 2>&1; then \$SUDO apt-get update >/dev/null 2>&1 || true; \$SUDO apt-get install -y software-properties-common >/dev/null 2>&1; fi; if ! grep -qr 'ondrej/php' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; then \$SUDO add-apt-repository -y ppa:ondrej/php >/dev/null 2>&1; \$SUDO apt-get update >/dev/null 2>&1; fi; apt-cache search '^php[0-9]+\\.[0-9]+-fpm$' 2>/dev/null | grep -oP 'php\\K[0-9]+\\.[0-9]+' | sort -V -u | sort -Vr"
-
-	output=$(get_server_command_output "$server_name" "$command") || {
-		echo "Failed to discover available PHP-FPM versions on server '${server_name}'" >&2
-		return 1
-	}
-
-	printf '%s\n' "$output" \
-		| sed -nE 's/^[^0-9]*([0-9]+\.[0-9]+)[^0-9]*$/\1/p' \
-		| grep -E '^8\.[0-9]+$' \
-		| sort -Vr \
-		| uniq
-}
-
 get_installed_php_fpm_versions_for_server() {
 	local server_name="$1"
 	local output
@@ -538,33 +523,6 @@ get_installed_php_fpm_versions_for_server() {
 		| grep -E '^8\.[0-9]+$' \
 		| sort -Vr \
 		| uniq
-}
-
-get_latest_two_php_fpm_versions_for_server() {
-	local server_name="$1"
-	local versions latest previous
-
-	versions="$(get_available_php_fpm_versions_for_server "$server_name")" || return 1
-	latest="$(printf '%s\n' "$versions" | sed -n '1p')"
-	previous="$(printf '%s\n' "$versions" | sed -n '2p')"
-
-	if [[ -z "$latest" || -z "$previous" ]]; then
-		echo "Expected at least two available PHP-FPM versions for server '${server_name}'" >&2
-		[[ -n "$versions" ]] && echo "Available versions: ${versions//$'\n'/, }" >&2
-		return 1
-	fi
-
-	printf '%s\n%s\n' "$latest" "$previous"
-}
-
-get_latest_php_fpm_version_for_server() {
-	local server_name="$1"
-	get_latest_two_php_fpm_versions_for_server "$server_name" | sed -n '1p'
-}
-
-get_previous_php_fpm_version_for_server() {
-	local server_name="$1"
-	get_latest_two_php_fpm_versions_for_server "$server_name" | sed -n '2p'
 }
 
 cloud_note() {
