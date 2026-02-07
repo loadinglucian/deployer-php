@@ -17,6 +17,7 @@ use DeployerPHP\Services\HttpService;
 use DeployerPHP\Services\InventoryService;
 use DeployerPHP\Services\IoService;
 use DeployerPHP\Services\ProcessService;
+use DeployerPHP\Services\RetryService;
 use DeployerPHP\Services\SshService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -50,6 +51,7 @@ abstract class BaseCommand extends Command
         protected readonly InventoryService $inventory,
         protected readonly IoService $io,
         protected readonly ProcessService $proc,
+        protected readonly RetryService $retry,
 
         // Servers & sites
         protected readonly ServerRepository $servers,
