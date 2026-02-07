@@ -155,7 +155,7 @@ aws_cleanup_route53_records_for_suffix() {
 	[[ -n "$zone_id" && "$zone_id" != "None" ]] || return 0
 
 	local dns_name fqdn record_json
-	for dns_name in "r${suffix}"; do
+	for dns_name in "r${suffix}" "r${suffix}.v2"; do
 		fqdn="${dns_name}.${AWS_TEST_HOSTED_ZONE}."
 		record_json=$(aws route53 list-resource-record-sets --hosted-zone-id "$zone_id" --query "ResourceRecordSets[?Name=='${fqdn}' && Type=='A']|[0]" --output json 2> /dev/null || true)
 		[[ -n "$record_json" && "$record_json" != "null" ]] || continue
@@ -191,7 +191,9 @@ aws_cleanup_suffix() {
 		run_cmd deployer_run --inventory="$inventory" server:delete --server="$server_name" --force --yes --destroy-cloud > /dev/null 2>&1 || true
 		if [[ -n "${AWS_TEST_HOSTED_ZONE:-}" ]]; then
 			run_cmd deployer_run aws:dns:delete --zone="$AWS_TEST_HOSTED_ZONE" --type=A --name="r${suffix}" --force --yes > /dev/null 2>&1 || true
+			run_cmd deployer_run aws:dns:delete --zone="$AWS_TEST_HOSTED_ZONE" --type=A --name="r${suffix}.v2" --force --yes > /dev/null 2>&1 || true
 			run_cmd deployer_run --inventory="$inventory" site:delete --domain="r${suffix}.${AWS_TEST_HOSTED_ZONE}" --force --yes > /dev/null 2>&1 || true
+			run_cmd deployer_run --inventory="$inventory" site:delete --domain="r${suffix}.v2.${AWS_TEST_HOSTED_ZONE}" --force --yes > /dev/null 2>&1 || true
 		fi
 		run_cmd deployer_run aws:key:delete --key="$server_name" --force --yes > /dev/null 2>&1 || true
 	fi
@@ -263,7 +265,9 @@ do_cleanup_suffix() {
 		run_cmd deployer_run --inventory="$inventory" server:delete --server="$server_name" --force --yes --destroy-cloud > /dev/null 2>&1 || true
 		if [[ -n "${DO_TEST_DOMAIN:-}" ]]; then
 			run_cmd deployer_run do:dns:delete --zone="$DO_TEST_DOMAIN" --type=A --name="r${suffix}" --force --yes > /dev/null 2>&1 || true
+			run_cmd deployer_run do:dns:delete --zone="$DO_TEST_DOMAIN" --type=A --name="r${suffix}.v2" --force --yes > /dev/null 2>&1 || true
 			run_cmd deployer_run --inventory="$inventory" site:delete --domain="r${suffix}.${DO_TEST_DOMAIN}" --force --yes > /dev/null 2>&1 || true
+			run_cmd deployer_run --inventory="$inventory" site:delete --domain="r${suffix}.v2.${DO_TEST_DOMAIN}" --force --yes > /dev/null 2>&1 || true
 		fi
 	fi
 
@@ -279,7 +283,7 @@ do_cleanup_suffix() {
 
 	if [[ -n "${DO_TEST_DOMAIN:-}" ]]; then
 		local dns_name record_id
-		for dns_name in "r${suffix}"; do
+		for dns_name in "r${suffix}" "r${suffix}.v2"; do
 			record_id=$(curl -s -H "Authorization: Bearer ${token}" "https://api.digitalocean.com/v2/domains/${DO_TEST_DOMAIN}/records?type=A&name=${dns_name}.${DO_TEST_DOMAIN}" 2> /dev/null | jq -r '.domain_records[0].id // empty' 2> /dev/null || true)
 			[[ -n "$record_id" ]] || continue
 			run_cmd curl -s -X DELETE -H "Authorization: Bearer ${token}" "https://api.digitalocean.com/v2/domains/${DO_TEST_DOMAIN}/records/${record_id}" > /dev/null 2>&1 || true

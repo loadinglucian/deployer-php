@@ -142,12 +142,20 @@ teardown() {
 @test "server:install configures AWS provisioned server" {
 	require_aws_provision_config
 
+	local latest_php_version previous_php_version installed_php_versions
+	local -a target_php_versions
+	mapfile -t target_php_versions < <(get_latest_two_php_fpm_versions_for_server "$AWS_TEST_SERVER_NAME")
+	latest_php_version="${target_php_versions[0]}"
+	previous_php_version="${target_php_versions[1]}"
+	[[ -n "$latest_php_version" ]]
+	[[ -n "$previous_php_version" ]]
+
 	# Full install takes time - use longer timeout
 	run timeout 600 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:install \
 		--server="$AWS_TEST_SERVER_NAME" \
 		--generate-deploy-key \
 		--timezone="UTC" \
-		--php-version="$CLOUD_TEST_PHP_VERSION" \
+		--php-version="$latest_php_version" \
 		--php-extensions="$CLOUD_TEST_PHP_EXTENSIONS"
 
 	debug_output
@@ -157,6 +165,26 @@ teardown() {
 	assert_output_contains "Server installation completed"
 	assert_output_contains "public key"
 	assert_command_replay "server:install"
+
+	# Install previous PHP-FPM version on the same server (keep latest as default)
+	run timeout 600 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi server:install \
+		--server="$AWS_TEST_SERVER_NAME" \
+		--generate-deploy-key \
+		--timezone="UTC" \
+		--php-version="$previous_php_version" \
+		--no-php-default \
+		--php-extensions="$CLOUD_TEST_PHP_EXTENSIONS"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Server installation completed"
+	assert_command_replay "server:install"
+
+	installed_php_versions="$(get_installed_php_fpm_versions_for_server "$AWS_TEST_SERVER_NAME")"
+	printf '%s\n' "$installed_php_versions" | grep -qx "$latest_php_version"
+	printf '%s\n' "$installed_php_versions" | grep -qx "$previous_php_version"
 }
 
 # ----
@@ -166,13 +194,41 @@ teardown() {
 @test "site:create creates site ${AWS_TEST_SITE_DOMAIN} on AWS provisioned server" {
 	require_aws_provision_config
 
+	local latest_php_version
+	latest_php_version="$(get_latest_php_fpm_version_for_server "$AWS_TEST_SERVER_NAME")"
+	[[ -n "$latest_php_version" ]]
+
 	# Cleanup any leftover test site
 	cleanup_test_site "$AWS_TEST_SITE_DOMAIN"
 
 	run_deployer site:create \
 		--domain="$AWS_TEST_SITE_DOMAIN" \
 		--server="$AWS_TEST_SERVER_NAME" \
-		--php-version="$CLOUD_TEST_PHP_VERSION" \
+		--php-version="$latest_php_version" \
+		--web-root="/"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "added to inventory"
+	assert_command_replay "site:create"
+}
+
+@test "site:create creates secondary site ${AWS_TEST_SITE_DOMAIN_SECONDARY} on AWS provisioned server" {
+	require_aws_provision_config
+
+	local previous_php_version
+	previous_php_version="$(get_previous_php_fpm_version_for_server "$AWS_TEST_SERVER_NAME")"
+	[[ -n "$previous_php_version" ]]
+
+	# Cleanup any leftover secondary test site
+	cleanup_test_site "$AWS_TEST_SITE_DOMAIN_SECONDARY"
+
+	run_deployer site:create \
+		--domain="$AWS_TEST_SITE_DOMAIN_SECONDARY" \
+		--server="$AWS_TEST_SERVER_NAME" \
+		--php-version="$previous_php_version" \
 		--web-root="/"
 
 	debug_output
@@ -211,7 +267,30 @@ teardown() {
 	assert_command_replay "aws:dns:set"
 }
 
-@test "aws:dns:list shows ${AWS_TEST_DNS_ROOT_FQDN}" {
+@test "aws:dns:set creates secondary prefixed A record for ${AWS_TEST_DNS_ROOT_SECONDARY_FQDN}" {
+	require_aws_provision_config
+
+	local server_ip
+	server_ip=$(get_server_ip "$AWS_TEST_SERVER_NAME")
+
+	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
+
+	run_deployer aws:dns:set \
+		--zone="$AWS_TEST_HOSTED_ZONE" \
+		--type="A" \
+		--name="$AWS_TEST_DNS_ROOT_SECONDARY" \
+		--value="$server_ip" \
+		--ttl="60"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "DNS record upserted successfully"
+	assert_command_replay "aws:dns:set"
+}
+
+@test "aws:dns:list shows ${AWS_TEST_DNS_ROOT_FQDN} and ${AWS_TEST_DNS_ROOT_SECONDARY_FQDN}" {
 	require_aws_provision_config
 
 	run_deployer aws:dns:list \
@@ -221,6 +300,8 @@ teardown() {
 
 	[ "$status" -eq 0 ]
 	assert_output_contains "$AWS_TEST_HOSTED_ZONE"
+	assert_output_contains "$AWS_TEST_DNS_ROOT_FQDN"
+	assert_output_contains "$AWS_TEST_DNS_ROOT_SECONDARY_FQDN"
 	assert_command_replay "aws:dns:list"
 }
 
@@ -294,6 +375,29 @@ teardown() {
 	assert_command_replay "site:dns:check"
 }
 
+@test "site:dns:check resolves DNS for ${AWS_TEST_SITE_DOMAIN_SECONDARY}" {
+	require_aws_provision_config
+
+	local server_ip
+	server_ip=$(get_server_ip "$AWS_TEST_SERVER_NAME")
+
+	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
+	wait_for_dns_a_record "$AWS_TEST_SITE_DOMAIN_SECONDARY" "$server_ip" 300
+
+	run_deployer site:dns:check \
+		--domain="$AWS_TEST_SITE_DOMAIN_SECONDARY"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains "Check DNS"
+	assert_output_contains "Domain: $AWS_TEST_SITE_DOMAIN_SECONDARY"
+	assert_output_contains "A:"
+	assert_output_contains "AAAA:"
+	assert_output_contains "$server_ip"
+	assert_command_replay "site:dns:check"
+}
+
 # ----
 # site:shared:push
 # ----
@@ -303,6 +407,22 @@ teardown() {
 
 	run_deployer site:shared:push \
 		--domain="$AWS_TEST_SITE_DOMAIN" \
+		--local="${BATS_TEST_ROOT}/fixtures/env/deploy-me.env" \
+		--remote=".env"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Shared file uploaded"
+	assert_command_replay "site:shared:push"
+}
+
+@test "site:shared:push uploads .env to AWS secondary site" {
+	require_aws_provision_config
+
+	run_deployer site:shared:push \
+		--domain="$AWS_TEST_SITE_DOMAIN_SECONDARY" \
 		--local="${BATS_TEST_ROOT}/fixtures/env/deploy-me.env" \
 		--remote=".env"
 
@@ -381,19 +501,22 @@ teardown() {
 	assert_command_replay "site:deploy"
 }
 
-# ----
-# HTTP Verification
-# ----
-
-@test "deployed AWS site responds to HTTP requests" {
+@test "site:deploy deploys application to AWS secondary site" {
 	require_aws_provision_config
 
-	# Get server IP to bypass DNS (faster than waiting for propagation)
-	local server_ip
-	server_ip=$(get_server_ip "$AWS_TEST_SERVER_NAME")
+	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:deploy \
+		--domain="$AWS_TEST_SITE_DOMAIN_SECONDARY" \
+		--repo="$CLOUD_TEST_DEPLOY_REPO" \
+		--branch="$CLOUD_TEST_DEPLOY_BRANCH" \
+		--force \
+		--yes
 
-	# Wait for HTTP response containing our test message (30 seconds - should be immediate with direct IP)
-	wait_for_http "$AWS_TEST_SITE_DOMAIN" "$CLOUD_TEST_APP_MESSAGE" 30 "$server_ip"
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Deployment completed"
+	assert_command_replay "site:deploy"
 }
 
 # ----
@@ -420,6 +543,43 @@ teardown() {
 	assert_command_replay "site:https"
 }
 
+@test "site:https enables HTTPS for ${AWS_TEST_SITE_DOMAIN_SECONDARY}" {
+	require_aws_provision_config
+
+	local server_ip
+	server_ip=$(get_server_ip "$AWS_TEST_SERVER_NAME")
+
+	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
+	wait_for_dns_a_record "$AWS_TEST_SITE_DOMAIN_SECONDARY" "$server_ip" 300
+
+	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:https \
+		--domain="$AWS_TEST_SITE_DOMAIN_SECONDARY"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "HTTPS enabled successfully"
+	assert_command_replay "site:https"
+}
+
+# ----
+# HTTP Verification
+# ----
+
+@test "deployed AWS site responds to HTTP requests after HTTPS setup" {
+	require_aws_provision_config
+
+	# DNS was already validated before site:https; verify app response after HTTPS setup.
+	wait_for_http "$AWS_TEST_SITE_DOMAIN" "$CLOUD_TEST_APP_MESSAGE" 30
+}
+
+@test "deployed AWS secondary site responds to HTTP requests after HTTPS setup" {
+	require_aws_provision_config
+
+	wait_for_http "$AWS_TEST_SITE_DOMAIN_SECONDARY" "$CLOUD_TEST_APP_MESSAGE" 30
+}
+
 # ----
 # site:rollback
 # ----
@@ -440,6 +600,22 @@ teardown() {
 # ----
 # site:delete
 # ----
+
+@test "site:delete removes ${AWS_TEST_SITE_DOMAIN_SECONDARY} from server and inventory" {
+	require_aws_provision_config
+
+	run_deployer site:delete \
+		--domain="$AWS_TEST_SITE_DOMAIN_SECONDARY" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "removed from inventory"
+	assert_command_replay "site:delete"
+}
 
 @test "site:delete removes ${AWS_TEST_SITE_DOMAIN} from server and inventory" {
 	require_aws_provision_config
@@ -482,6 +658,24 @@ teardown() {
 # ----
 # aws:dns:delete
 # ----
+
+@test "aws:dns:delete removes prefixed A record ${AWS_TEST_DNS_ROOT_SECONDARY_FQDN}" {
+	require_aws_provision_config
+
+	run_deployer aws:dns:delete \
+		--zone="$AWS_TEST_HOSTED_ZONE" \
+		--type="A" \
+		--name="$AWS_TEST_DNS_ROOT_SECONDARY" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "DNS record deleted successfully"
+	assert_command_replay "aws:dns:delete"
+}
 
 @test "aws:dns:delete removes prefixed A record ${AWS_TEST_DNS_ROOT_FQDN}" {
 	require_aws_provision_config
