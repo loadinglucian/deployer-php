@@ -39,7 +39,7 @@ class SiteCreateCommand extends BaseCommand
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Domain name')
             ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name')
             ->addOption('php-version', null, InputOption::VALUE_REQUIRED, 'PHP version to use')
-            ->addOption('www-mode', null, InputOption::VALUE_REQUIRED, 'WWW handling mode (redirect-to-root, redirect-to-www)')
+            ->addOption('www-mode', null, InputOption::VALUE_REQUIRED, 'WWW handling mode (redirect-to-root, redirect-to-www, none)')
             ->addOption('web-root', null, InputOption::VALUE_REQUIRED, 'Public web directory (default: public)');
     }
 
@@ -154,12 +154,18 @@ class SiteCreateCommand extends BaseCommand
 
         $this->info('Please update your DNS records:');
 
-        $this->ul([
+        $dnsSteps = [
             'Point <fg=cyan>@</> (root) to <fg=cyan>' . $server->host . '</>',
-            'Point <fg=cyan>www</> to <fg=cyan>' . $server->host . '</>',
-            'Run <fg=cyan>site:https</> to enable HTTPS once you have your DNS records set up',
-            'Deploy your new site with <fg=cyan>site:deploy</>'
-        ]);
+        ];
+
+        if ('none' !== $wwwMode) {
+            $dnsSteps[] = 'Point <fg=cyan>www</> to <fg=cyan>' . $server->host . '</>';
+        }
+
+        $dnsSteps[] = 'Run <fg=cyan>site:https</> to enable HTTPS once you have your DNS records set up';
+        $dnsSteps[] = 'Deploy your new site with <fg=cyan>site:deploy</>';
+
+        $this->ul($dnsSteps);
 
         //
         // Show command replay
@@ -260,27 +266,75 @@ class SiteCreateCommand extends BaseCommand
             $domain = $this->normalizeDomain($domain);
 
             //
-            // Determine WWW handling
+            // Detect subdomain and determine WWW handling
             // ----
 
             $wwwModes = [
                 'redirect-to-root' => 'Redirect www to non-www',
                 'redirect-to-www' => 'Redirect non-www to www',
+                'none' => 'Do not configure a www alias',
             ];
 
-            /** @var string $wwwMode */
-            $wwwMode = $this->io->getValidatedOptionOrPrompt(
-                'www-mode',
-                fn ($validate) => $this->io->promptSelect(
-                    label: "How should 'www.{$domain}' be handled?",
-                    options: $wwwModes,
-                    default: 'redirect-to-root',
-                    validate: $validate
-                ),
-                fn ($value) => in_array($value, array_keys($wwwModes), true)
-                    ? null
-                    : sprintf("Invalid WWW mode '%s'. Allowed: %s", is_scalar($value) ? $value : gettype($value), implode(', ', array_keys($wwwModes)))
-            );
+            $validateWwwMode = fn (mixed $value): ?string => in_array($value, array_keys($wwwModes), true)
+                ? null
+                : sprintf(
+                    "Invalid WWW mode '%s'. Allowed: %s",
+                    is_scalar($value) ? (string) $value : gettype($value),
+                    implode(', ', array_keys($wwwModes))
+                );
+
+            /** @var string $host */
+            $host = parse_url('https://' . $domain, PHP_URL_HOST);
+            $host = strtolower($host);
+
+            $labels = explode('.', $host);
+            $labelCount = count($labels);
+
+            // Known second-level suffix labels used with ccTLDs (example.co.uk, example.com.au).
+            $ccSecondLevelLabels = ['ac', 'co', 'com', 'edu', 'gov', 'net', 'org'];
+            $tld = $labels[$labelCount - 1] ?? '';
+            $secondLevel = $labels[$labelCount - 2] ?? '';
+
+            $isCcTld = 2 === strlen($tld);
+            $isTwoPartSuffix = $isCcTld && in_array($secondLevel, $ccSecondLevelLabels, true);
+            $apexLabelCount = $isTwoPartSuffix ? 3 : 2;
+            $isSubdomain = $labelCount > $apexLabelCount;
+
+            /** @var mixed $requestedWwwMode */
+            $requestedWwwMode = $this->io->getOptionValue('www-mode');
+
+            if ($isSubdomain) {
+                if (null !== $requestedWwwMode) {
+                    if (! is_string($requestedWwwMode)) {
+                        throw new ValidationException('WWW mode must be a string');
+                    }
+
+                    $validationError = $validateWwwMode($requestedWwwMode);
+
+                    if (null !== $validationError) {
+                        throw new ValidationException($validationError);
+                    }
+
+                    if ('none' !== $requestedWwwMode) {
+                        $this->warn("Ignoring --www-mode={$requestedWwwMode} for subdomain '{$domain}'. Using 'none'.");
+                    }
+                }
+
+                $this->info("Detected subdomain '{$domain}'. WWW mode automatically set to 'none'.");
+                $wwwMode = 'none';
+            } else {
+                /** @var string $wwwMode */
+                $wwwMode = $this->io->getValidatedOptionOrPrompt(
+                    'www-mode',
+                    fn ($validate) => $this->io->promptSelect(
+                        label: "How should 'www.{$domain}' be handled?",
+                        options: $wwwModes,
+                        default: 'redirect-to-root',
+                        validate: $validate
+                    ),
+                    $validateWwwMode
+                );
+            }
 
             //
             // Web root directory

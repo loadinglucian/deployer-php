@@ -125,7 +125,7 @@ class SiteSharedPullCommand extends BaseCommand
         try {
             $this->io->promptSpin(
                 function () use ($server, $remotePath, $localPath): void {
-                    $this->ssh->downloadFile($server, $remotePath, $localPath);
+                    $this->downloadViaPrivilegedTempFile($server, $remotePath, $localPath);
                 },
                 'Downloading file...'
             );
@@ -217,5 +217,30 @@ class SiteSharedPullCommand extends BaseCommand
         $message = '' === $output ? "Failed checking remote file: {$remotePath}" : $output;
 
         throw new \RuntimeException($message);
+    }
+
+    private function downloadViaPrivilegedTempFile(ServerDTO $server, string $remotePath, string $localPath): void
+    {
+        $tempPath = '/tmp/deployer-download-' . bin2hex(random_bytes(8));
+
+        try {
+            $this->runRemoteCommand($server, sprintf('cp %1$s %2$s', escapeshellarg($remotePath), escapeshellarg($tempPath)));
+            $this->runRemoteCommand($server, sprintf('chown %1$s:%1$s %2$s', escapeshellarg($server->username), escapeshellarg($tempPath)));
+            $this->runRemoteCommand($server, sprintf('chmod 600 %s', escapeshellarg($tempPath)));
+            $this->ssh->downloadFile($server, $tempPath, $localPath);
+        } finally {
+            $this->ssh->executeCommand($server, sprintf('rm -f %s', escapeshellarg($tempPath)));
+        }
+    }
+
+    private function runRemoteCommand(ServerDTO $server, string $command): void
+    {
+        $result = $this->ssh->executeCommand($server, $command);
+        if (0 !== $result['exit_code']) {
+            $output = trim((string) $result['output']);
+            $message = '' === $output ? "Remote command failed: {$command}" : $output;
+
+            throw new \RuntimeException($message);
+        }
     }
 }

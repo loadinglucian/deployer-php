@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 # DigitalOcean Integration Tests
-# Tests: do:key:add, do:key:list, do:key:delete, do:provision
+# Tests: DigitalOcean key/provision/DNS + site lifecycle commands
 #
 # Prerequisites:
 #   - DIGITALOCEAN_API_TOKEN or DO_API_TOKEN in environment
@@ -17,6 +17,8 @@ load 'lib/cloud-helpers'
 
 setup_file() {
 	require_do_credentials
+	require_do_dns_prefix_config
+	cloud_note "Run suffix: ${BATS_RUN_SUFFIX}"
 	do_cleanup_all
 }
 
@@ -133,6 +135,9 @@ teardown() {
 	assert_output_contains "Droplet is active"
 	assert_output_contains "Server added to inventory"
 	assert_command_replay "do:provision"
+
+	# Tag contract for janitor discovery
+	do_assert_droplet_tag_contract "$DO_TEST_SERVER_NAME"
 }
 
 @test "server:install configures DigitalOcean provisioned server" {
@@ -156,10 +161,34 @@ teardown() {
 }
 
 # ----
+# site:create
+# ----
+
+@test "site:create creates site ${DO_TEST_SITE_DOMAIN} on DigitalOcean provisioned server" {
+	require_do_provision_config
+
+	# Cleanup any leftover test site
+	cleanup_test_site "$DO_TEST_SITE_DOMAIN"
+
+	run_deployer site:create \
+		--domain="$DO_TEST_SITE_DOMAIN" \
+		--server="$DO_TEST_SERVER_NAME" \
+		--php-version="$CLOUD_TEST_PHP_VERSION" \
+		--web-root="/"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "added to inventory"
+	assert_command_replay "site:create"
+}
+
+# ----
 # do:dns:set
 # ----
 
-@test "do:dns:set creates A record for root domain" {
+@test "do:dns:set creates prefixed A record for ${DO_TEST_DNS_ROOT_FQDN}" {
 	require_do_provision_config
 
 	# Get server IP from inventory
@@ -184,36 +213,7 @@ teardown() {
 	assert_command_replay "do:dns:set"
 }
 
-@test "do:dns:set creates A record for www subdomain" {
-	require_do_provision_config
-
-	# Get server IP from inventory
-	local server_ip
-	server_ip=$(get_server_ip "$DO_TEST_SERVER_NAME")
-
-	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
-
-	run_deployer do:dns:set \
-		--zone="$DO_TEST_DOMAIN" \
-		--type="A" \
-		--name="$DO_TEST_DNS_WWW" \
-		--value="$server_ip" \
-		--ttl="60"
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "DNS record"
-	assert_output_contains "successfully"
-	assert_command_replay "do:dns:set"
-}
-
-# ----
-# do:dns:list
-# ----
-
-@test "do:dns:list shows created records" {
+@test "do:dns:list shows ${DO_TEST_DNS_ROOT_FQDN}" {
 	require_do_provision_config
 
 	run_deployer do:dns:list \
@@ -227,87 +227,29 @@ teardown() {
 }
 
 # ----
-# do:dns:delete
-# ----
-
-@test "do:dns:delete removes www A record" {
-	require_do_provision_config
-
-	run_deployer do:dns:delete \
-		--zone="$DO_TEST_DOMAIN" \
-		--type="A" \
-		--name="$DO_TEST_DNS_WWW" \
-		--force \
-		--yes
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "DNS record deleted successfully"
-	assert_command_replay "do:dns:delete"
-}
-
-@test "do:dns:delete removes root A record" {
-	require_do_provision_config
-
-	run_deployer do:dns:delete \
-		--zone="$DO_TEST_DOMAIN" \
-		--type="A" \
-		--name="$DO_TEST_DNS_ROOT" \
-		--force \
-		--yes
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "DNS record deleted successfully"
-	assert_command_replay "do:dns:delete"
-}
-
-# ----
-# site:create
-# ----
-
-@test "site:create creates site on DigitalOcean provisioned server" {
-	require_do_provision_config
-
-	# Cleanup any leftover test site
-	cleanup_test_site "$DO_TEST_DOMAIN"
-
-	run_deployer site:create \
-		--domain="$DO_TEST_DOMAIN" \
-		--server="$DO_TEST_SERVER_NAME" \
-		--php-version="$CLOUD_TEST_PHP_VERSION" \
-		--www-mode="redirect-to-root" \
-		--web-root="/"
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "added to inventory"
-	assert_command_replay "site:create"
-}
-
-# ----
 # site:dns:check
 # ----
 
-@test "site:dns:check resolves DNS for DigitalOcean site" {
+@test "site:dns:check resolves DNS for ${DO_TEST_SITE_DOMAIN}" {
 	require_do_provision_config
 
+	local server_ip
+	server_ip=$(get_server_ip "$DO_TEST_SERVER_NAME")
+
+	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
+	wait_for_dns_a_record "$DO_TEST_SITE_DOMAIN" "$server_ip" 300
+
 	run_deployer site:dns:check \
-		--domain="$DO_TEST_DOMAIN"
+		--domain="$DO_TEST_SITE_DOMAIN"
 
 	debug_output
 
 	[ "$status" -eq 0 ]
 	assert_output_contains "Check DNS"
-	assert_output_contains "Domain: $DO_TEST_DOMAIN"
+	assert_output_contains "Domain: $DO_TEST_SITE_DOMAIN"
 	assert_output_contains "A:"
 	assert_output_contains "AAAA:"
+	assert_output_contains "$server_ip"
 	assert_command_replay "site:dns:check"
 }
 
@@ -319,7 +261,7 @@ teardown() {
 	require_do_provision_config
 
 	run_deployer site:shared:push \
-		--domain="$DO_TEST_DOMAIN" \
+		--domain="$DO_TEST_SITE_DOMAIN" \
 		--local="${BATS_TEST_ROOT}/fixtures/env/deploy-me.env" \
 		--remote=".env"
 
@@ -332,6 +274,50 @@ teardown() {
 }
 
 # ----
+# site:shared:list
+# ----
+
+@test "site:shared:list shows uploaded shared files for DigitalOcean site" {
+	require_do_provision_config
+
+	run_deployer site:shared:list \
+		--domain="$DO_TEST_SITE_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains ".env"
+	assert_command_replay "site:shared:list"
+}
+
+# ----
+# site:shared:pull
+# ----
+
+@test "site:shared:pull downloads .env from DigitalOcean site" {
+	require_do_provision_config
+
+	local pulled_env="${BATS_TEST_TMPDIR}/do-shared.env"
+
+	run_deployer site:shared:pull \
+		--domain="$DO_TEST_SITE_DOMAIN" \
+		--remote=".env" \
+		--local="$pulled_env" \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Shared file downloaded"
+	assert_command_replay "site:shared:pull"
+	[[ -f "$pulled_env" ]]
+
+	run grep -q "APP_MESSAGE=$CLOUD_TEST_APP_MESSAGE" "$pulled_env"
+	[ "$status" -eq 0 ]
+}
+
+# ----
 # site:deploy
 # ----
 
@@ -340,7 +326,7 @@ teardown() {
 
 	# Deploy takes time - use longer timeout
 	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:deploy \
-		--domain="$DO_TEST_DOMAIN" \
+		--domain="$DO_TEST_SITE_DOMAIN" \
 		--repo="$CLOUD_TEST_DEPLOY_REPO" \
 		--branch="$CLOUD_TEST_DEPLOY_BRANCH" \
 		--force \
@@ -366,7 +352,90 @@ teardown() {
 	server_ip=$(get_server_ip "$DO_TEST_SERVER_NAME")
 
 	# Wait for HTTP response containing our test message (30 seconds - should be immediate with direct IP)
-	wait_for_http "$DO_TEST_DOMAIN" "$CLOUD_TEST_APP_MESSAGE" 30 "$server_ip"
+	wait_for_http "$DO_TEST_SITE_DOMAIN" "$CLOUD_TEST_APP_MESSAGE" 30 "$server_ip"
+}
+
+# ----
+# site:https
+# ----
+
+@test "site:https enables HTTPS for ${DO_TEST_SITE_DOMAIN}" {
+	require_do_provision_config
+
+	local server_ip
+	server_ip=$(get_server_ip "$DO_TEST_SERVER_NAME")
+
+	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
+	wait_for_dns_a_record "$DO_TEST_SITE_DOMAIN" "$server_ip" 300
+
+	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:https \
+		--domain="$DO_TEST_SITE_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "HTTPS enabled successfully"
+	assert_command_replay "site:https"
+}
+
+# ----
+# site:rollback
+# ----
+
+@test "site:rollback shows forward-only deployment guidance" {
+	require_do_provision_config
+
+	run_deployer site:rollback
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_info_output
+	assert_output_contains "Forward-only deployments"
+	assert_bullet_output
+}
+
+# ----
+# site:delete
+# ----
+
+@test "site:delete removes ${DO_TEST_SITE_DOMAIN} from server and inventory" {
+	require_do_provision_config
+
+	run_deployer site:delete \
+		--domain="$DO_TEST_SITE_DOMAIN" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "removed from inventory"
+	assert_command_replay "site:delete"
+}
+
+# ----
+# do:dns:delete
+# ----
+
+@test "do:dns:delete removes prefixed A record ${DO_TEST_DNS_ROOT_FQDN}" {
+	require_do_provision_config
+
+	run_deployer do:dns:delete \
+		--zone="$DO_TEST_DOMAIN" \
+		--type="A" \
+		--name="$DO_TEST_DNS_ROOT" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "DNS record deleted successfully"
+	assert_command_replay "do:dns:delete"
 }
 
 # ----

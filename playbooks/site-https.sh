@@ -10,7 +10,7 @@
 #   DEPLOYER_OUTPUT_FILE  - Output file path
 #   DEPLOYER_PERMS        - Permissions: root|sudo|none
 #   DEPLOYER_SITE_DOMAIN  - Domain name
-#   DEPLOYER_WWW_MODE     - WWW mode: redirect-to-root|redirect-to-www
+#   DEPLOYER_WWW_MODE     - WWW mode: redirect-to-root|redirect-to-www|none
 #
 # Optional Environment Variables:
 #   DEPLOYER_SSL_EMAIL    - Email for SSL certificate renewal notices (default: ssl@{domain})
@@ -26,7 +26,7 @@ export DEBIAN_FRONTEND=noninteractive
 [[ -z $DEPLOYER_OUTPUT_FILE ]] && echo "Error: DEPLOYER_OUTPUT_FILE required" && exit 1
 [[ -z $DEPLOYER_PERMS ]] && echo "Error: DEPLOYER_PERMS required" && exit 1
 [[ -z $DEPLOYER_SITE_DOMAIN ]] && echo "Error: DEPLOYER_SITE_DOMAIN required" && exit 1
-[[ -z $DEPLOYER_WWW_MODE ]] && echo "Error: DEPLOYER_WWW_MODE required" && exit 1
+[[ -z $DEPLOYER_WWW_MODE ]] && echo "Error: DEPLOYER_WWW_MODE required (redirect-to-root|redirect-to-www|none)" && exit 1
 export DEPLOYER_PERMS
 
 # Shared helpers are automatically inlined when executing playbooks remotely
@@ -58,6 +58,10 @@ request_certificate() {
 		redirect-to-www)
 			# WWW domain is primary, root redirects to www
 			domains="-d www.${domain} -d ${domain}"
+			;;
+		none)
+			# Subdomain/single-host site without www alias
+			domains="-d ${domain}"
 			;;
 		*)
 			echo "Error: Invalid WWW mode: ${www_mode}" >&2

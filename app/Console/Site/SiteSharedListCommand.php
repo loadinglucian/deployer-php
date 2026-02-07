@@ -86,8 +86,11 @@ class SiteSharedListCommand extends BaseCommand
                     $result = $this->ssh->executeCommand(
                         $server,
                         sprintf(
-                            'cd %1$s && (tree -a --noreport 2>/dev/null || find . -not -name "." | sort)',
-                            escapeshellarg($sharedPath)
+                            'sh -lc %1$s',
+                            escapeshellarg(sprintf(
+                                'cd %1$s && (tree -a --noreport 2>/dev/null || find . -not -name "." | sort)',
+                                escapeshellarg($sharedPath)
+                            ))
                         )
                     );
 

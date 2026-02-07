@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 # AWS Integration Tests
-# Tests: aws:key:add, aws:key:list, aws:key:delete, aws:provision
+# Tests: AWS key/provision/DNS + site lifecycle commands
 #
 # Prerequisites:
 #   - AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION in environment
@@ -18,6 +18,9 @@ load 'lib/cloud-helpers'
 setup_file() {
 	require_aws_credentials
 	require_cf_credentials
+	require_aws_dns_prefix_config
+	require_cf_dns_prefix_config
+	cloud_note "Run suffix: ${BATS_RUN_SUFFIX}"
 	aws_cleanup_all
 	cf_cleanup_all
 }
@@ -129,6 +132,11 @@ teardown() {
 	assert_output_contains "Elastic IP allocated"
 	assert_output_contains "Server added to inventory"
 	assert_command_replay "aws:provision"
+
+	# Tag contract for janitor discovery
+	aws_assert_instance_tag_contract "$AWS_TEST_SERVER_NAME"
+	aws_assert_eip_tag_contract "$AWS_TEST_SERVER_NAME"
+	aws_assert_root_volume_tag_contract "$AWS_TEST_SERVER_NAME"
 }
 
 @test "server:install configures AWS provisioned server" {
@@ -152,10 +160,34 @@ teardown() {
 }
 
 # ----
+# site:create
+# ----
+
+@test "site:create creates site ${AWS_TEST_SITE_DOMAIN} on AWS provisioned server" {
+	require_aws_provision_config
+
+	# Cleanup any leftover test site
+	cleanup_test_site "$AWS_TEST_SITE_DOMAIN"
+
+	run_deployer site:create \
+		--domain="$AWS_TEST_SITE_DOMAIN" \
+		--server="$AWS_TEST_SERVER_NAME" \
+		--php-version="$CLOUD_TEST_PHP_VERSION" \
+		--web-root="/"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "added to inventory"
+	assert_command_replay "site:create"
+}
+
+# ----
 # aws:dns:set
 # ----
 
-@test "aws:dns:set creates A record for root domain" {
+@test "aws:dns:set creates prefixed A record for ${AWS_TEST_DNS_ROOT_FQDN}" {
 	require_aws_provision_config
 
 	# Get server IP from inventory
@@ -179,35 +211,7 @@ teardown() {
 	assert_command_replay "aws:dns:set"
 }
 
-@test "aws:dns:set creates A record for www subdomain" {
-	require_aws_provision_config
-
-	# Get server IP from inventory
-	local server_ip
-	server_ip=$(get_server_ip "$AWS_TEST_SERVER_NAME")
-
-	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
-
-	run_deployer aws:dns:set \
-		--zone="$AWS_TEST_HOSTED_ZONE" \
-		--type="A" \
-		--name="$AWS_TEST_DNS_WWW" \
-		--value="$server_ip" \
-		--ttl="60"
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "DNS record upserted successfully"
-	assert_command_replay "aws:dns:set"
-}
-
-# ----
-# aws:dns:list
-# ----
-
-@test "aws:dns:list shows created records" {
+@test "aws:dns:list shows ${AWS_TEST_DNS_ROOT_FQDN}" {
 	require_aws_provision_config
 
 	run_deployer aws:dns:list \
@@ -221,50 +225,10 @@ teardown() {
 }
 
 # ----
-# aws:dns:delete
-# ----
-
-@test "aws:dns:delete removes www A record" {
-	require_aws_provision_config
-
-	run_deployer aws:dns:delete \
-		--zone="$AWS_TEST_HOSTED_ZONE" \
-		--type="A" \
-		--name="$AWS_TEST_DNS_WWW" \
-		--force \
-		--yes
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "DNS record deleted successfully"
-	assert_command_replay "aws:dns:delete"
-}
-
-@test "aws:dns:delete removes root A record" {
-	require_aws_provision_config
-
-	run_deployer aws:dns:delete \
-		--zone="$AWS_TEST_HOSTED_ZONE" \
-		--type="A" \
-		--name="$AWS_TEST_DNS_ROOT" \
-		--force \
-		--yes
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "DNS record deleted successfully"
-	assert_command_replay "aws:dns:delete"
-}
-
-# ----
 # cf:dns:set
 # ----
 
-@test "cf:dns:set creates A record for root domain (non-proxied)" {
+@test "cf:dns:set creates prefixed A record for ${CF_TEST_DNS_ROOT_FQDN} (non-proxied)" {
 	require_aws_provision_config
 
 	# Get server IP from inventory
@@ -290,37 +254,7 @@ teardown() {
 	assert_command_replay "cf:dns:set"
 }
 
-@test "cf:dns:set creates A record for www subdomain (non-proxied)" {
-	require_aws_provision_config
-
-	# Get server IP from inventory
-	local server_ip
-	server_ip=$(get_server_ip "$AWS_TEST_SERVER_NAME")
-
-	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
-
-	run_deployer cf:dns:set \
-		--zone="$CF_TEST_DOMAIN" \
-		--type="A" \
-		--name="$CF_TEST_DNS_WWW" \
-		--value="$server_ip" \
-		--ttl="60" \
-		--no-proxied
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "DNS record"
-	assert_output_contains "successfully"
-	assert_command_replay "cf:dns:set"
-}
-
-# ----
-# cf:dns:list
-# ----
-
-@test "cf:dns:list shows created records" {
+@test "cf:dns:list shows ${CF_TEST_DNS_ROOT_FQDN}" {
 	require_aws_provision_config
 
 	run_deployer cf:dns:list \
@@ -334,87 +268,29 @@ teardown() {
 }
 
 # ----
-# cf:dns:delete
-# ----
-
-@test "cf:dns:delete removes www A record" {
-	require_aws_provision_config
-
-	run_deployer cf:dns:delete \
-		--zone="$CF_TEST_DOMAIN" \
-		--type="A" \
-		--name="$CF_TEST_DNS_WWW" \
-		--force \
-		--yes
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "DNS record deleted successfully"
-	assert_command_replay "cf:dns:delete"
-}
-
-@test "cf:dns:delete removes root A record" {
-	require_aws_provision_config
-
-	run_deployer cf:dns:delete \
-		--zone="$CF_TEST_DOMAIN" \
-		--type="A" \
-		--name="$CF_TEST_DNS_ROOT" \
-		--force \
-		--yes
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "DNS record deleted successfully"
-	assert_command_replay "cf:dns:delete"
-}
-
-# ----
-# site:create
-# ----
-
-@test "site:create creates site on AWS provisioned server" {
-	require_aws_provision_config
-
-	# Cleanup any leftover test site
-	cleanup_test_site "$AWS_TEST_DOMAIN"
-
-	run_deployer site:create \
-		--domain="$AWS_TEST_DOMAIN" \
-		--server="$AWS_TEST_SERVER_NAME" \
-		--php-version="$CLOUD_TEST_PHP_VERSION" \
-		--www-mode="redirect-to-root" \
-		--web-root="/"
-
-	debug_output
-
-	[ "$status" -eq 0 ]
-	assert_success_output
-	assert_output_contains "added to inventory"
-	assert_command_replay "site:create"
-}
-
-# ----
 # site:dns:check
 # ----
 
-@test "site:dns:check resolves DNS for AWS site" {
+@test "site:dns:check resolves DNS for ${AWS_TEST_SITE_DOMAIN}" {
 	require_aws_provision_config
 
+	local server_ip
+	server_ip=$(get_server_ip "$AWS_TEST_SERVER_NAME")
+
+	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
+	wait_for_dns_a_record "$AWS_TEST_SITE_DOMAIN" "$server_ip" 300
+
 	run_deployer site:dns:check \
-		--domain="$AWS_TEST_DOMAIN"
+		--domain="$AWS_TEST_SITE_DOMAIN"
 
 	debug_output
 
 	[ "$status" -eq 0 ]
 	assert_output_contains "Check DNS"
-	assert_output_contains "Domain: $AWS_TEST_DOMAIN"
+	assert_output_contains "Domain: $AWS_TEST_SITE_DOMAIN"
 	assert_output_contains "A:"
 	assert_output_contains "AAAA:"
+	assert_output_contains "$server_ip"
 	assert_command_replay "site:dns:check"
 }
 
@@ -426,7 +302,7 @@ teardown() {
 	require_aws_provision_config
 
 	run_deployer site:shared:push \
-		--domain="$AWS_TEST_DOMAIN" \
+		--domain="$AWS_TEST_SITE_DOMAIN" \
 		--local="${BATS_TEST_ROOT}/fixtures/env/deploy-me.env" \
 		--remote=".env"
 
@@ -439,6 +315,50 @@ teardown() {
 }
 
 # ----
+# site:shared:list
+# ----
+
+@test "site:shared:list shows uploaded shared files for AWS site" {
+	require_aws_provision_config
+
+	run_deployer site:shared:list \
+		--domain="$AWS_TEST_SITE_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains ".env"
+	assert_command_replay "site:shared:list"
+}
+
+# ----
+# site:shared:pull
+# ----
+
+@test "site:shared:pull downloads .env from AWS site" {
+	require_aws_provision_config
+
+	local pulled_env="${BATS_TEST_TMPDIR}/aws-shared.env"
+
+	run_deployer site:shared:pull \
+		--domain="$AWS_TEST_SITE_DOMAIN" \
+		--remote=".env" \
+		--local="$pulled_env" \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Shared file downloaded"
+	assert_command_replay "site:shared:pull"
+	[[ -f "$pulled_env" ]]
+
+	run grep -q "APP_MESSAGE=$CLOUD_TEST_APP_MESSAGE" "$pulled_env"
+	[ "$status" -eq 0 ]
+}
+
+# ----
 # site:deploy
 # ----
 
@@ -447,7 +367,7 @@ teardown() {
 
 	# Deploy takes time - use longer timeout
 	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:deploy \
-		--domain="$AWS_TEST_DOMAIN" \
+		--domain="$AWS_TEST_SITE_DOMAIN" \
 		--repo="$CLOUD_TEST_DEPLOY_REPO" \
 		--branch="$CLOUD_TEST_DEPLOY_BRANCH" \
 		--force \
@@ -473,7 +393,112 @@ teardown() {
 	server_ip=$(get_server_ip "$AWS_TEST_SERVER_NAME")
 
 	# Wait for HTTP response containing our test message (30 seconds - should be immediate with direct IP)
-	wait_for_http "$AWS_TEST_DOMAIN" "$CLOUD_TEST_APP_MESSAGE" 30 "$server_ip"
+	wait_for_http "$AWS_TEST_SITE_DOMAIN" "$CLOUD_TEST_APP_MESSAGE" 30 "$server_ip"
+}
+
+# ----
+# site:https
+# ----
+
+@test "site:https enables HTTPS for ${AWS_TEST_SITE_DOMAIN}" {
+	require_aws_provision_config
+
+	local server_ip
+	server_ip=$(get_server_ip "$AWS_TEST_SERVER_NAME")
+
+	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
+	wait_for_dns_a_record "$AWS_TEST_SITE_DOMAIN" "$server_ip" 300
+
+	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:https \
+		--domain="$AWS_TEST_SITE_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "HTTPS enabled successfully"
+	assert_command_replay "site:https"
+}
+
+# ----
+# site:rollback
+# ----
+
+@test "site:rollback shows forward-only deployment guidance" {
+	require_aws_provision_config
+
+	run_deployer site:rollback
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_info_output
+	assert_output_contains "Forward-only deployments"
+	assert_bullet_output
+}
+
+# ----
+# site:delete
+# ----
+
+@test "site:delete removes ${AWS_TEST_SITE_DOMAIN} from server and inventory" {
+	require_aws_provision_config
+
+	run_deployer site:delete \
+		--domain="$AWS_TEST_SITE_DOMAIN" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "removed from inventory"
+	assert_command_replay "site:delete"
+}
+
+# ----
+# cf:dns:delete
+# ----
+
+@test "cf:dns:delete removes prefixed A record ${CF_TEST_DNS_ROOT_FQDN}" {
+	require_aws_provision_config
+
+	run_deployer cf:dns:delete \
+		--zone="$CF_TEST_DOMAIN" \
+		--type="A" \
+		--name="$CF_TEST_DNS_ROOT" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "DNS record deleted successfully"
+	assert_command_replay "cf:dns:delete"
+}
+
+# ----
+# aws:dns:delete
+# ----
+
+@test "aws:dns:delete removes prefixed A record ${AWS_TEST_DNS_ROOT_FQDN}" {
+	require_aws_provision_config
+
+	run_deployer aws:dns:delete \
+		--zone="$AWS_TEST_HOSTED_ZONE" \
+		--type="A" \
+		--name="$AWS_TEST_DNS_ROOT" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "DNS record deleted successfully"
+	assert_command_replay "aws:dns:delete"
 }
 
 # ----
@@ -497,4 +522,5 @@ teardown() {
 	assert_output_contains "Elastic IP released"
 	assert_output_contains "removed from inventory"
 	assert_command_replay "server:delete"
+	aws_assert_no_bats_volumes "$BATS_RUN_SUFFIX"
 }

@@ -75,6 +75,21 @@ class SiteHttpsCommand extends BaseCommand
             return Command::FAILURE;
         }
 
+        /** @var string $wwwMode */
+        $wwwMode = $config['www_mode'];
+
+        $validWwwModes = ['redirect-to-root', 'redirect-to-www', 'none'];
+
+        if (!in_array($wwwMode, $validWwwModes, true)) {
+            $this->nay(sprintf(
+                "Invalid site WWW mode '%s'. Allowed: %s",
+                $wwwMode,
+                implode(', ', $validWwwModes)
+            ));
+
+            return Command::FAILURE;
+        }
+
         //
         // Check if HTTPS is already enabled
         // ----
@@ -98,7 +113,7 @@ class SiteHttpsCommand extends BaseCommand
             'site-https',
             'Enabling HTTPS...',
             [
-                'DEPLOYER_WWW_MODE' => $config['www_mode'],
+                'DEPLOYER_WWW_MODE' => $wwwMode,
             ]
         );
 

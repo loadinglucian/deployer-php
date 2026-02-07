@@ -1,0 +1,114 @@
+name: BATS Cloud Janitor
+
+permissions:
+  contents: read
+  actions: read
+
+on:
+  workflow_run:
+    workflows: ["BATS Cloud Tests"]
+    types: [completed]
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Cleanup mode"
+        required: true
+        default: sweep
+        type: choice
+        options:
+          - sweep
+          - targeted
+      suffixes:
+        description: "Suffix list (required for targeted mode, comma-separated)"
+        required: false
+        type: string
+      providers:
+        description: "Providers (csv: aws,do,cf)"
+        required: false
+        default: "aws,do,cf"
+        type: string
+      min_age_minutes:
+        description: "Sweep protection window in minutes"
+        required: false
+        default: "30"
+        type: string
+      dry_run:
+        description: "Print actions without deleting"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  janitor:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    concurrency:
+      group: bats-cloud-janitor
+      cancel-in-progress: false
+
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_TEST_HOSTED_ZONE: ${{ vars.AWS_TEST_HOSTED_ZONE }}
+      DO_API_TOKEN: ${{ secrets.DO_API_TOKEN }}
+      DO_TEST_DOMAIN: ${{ vars.DO_TEST_DOMAIN }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_TEST_DOMAIN: ${{ vars.CF_TEST_DOMAIN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Install janitor dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl awscli
+
+      - name: Setup environment file
+        run: |
+          cat <<'ENVEOF' > .env
+          ${{ secrets.DOTENV_FILE }}
+          ENVEOF
+
+      - name: Janitor cleanup after BATS workflow completion
+        if: ${{ github.event_name == 'workflow_run' }}
+        run: |
+          tests/bats/lib/cloud-janitor.sh \
+            --mode=targeted \
+            --suffix="${{ github.event.workflow_run.id }}" \
+            --providers="aws,do,cf"
+
+      - name: Janitor scheduled sweep
+        if: ${{ github.event_name == 'schedule' }}
+        run: |
+          tests/bats/lib/cloud-janitor.sh \
+            --mode=sweep \
+            --providers="aws,do,cf" \
+            --min-age-minutes=30
+
+      - name: Janitor manual run
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          ARGS=(
+            "--mode=${{ inputs.mode }}"
+            "--providers=${{ inputs.providers }}"
+            "--min-age-minutes=${{ inputs.min_age_minutes }}"
+          )
+
+          if [[ -n "${{ inputs.suffixes }}" ]]; then
+            ARGS+=("--suffixes=${{ inputs.suffixes }}")
+          fi
+
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            ARGS+=("--dry-run")
+          fi
+
+          tests/bats/lib/cloud-janitor.sh "${ARGS[@]}"

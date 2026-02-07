@@ -14,6 +14,12 @@ use DigitalOceanV2\Exception\ResourceNotFoundException;
  */
 class DoDropletService extends BaseDoService
 {
+    private const BATS_TEST_SUITE = 'bats-cloud';
+
+    private const BATS_TEST_PROVIDER = 'do';
+
+    private const MANAGED_BY = 'deployer';
+
     /**
      * Create a new droplet with the specified configuration.
      *
@@ -63,6 +69,7 @@ class DoDropletService extends BaseDoService
                 '', // user_data
                 $monitoring,
                 [], // volumes
+                $this->buildDropletTags($name),
             );
 
             return [
@@ -179,5 +186,38 @@ class DoDropletService extends BaseDoService
         } catch (\Throwable $e) {
             throw new \RuntimeException("Failed to destroy droplet: {$e->getMessage()}", 0, $e);
         }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function buildDropletTags(string $name): array
+    {
+        $tags = [
+            'managedby-' . self::MANAGED_BY,
+            'name-' . $name,
+        ];
+
+        $runSuffix = $this->extractBatsRunSuffix($name);
+
+        if (null !== $runSuffix) {
+            $tags[] = 'testsuite-' . self::BATS_TEST_SUITE;
+            $tags[] = 'testprovider-' . self::BATS_TEST_PROVIDER;
+            $tags[] = 'testrunsuffix-' . $runSuffix;
+            $tags[] = 'deployer-bats';
+            $tags[] = 'deployer-bats-do';
+            $tags[] = 'deployer-bats-run-' . $runSuffix;
+        }
+
+        return $tags;
+    }
+
+    private function extractBatsRunSuffix(string $name): ?string
+    {
+        if (1 !== preg_match('/^deployer-bats-do-([a-zA-Z0-9]+)$/', $name, $matches)) {
+            return null;
+        }
+
+        return $matches[1];
     }
 }

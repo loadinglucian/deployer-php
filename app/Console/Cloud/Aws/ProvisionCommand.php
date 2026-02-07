@@ -227,7 +227,7 @@ class ProvisionCommand extends BaseCommand
             // Allocate and associate Elastic IP
 
             $elasticIp = $this->io->promptSpin(
-                fn () => $this->aws->instance->allocateElasticIp(),
+                fn () => $this->aws->instance->allocateElasticIp($deets['name']),
                 'Allocating Elastic IP...'
             );
 

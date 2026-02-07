@@ -31,7 +31,7 @@
 #   sites_config:
 #     example.com:
 #       php_version: "8.4"
-#       www_mode: redirect-to-root
+#       www_mode: redirect-to-root|redirect-to-www|none
 #       https_enabled: true
 #
 
@@ -421,6 +421,8 @@ get_sites_config() {
 			www_mode="redirect-to-root"
 		elif echo "$content" | grep -q "Redirect root -> www"; then
 			www_mode="redirect-to-www"
+		elif echo "$content" | grep -q "No www alias"; then
+			www_mode="none"
 		fi
 
 		# HTTPS Status - check for SSL configuration

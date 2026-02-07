@@ -11,17 +11,51 @@ export CLOUD_TEST_KEY_PATH="${CLOUD_TEST_KEY_PATH:-${BATS_TEST_ROOT}/fixtures/ke
 # ----
 # Run-Scoped Resource Isolation
 # ----
-# Set by bats.sh before invoking bats. Fallback for direct bats invocation.
+# Set by bats.sh before invoking bats.
+# Canonical form is numeric run ID last-6 (CI) or local run-scoped fallback.
+normalize_bats_run_suffix() {
+	local value="${1:-}"
+	local shared_tmp_dir="${BATS_SUITE_TMPDIR:-${BATS_FILE_TMPDIR:-}}"
+	local shared_suffix_file=""
 
-export BATS_RUN_SUFFIX="${BATS_RUN_SUFFIX:-unknown}"
+	if [[ -n "$value" ]] && [[ "$value" != "unknown" ]]; then
+		value="${value: -6}"
+		echo "$value"
+		return 0
+	fi
+
+	if [[ -n "$shared_tmp_dir" ]]; then
+		shared_suffix_file="${shared_tmp_dir}/bats-run-suffix"
+		if [[ -f "$shared_suffix_file" ]]; then
+			value="$(< "$shared_suffix_file")"
+			if [[ -n "$value" ]]; then
+				value="${value: -6}"
+				echo "$value"
+				return 0
+			fi
+		fi
+	fi
+
+	local suffix_seed
+	suffix_seed="$(printf '%s%s%s' "$(date +%s)" "$$" "$RANDOM")"
+	value="${suffix_seed: -6}"
+
+	if [[ -n "$shared_suffix_file" ]]; then
+		printf '%s' "$value" > "$shared_suffix_file"
+	fi
+
+	echo "$value"
+}
+
+export BATS_RUN_SUFFIX="$(normalize_bats_run_suffix "${BATS_RUN_SUFFIX:-}")"
 
 # ----
 # AWS Test Configuration
 # ----
 # Instance sizing and disk configuration
 
-export AWS_TEST_KEY_NAME="${AWS_TEST_KEY_NAME:-deployer-bats-aws-${BATS_RUN_SUFFIX}}"
-export AWS_TEST_SERVER_NAME="${AWS_TEST_SERVER_NAME:-deployer-bats-aws-${BATS_RUN_SUFFIX}}"
+export AWS_TEST_KEY_NAME="deployer-bats-aws-${BATS_RUN_SUFFIX}"
+export AWS_TEST_SERVER_NAME="deployer-bats-aws-${BATS_RUN_SUFFIX}"
 export AWS_TEST_INSTANCE_TYPE="${AWS_TEST_INSTANCE_TYPE:-}"
 export AWS_TEST_IMAGE="${AWS_TEST_IMAGE:-}"
 export AWS_TEST_KEY_PAIR="${AWS_TEST_KEY_PAIR:-}"
@@ -32,17 +66,18 @@ export AWS_TEST_DISK_SIZE="${AWS_TEST_DISK_SIZE:-}"
 
 # AWS DNS/Site Test Configuration
 export AWS_TEST_DOMAIN="${AWS_TEST_DOMAIN:-deployeraws.eu}"
-export AWS_TEST_HOSTED_ZONE="${AWS_TEST_HOSTED_ZONE:-deployeraws.eu}"
+export AWS_TEST_HOSTED_ZONE="${AWS_TEST_HOSTED_ZONE:-$AWS_TEST_DOMAIN}"
 export AWS_TEST_DNS_ROOT="r${BATS_RUN_SUFFIX}"
-export AWS_TEST_DNS_WWW="www-r${BATS_RUN_SUFFIX}"
+export AWS_TEST_DNS_ROOT_FQDN="${AWS_TEST_DNS_ROOT}.${AWS_TEST_HOSTED_ZONE}"
+export AWS_TEST_SITE_DOMAIN="${AWS_TEST_DNS_ROOT_FQDN}"
 
 # ----
 # DigitalOcean Test Configuration
 # ----
 # Droplet sizing and VPC configuration
 
-export DO_TEST_KEY_NAME="${DO_TEST_KEY_NAME:-deployer-bats-do-${BATS_RUN_SUFFIX}}"
-export DO_TEST_SERVER_NAME="${DO_TEST_SERVER_NAME:-deployer-bats-do-${BATS_RUN_SUFFIX}}"
+export DO_TEST_KEY_NAME="deployer-bats-do-${BATS_RUN_SUFFIX}"
+export DO_TEST_SERVER_NAME="deployer-bats-do-${BATS_RUN_SUFFIX}"
 export DO_TEST_SSH_KEY_ID="${DO_TEST_SSH_KEY_ID:-}"
 export DO_TEST_PRIVATE_KEY_PATH="${DO_TEST_PRIVATE_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 export DO_TEST_REGION="${DO_TEST_REGION:-}"
@@ -53,7 +88,8 @@ export DO_TEST_VPC_UUID="${DO_TEST_VPC_UUID:-}"
 # DigitalOcean DNS/Site Test Configuration
 export DO_TEST_DOMAIN="${DO_TEST_DOMAIN:-deployerdo.eu}"
 export DO_TEST_DNS_ROOT="r${BATS_RUN_SUFFIX}"
-export DO_TEST_DNS_WWW="www-r${BATS_RUN_SUFFIX}"
+export DO_TEST_DNS_ROOT_FQDN="${DO_TEST_DNS_ROOT}.${DO_TEST_DOMAIN}"
+export DO_TEST_SITE_DOMAIN="${DO_TEST_DNS_ROOT_FQDN}"
 
 # ----
 # Cloudflare Test Configuration
@@ -62,7 +98,8 @@ export DO_TEST_DNS_WWW="www-r${BATS_RUN_SUFFIX}"
 
 export CF_TEST_DOMAIN="${CF_TEST_DOMAIN:-deployercf.eu}"
 export CF_TEST_DNS_ROOT="r${BATS_RUN_SUFFIX}"
-export CF_TEST_DNS_WWW="www-r${BATS_RUN_SUFFIX}"
+export CF_TEST_DNS_ROOT_FQDN="${CF_TEST_DNS_ROOT}.${CF_TEST_DOMAIN}"
+export CF_TEST_SITE_DOMAIN="${CF_TEST_DNS_ROOT_FQDN}"
 
 # ----
 # Shared Deployment Test Configuration
@@ -73,6 +110,15 @@ export CLOUD_TEST_PHP_EXTENSIONS="${CLOUD_TEST_PHP_EXTENSIONS:-fpm,bcmath,curl,m
 export CLOUD_TEST_DEPLOY_REPO="${CLOUD_TEST_DEPLOY_REPO:-https://github.com/loadinglucian/deploy-me.git}"
 export CLOUD_TEST_DEPLOY_BRANCH="${CLOUD_TEST_DEPLOY_BRANCH:-main}"
 export CLOUD_TEST_APP_MESSAGE="${CLOUD_TEST_APP_MESSAGE:-DeployerPHP-BATS-Test-Success}"
+
+# ----
+# Tag Contract (cleanup discovery)
+# ----
+
+export CLOUD_TEST_TAG_MANAGED_BY="${CLOUD_TEST_TAG_MANAGED_BY:-deployer}"
+export CLOUD_TEST_TAG_TEST_SUITE="${CLOUD_TEST_TAG_TEST_SUITE:-bats-cloud}"
+export CLOUD_TEST_TAG_AWS_PROVIDER="${CLOUD_TEST_TAG_AWS_PROVIDER:-aws}"
+export CLOUD_TEST_TAG_DO_PROVIDER="${CLOUD_TEST_TAG_DO_PROVIDER:-do}"
 
 # ----
 # AWS Helpers
@@ -126,6 +172,60 @@ require_aws_provision_config() {
 	[[ -z "$AWS_TEST_DISK_SIZE" ]] && echo "  Missing: AWS_TEST_DISK_SIZE"
 	[[ ! -f "$AWS_TEST_PRIVATE_KEY_PATH" ]] && echo "  Missing: SSH key at $AWS_TEST_PRIVATE_KEY_PATH"
 	return 1
+}
+
+# Require run-scoped prefixed DNS labels/domains for parallel safety
+require_prefixed_dns_config() {
+	local provider="$1"
+	local zone="$2"
+	local root_label="$3"
+	local root_fqdn="$4"
+	local site_domain="$5"
+	local expected_root="r${BATS_RUN_SUFFIX}"
+
+	if [[ "$root_label" != "$expected_root" ]]; then
+		echo "${provider} DNS root label must be '${expected_root}', got '${root_label}'"
+		return 1
+	fi
+
+	if [[ "$root_fqdn" != "${root_label}.${zone}" ]]; then
+		echo "${provider} root FQDN must be '${root_label}.${zone}', got '${root_fqdn}'"
+		return 1
+	fi
+
+	if [[ "$site_domain" != "$root_fqdn" ]]; then
+		echo "${provider} site domain must be '${root_fqdn}', got '${site_domain}'"
+		return 1
+	fi
+
+	return 0
+}
+
+require_aws_dns_prefix_config() {
+	require_prefixed_dns_config \
+		"AWS" \
+		"$AWS_TEST_HOSTED_ZONE" \
+		"$AWS_TEST_DNS_ROOT" \
+		"$AWS_TEST_DNS_ROOT_FQDN" \
+		"$AWS_TEST_SITE_DOMAIN"
+}
+
+require_do_dns_prefix_config() {
+	require_prefixed_dns_config \
+		"DigitalOcean" \
+		"$DO_TEST_DOMAIN" \
+		"$DO_TEST_DNS_ROOT" \
+		"$DO_TEST_DNS_ROOT_FQDN" \
+		"$DO_TEST_SITE_DOMAIN"
+}
+
+require_cf_dns_prefix_config() {
+	require_prefixed_dns_config \
+		"Cloudflare" \
+		"$CF_TEST_DOMAIN" \
+		"$CF_TEST_DNS_ROOT" \
+		"$CF_TEST_DNS_ROOT_FQDN" \
+		"$CF_TEST_SITE_DOMAIN"
 }
 
 # Require Cloudflare credentials or fail with diagnostics
@@ -183,13 +283,6 @@ aws_cleanup_test_dns() {
 		--name="$AWS_TEST_DNS_ROOT" \
 		--force \
 		--yes 2> /dev/null || true
-
-	"$DEPLOYER_BIN" aws:dns:delete \
-		--zone="$AWS_TEST_HOSTED_ZONE" \
-		--type="A" \
-		--name="$AWS_TEST_DNS_WWW" \
-		--force \
-		--yes 2> /dev/null || true
 }
 
 # Cleanup AWS test DNS records via raw AWS CLI (safety net)
@@ -203,7 +296,7 @@ aws_cleanup_test_dns_raw() {
 		--output text 2> /dev/null || true)
 	[[ -n "$zone_id" ]] || return 0
 
-	for name in "$AWS_TEST_DNS_ROOT" "$AWS_TEST_DNS_WWW"; do
+	for name in "$AWS_TEST_DNS_ROOT"; do
 		local fqdn="${name}.${AWS_TEST_HOSTED_ZONE}."
 		record_json=$(aws route53 list-resource-record-sets \
 			--hosted-zone-id "$zone_id" \
@@ -289,13 +382,6 @@ do_cleanup_test_dns() {
 		--name="$DO_TEST_DNS_ROOT" \
 		--force \
 		--yes 2> /dev/null || true
-
-	"$DEPLOYER_BIN" do:dns:delete \
-		--zone="$DO_TEST_DOMAIN" \
-		--type="A" \
-		--name="$DO_TEST_DNS_WWW" \
-		--force \
-		--yes 2> /dev/null || true
 }
 
 # Cleanup DO test DNS records via raw DO API (safety net)
@@ -305,7 +391,7 @@ do_cleanup_test_dns_raw() {
 
 	local domain="$DO_TEST_DOMAIN"
 
-	for name in "$DO_TEST_DNS_ROOT" "$DO_TEST_DNS_WWW"; do
+	for name in "$DO_TEST_DNS_ROOT"; do
 		local record_id
 		record_id=$(curl -s -H "Authorization: Bearer ${token}" \
 			"https://api.digitalocean.com/v2/domains/${domain}/records?type=A&name=${name}.${domain}" 2> /dev/null \
@@ -335,13 +421,6 @@ cf_cleanup_test_dns() {
 		--name="$CF_TEST_DNS_ROOT" \
 		--force \
 		--yes 2> /dev/null || true
-
-	"$DEPLOYER_BIN" cf:dns:delete \
-		--zone="$CF_TEST_DOMAIN" \
-		--type="A" \
-		--name="$CF_TEST_DNS_WWW" \
-		--force \
-		--yes 2> /dev/null || true
 }
 
 # Cleanup Cloudflare test DNS records via raw CF API (safety net)
@@ -358,7 +437,7 @@ cf_cleanup_test_dns_raw() {
 		| jq -r '.result[0].id // empty' 2> /dev/null || true)
 	[[ -n "$zone_id" ]] || return 0
 
-	for name in "$CF_TEST_DNS_ROOT" "$CF_TEST_DNS_WWW"; do
+	for name in "$CF_TEST_DNS_ROOT"; do
 		local fqdn="${name}.${domain}"
 		local record_id
 		record_id=$(curl -s -H "Authorization: Bearer ${token}" \
@@ -375,6 +454,203 @@ cf_cleanup_test_dns_raw() {
 # ----
 # Shared Helpers
 # ----
+
+cloud_note() {
+	printf '# %s\n' "$*" >&3
+}
+
+log_aws_cloud_targets() {
+	cloud_note "Run suffix: ${BATS_RUN_SUFFIX}"
+	cloud_note "AWS site domain: ${AWS_TEST_SITE_DOMAIN}"
+	cloud_note "AWS DNS A record: ${AWS_TEST_DNS_ROOT_FQDN}"
+}
+
+log_do_cloud_targets() {
+	cloud_note "Run suffix: ${BATS_RUN_SUFFIX}"
+	cloud_note "DO site domain: ${DO_TEST_SITE_DOMAIN}"
+	cloud_note "DO DNS A record: ${DO_TEST_DNS_ROOT_FQDN}"
+}
+
+log_cf_cloud_targets() {
+	cloud_note "Run suffix: ${BATS_RUN_SUFFIX}"
+	cloud_note "CF DNS A record: ${CF_TEST_DNS_ROOT_FQDN}"
+}
+
+assert_aws_tag_contract() {
+	local tags_json="$1"
+	local key="$2"
+	local value="$3"
+
+	if ! jq -e --arg k "$key" --arg v "$value" 'any(.[]?; .Key == $k and .Value == $v)' > /dev/null <<< "$tags_json"; then
+		echo "Missing AWS tag ${key}=${value}"
+		echo "Actual tags: ${tags_json}"
+		return 1
+	fi
+}
+
+aws_find_instance_id_by_name() {
+	local server_name="$1"
+	local instance_id
+	instance_id=$(aws ec2 describe-instances \
+		--filters \
+		"Name=tag:Name,Values=${server_name}" \
+		"Name=instance-state-name,Values=pending,running,stopping,stopped" \
+		--query 'Reservations[].Instances[].InstanceId' \
+		--output text 2> /dev/null || true)
+
+	[[ "$instance_id" == "None" ]] && return 1
+	[[ -n "$instance_id" ]] || return 1
+	echo "$instance_id" | awk '{ print $1 }'
+}
+
+aws_assert_instance_tag_contract() {
+	local server_name="$1"
+	local instance_id tags_json
+	instance_id=$(aws_find_instance_id_by_name "$server_name") || {
+		echo "AWS instance not found for tag assertions: ${server_name}"
+		return 1
+	}
+
+	tags_json=$(aws ec2 describe-instances \
+		--instance-ids "$instance_id" \
+		--query 'Reservations[0].Instances[0].Tags' \
+		--output json 2> /dev/null || echo "[]")
+
+	assert_aws_tag_contract "$tags_json" "Name" "$server_name"
+	assert_aws_tag_contract "$tags_json" "ManagedBy" "$CLOUD_TEST_TAG_MANAGED_BY"
+	assert_aws_tag_contract "$tags_json" "TestSuite" "$CLOUD_TEST_TAG_TEST_SUITE"
+	assert_aws_tag_contract "$tags_json" "TestProvider" "$CLOUD_TEST_TAG_AWS_PROVIDER"
+	assert_aws_tag_contract "$tags_json" "TestRunSuffix" "$BATS_RUN_SUFFIX"
+}
+
+aws_find_eip_allocation_id_by_name() {
+	local server_name="$1"
+	local allocation_id
+	allocation_id=$(aws ec2 describe-addresses \
+		--filters "Name=tag:Name,Values=${server_name}" \
+		--query 'Addresses[].AllocationId' \
+		--output text 2> /dev/null || true)
+
+	[[ "$allocation_id" == "None" ]] && return 1
+	[[ -n "$allocation_id" ]] || return 1
+	echo "$allocation_id" | awk '{ print $1 }'
+}
+
+aws_assert_eip_tag_contract() {
+	local server_name="$1"
+	local allocation_id tags_json
+	allocation_id=$(aws_find_eip_allocation_id_by_name "$server_name") || {
+		echo "AWS Elastic IP not found for tag assertions: ${server_name}"
+		return 1
+	}
+
+	tags_json=$(aws ec2 describe-addresses \
+		--allocation-ids "$allocation_id" \
+		--query 'Addresses[0].Tags' \
+		--output json 2> /dev/null || echo "[]")
+
+	assert_aws_tag_contract "$tags_json" "Name" "$server_name"
+	assert_aws_tag_contract "$tags_json" "ManagedBy" "$CLOUD_TEST_TAG_MANAGED_BY"
+	assert_aws_tag_contract "$tags_json" "TestSuite" "$CLOUD_TEST_TAG_TEST_SUITE"
+	assert_aws_tag_contract "$tags_json" "TestProvider" "$CLOUD_TEST_TAG_AWS_PROVIDER"
+	assert_aws_tag_contract "$tags_json" "TestRunSuffix" "$BATS_RUN_SUFFIX"
+}
+
+aws_assert_root_volume_tag_contract() {
+	local server_name="$1"
+	local instance_id volume_id tags_json
+	instance_id=$(aws_find_instance_id_by_name "$server_name") || {
+		echo "AWS instance not found when checking root volume tags: ${server_name}"
+		return 1
+	}
+
+	volume_id=$(aws ec2 describe-instances \
+		--instance-ids "$instance_id" \
+		--query 'Reservations[0].Instances[0].BlockDeviceMappings[0].Ebs.VolumeId' \
+		--output text 2> /dev/null || true)
+
+	[[ "$volume_id" == "None" ]] && {
+		echo "Root volume ID not found for instance ${instance_id}"
+		return 1
+	}
+	[[ -n "$volume_id" ]] || {
+		echo "Root volume ID is empty for instance ${instance_id}"
+		return 1
+	}
+
+	tags_json=$(aws ec2 describe-volumes \
+		--volume-ids "$volume_id" \
+		--query 'Volumes[0].Tags' \
+		--output json 2> /dev/null || echo "[]")
+
+	assert_aws_tag_contract "$tags_json" "Name" "${server_name}-root"
+	assert_aws_tag_contract "$tags_json" "ManagedBy" "$CLOUD_TEST_TAG_MANAGED_BY"
+	assert_aws_tag_contract "$tags_json" "TestSuite" "$CLOUD_TEST_TAG_TEST_SUITE"
+	assert_aws_tag_contract "$tags_json" "TestProvider" "$CLOUD_TEST_TAG_AWS_PROVIDER"
+	assert_aws_tag_contract "$tags_json" "TestRunSuffix" "$BATS_RUN_SUFFIX"
+}
+
+aws_assert_no_bats_volumes() {
+	local run_suffix="${1:-$BATS_RUN_SUFFIX}"
+	local attempts="${2:-24}"
+	local sleep_seconds="${3:-5}"
+	local volume_ids=""
+
+	for ((attempt = 1; attempt <= attempts; attempt++)); do
+		volume_ids=$(aws ec2 describe-volumes \
+			--filters \
+			"Name=tag:TestSuite,Values=${CLOUD_TEST_TAG_TEST_SUITE}" \
+			"Name=tag:TestProvider,Values=${CLOUD_TEST_TAG_AWS_PROVIDER}" \
+			"Name=tag:TestRunSuffix,Values=${run_suffix}" \
+			"Name=status,Values=creating,available,in-use,error" \
+			--query 'Volumes[].VolumeId' \
+			--output text 2> /dev/null || true)
+
+		if [[ -z "$volume_ids" || "$volume_ids" == "None" ]]; then
+			return 0
+		fi
+
+		if [[ "$attempt" -lt "$attempts" ]]; then
+			sleep "$sleep_seconds"
+		fi
+	done
+
+	echo "Expected no BATS volumes for suffix ${run_suffix}, found: ${volume_ids}"
+	return 1
+}
+
+do_assert_droplet_tag_contract() {
+	local server_name="$1"
+	local token="${DO_API_TOKEN:-${DIGITALOCEAN_API_TOKEN:-}}"
+	[[ -n "$token" ]] || {
+		echo "DigitalOcean API token missing for droplet tag assertions"
+		return 1
+	}
+
+	local tags_json
+	tags_json=$(curl -s -H "Authorization: Bearer ${token}" \
+		"https://api.digitalocean.com/v2/droplets?per_page=200" 2> /dev/null \
+		| jq -c --arg name "$server_name" '.droplets[]? | select(.name == $name) | (.tags // [])' 2> /dev/null \
+		| head -n 1)
+
+	[[ -n "$tags_json" ]] || {
+		echo "DigitalOcean droplet not found for tag assertions: ${server_name}"
+		return 1
+	}
+
+	for expected in \
+		"managedby-${CLOUD_TEST_TAG_MANAGED_BY}" \
+		"name-${server_name}" \
+		"testsuite-${CLOUD_TEST_TAG_TEST_SUITE}" \
+		"testprovider-${CLOUD_TEST_TAG_DO_PROVIDER}" \
+		"testrunsuffix-${BATS_RUN_SUFFIX}"; do
+		if ! jq -e --arg expected "$expected" 'any(.[]?; . == $expected)' > /dev/null <<< "$tags_json"; then
+			echo "Missing DO droplet tag: ${expected}"
+			echo "Actual tags: ${tags_json}"
+			return 1
+		fi
+	done
+}
 
 # Get server IP from inventory
 # Usage: get_server_ip "server-name"
@@ -456,6 +732,48 @@ wait_for_http() {
 	return 1
 }
 
+# Wait for DNS A record resolution with optional expected IP verification
+# Usage: wait_for_dns_a_record "example.com" "1.2.3.4" 300
+wait_for_dns_a_record() {
+	local domain="$1"
+	local expected_ip="${2:-}"
+	local timeout="${3:-300}"
+	local interval=10
+	local elapsed=0
+	local last_ips=""
+
+	while [[ $elapsed -lt $timeout ]]; do
+		local response ips
+		response=$(curl -s --max-time 10 "https://dns.google/resolve?name=${domain}&type=A" 2> /dev/null || true)
+		ips=$(echo "$response" \
+			| jq -r '.Answer[]? | select(.type == 1) | .data' 2> /dev/null \
+			| tr '\n' ' ' \
+			| sed 's/[[:space:]]\+$//' || true)
+
+		last_ips="$ips"
+
+		if [[ -n "$ips" ]]; then
+			if [[ -z "$expected_ip" ]] || [[ " ${ips} " == *" ${expected_ip} "* ]]; then
+				echo "DNS A record resolved for ${domain}: ${ips}"
+				return 0
+			fi
+		fi
+
+		sleep $interval
+		elapsed=$((elapsed + interval))
+	done
+
+	echo "Timeout waiting for DNS A record for ${domain} after ${timeout}s"
+	[[ -n "$expected_ip" ]] && echo "Expected IP: ${expected_ip}"
+	if [[ -n "$last_ips" ]]; then
+		echo "Last resolved IPs: ${last_ips}"
+	else
+		echo "No A records resolved"
+	fi
+
+	return 1
+}
+
 # ----
 # Fail-Fast Support
 # ----
@@ -475,7 +793,7 @@ cloud_mark_failed() {
 cloud_check_failed() {
 	if [[ -f "${BATS_FILE_TMPDIR}/cloud_failed" ]]; then
 		local failed_test
-		failed_test=$(<"${BATS_FILE_TMPDIR}/cloud_failed")
+		failed_test=$(< "${BATS_FILE_TMPDIR}/cloud_failed")
 		skip "Aborted: '${failed_test}' failed"
 	fi
 }
@@ -489,7 +807,7 @@ aws_cleanup_all() {
 	aws_cleanup_test_server
 	aws_cleanup_test_dns
 	aws_cleanup_test_dns_raw
-	cleanup_test_site "$AWS_TEST_DOMAIN"
+	cleanup_test_site "$AWS_TEST_SITE_DOMAIN"
 	aws_cleanup_test_key
 }
 
@@ -498,7 +816,7 @@ do_cleanup_all() {
 	do_cleanup_test_server
 	do_cleanup_test_dns
 	do_cleanup_test_dns_raw
-	cleanup_test_site "$DO_TEST_DOMAIN"
+	cleanup_test_site "$DO_TEST_SITE_DOMAIN"
 	do_cleanup_test_key
 }
 

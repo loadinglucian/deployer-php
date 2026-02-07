@@ -11,6 +11,12 @@ namespace DeployerPHP\Services\Aws;
  */
 class AwsInstanceService extends BaseAwsService
 {
+    private const BATS_TEST_SUITE = 'bats-cloud';
+
+    private const BATS_TEST_PROVIDER = 'aws';
+
+    private const MANAGED_BY = 'deployer';
+
     /**
      * Create a new EC2 instance with the specified configuration.
      *
@@ -60,10 +66,11 @@ class AwsInstanceService extends BaseAwsService
                 'TagSpecifications' => [
                     [
                         'ResourceType' => 'instance',
-                        'Tags' => [
-                            ['Key' => 'Name', 'Value' => $name],
-                            ['Key' => 'ManagedBy', 'Value' => 'deployer'],
-                        ],
+                        'Tags' => $this->buildResourceTags($name),
+                    ],
+                    [
+                        'ResourceType' => 'volume',
+                        'Tags' => $this->buildResourceTags($name, "{$name}-root"),
                     ],
                 ],
             ];
@@ -290,7 +297,7 @@ class AwsInstanceService extends BaseAwsService
      *
      * @throws \RuntimeException If allocation fails
      */
-    public function allocateElasticIp(): array
+    public function allocateElasticIp(string $serverName): array
     {
         $ec2 = $this->createEc2Client();
 
@@ -300,9 +307,7 @@ class AwsInstanceService extends BaseAwsService
                 'TagSpecifications' => [
                     [
                         'ResourceType' => 'elastic-ip',
-                        'Tags' => [
-                            ['Key' => 'ManagedBy', 'Value' => 'deployer'],
-                        ],
+                        'Tags' => $this->buildResourceTags($serverName),
                     ],
                 ],
             ]);
@@ -319,6 +324,36 @@ class AwsInstanceService extends BaseAwsService
         } catch (\Throwable $e) {
             throw new \RuntimeException('Failed to allocate Elastic IP: ' . $e->getMessage(), 0, $e);
         }
+    }
+
+    /**
+     * @return array<int, array{Key: string, Value: string}>
+     */
+    private function buildResourceTags(string $serverName, ?string $resourceName = null): array
+    {
+        $tags = [
+            ['Key' => 'Name', 'Value' => $resourceName ?? $serverName],
+            ['Key' => 'ManagedBy', 'Value' => self::MANAGED_BY],
+        ];
+
+        $runSuffix = $this->extractBatsRunSuffix($serverName);
+
+        if (null !== $runSuffix) {
+            $tags[] = ['Key' => 'TestSuite', 'Value' => self::BATS_TEST_SUITE];
+            $tags[] = ['Key' => 'TestProvider', 'Value' => self::BATS_TEST_PROVIDER];
+            $tags[] = ['Key' => 'TestRunSuffix', 'Value' => $runSuffix];
+        }
+
+        return $tags;
+    }
+
+    private function extractBatsRunSuffix(string $name): ?string
+    {
+        if (1 !== preg_match('/^deployer-bats-aws-([a-zA-Z0-9]+)$/', $name, $matches)) {
+            return null;
+        }
+
+        return $matches[1];
     }
 
     /**
