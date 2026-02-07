@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DeployerPHP\Services\Aws;
 
 use DeployerPHP\Services\FilesystemService;
+use DeployerPHP\Services\RetryService;
 
 /**
  * AWS EC2 key pair management service.
@@ -15,7 +16,9 @@ class AwsKeyService extends BaseAwsService
 {
     public function __construct(
         private readonly FilesystemService $fs,
+        RetryService $retry,
     ) {
+        parent::__construct($retry);
     }
 
     /**

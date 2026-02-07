@@ -570,7 +570,7 @@ assert_kv_auth_via_credentials() {
 	local creds_file="${BATS_TEST_TMPDIR}/mariadb.credentials"
 	cleanup_local_credential_file "$creds_file"
 
-	run_deployer_timeout 420 mariadb:install \
+	run_deployer_timeout 540 mariadb:install \
 		--server="$TEST_SERVER_NAME" \
 		--save-credentials="$creds_file"
 
@@ -606,7 +606,7 @@ assert_kv_auth_via_credentials() {
 	add_test_server
 	cleanup_sql_stack
 
-	run_deployer_timeout 420 mariadb:install \
+	run_deployer_timeout 540 mariadb:install \
 		--server="$TEST_SERVER_NAME" \
 		--display-credentials
 
@@ -644,7 +644,7 @@ assert_kv_auth_via_credentials() {
 	local creds_file="${BATS_TEST_TMPDIR}/postgresql.credentials"
 	cleanup_local_credential_file "$creds_file"
 
-	run_deployer_timeout 420 postgresql:install \
+	run_deployer_timeout 540 postgresql:install \
 		--server="$TEST_SERVER_NAME" \
 		--save-credentials="$creds_file"
 
@@ -681,7 +681,7 @@ assert_kv_auth_via_credentials() {
 	cleanup_postgresql_stack
 	assert_remote_service_inactive "postgresql"
 
-	run_deployer_timeout 420 postgresql:install \
+	run_deployer_timeout 540 postgresql:install \
 		--server="$TEST_SERVER_NAME" \
 		--display-credentials
 

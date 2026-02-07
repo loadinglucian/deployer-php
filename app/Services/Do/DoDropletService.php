@@ -95,7 +95,13 @@ class DoDropletService extends BaseDoService
             $dropletApi = $client->droplet();
 
             /** @var DropletEntity $droplet */
-            $droplet = $dropletApi->getById($dropletId);
+            $droplet = $this->withDoRetry(
+                attemptCallback: fn (): DropletEntity => $dropletApi->getById($dropletId),
+                operationDescription: "get droplet status for {$dropletId}",
+                retryAttempts: 6,
+                retryDelaySeconds: 1,
+                shouldRetry: fn (\Throwable $e): bool => $this->isRetryableDropletStatusException($e),
+            );
 
             return $droplet->status;
         } catch (\Throwable $e) {
@@ -219,5 +225,10 @@ class DoDropletService extends BaseDoService
         }
 
         return $matches[1];
+    }
+
+    private function isRetryableDropletStatusException(\Throwable $e): bool
+    {
+        return $e instanceof ResourceNotFoundException || $this->isRetryableDoException($e);
     }
 }

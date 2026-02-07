@@ -111,20 +111,26 @@ class AwsSecurityGroupService extends BaseAwsService
             $groupId = $createResult['GroupId'];
 
             // Add inbound rule: allow all traffic from anywhere
-            $ec2->authorizeSecurityGroupIngress([
-                'GroupId' => $groupId,
-                'IpPermissions' => [
-                    [
-                        'IpProtocol' => '-1', // All protocols
-                        'IpRanges' => [
-                            ['CidrIp' => '0.0.0.0/0', 'Description' => 'Allow all IPv4 inbound'],
-                        ],
-                        'Ipv6Ranges' => [
-                            ['CidrIpv6' => '::/0', 'Description' => 'Allow all IPv6 inbound'],
+            $this->withAwsRetry(
+                attemptCallback: fn () => $ec2->authorizeSecurityGroupIngress([
+                    'GroupId' => $groupId,
+                    'IpPermissions' => [
+                        [
+                            'IpProtocol' => '-1', // All protocols
+                            'IpRanges' => [
+                                ['CidrIp' => '0.0.0.0/0', 'Description' => 'Allow all IPv4 inbound'],
+                            ],
+                            'Ipv6Ranges' => [
+                                ['CidrIpv6' => '::/0', 'Description' => 'Allow all IPv6 inbound'],
+                            ],
                         ],
                     ],
-                ],
-            ]);
+                ]),
+                operationDescription: "configure security group ingress rules for {$groupId}",
+                retryAttempts: 5,
+                retryDelaySeconds: 1,
+                shouldRetry: fn (\Throwable $e): bool => $this->isRetryableSecurityGroupIngressException($e),
+            );
 
             // Outbound is already allow-all by default, but let's be explicit
             // (Default SG rules already allow all outbound, so this is just for clarity)
@@ -148,5 +154,15 @@ class AwsSecurityGroupService extends BaseAwsService
 
             throw new \RuntimeException('Failed to create security group: ' . $e->getMessage(), 0, $e);
         }
+    }
+
+    private function isRetryableSecurityGroupIngressException(\Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return $this->isRetryableAwsException($e)
+            || str_contains($message, 'invalidgroup.notfound')
+            || str_contains($message, 'does not exist')
+            || str_contains($message, 'dependencyviolation');
     }
 }

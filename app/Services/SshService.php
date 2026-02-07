@@ -38,6 +38,7 @@ class SshService
 {
     public function __construct(
         private readonly FilesystemService $fs,
+        private readonly RetryService $retry,
     ) {
     }
 
@@ -168,56 +169,6 @@ class SshService
     // ----
 
     /**
-     * Execute an operation with retry logic and exponential backoff.
-     *
-     * @template T
-     * @param callable(): T $attemptCallback Callback that attempts operation and returns on success or throws on failure
-     * @param string $operationDescription Description for error messages (e.g., "connect to host")
-     * @param int $retryAttempts Number of attempts (default: 5)
-     * @param int $retryDelaySeconds Initial delay between attempts in seconds (default: 2, doubles each retry)
-     *
-     * @return T The successful operation result
-     * @throws \RuntimeException When all attempts fail
-     */
-    private function withRetry(
-        callable $attemptCallback,
-        string $operationDescription,
-        int $retryAttempts = 5,
-        int $retryDelaySeconds = 2
-    ): mixed {
-        $attempt = 0;
-        $delay = $retryDelaySeconds;
-        $lastException = null;
-
-        while ($attempt < $retryAttempts) {
-            $attempt++;
-
-            try {
-                return $attemptCallback();
-            } catch (\RuntimeException $e) {
-                $lastException = $e;
-            }
-
-            // Don't sleep after the last failed attempt
-            if ($attempt < $retryAttempts) {
-                sleep($delay);
-                $delay *= 2; // Exponential backoff
-            }
-        }
-
-        // All attempts failed - loop guarantees $lastException is set (retryAttempts >= 1)
-        /** @var \RuntimeException $lastException */
-        if ($retryAttempts > 1) {
-            throw new \RuntimeException(
-                "Failed to {$operationDescription} after {$retryAttempts} attempts",
-                previous: $lastException
-            );
-        }
-
-        throw $lastException;
-    }
-
-    /**
      * Create and authenticate an SSH connection with retry logic.
      *
      * @throws \RuntimeException When connection or authentication fails after all retries
@@ -230,7 +181,7 @@ class SshService
 
         $key = $this->loadPrivateKey($server->privateKeyPath);
 
-        return $this->withRetry(
+        return $this->retry->run(
             attemptCallback: function () use ($server, $key) {
                 try {
                     $ssh = new SSH2($server->host, $server->port);
@@ -252,7 +203,9 @@ class SshService
                     );
                 }
             },
-            operationDescription: "connect to {$server->host}"
+            operationDescription: "connect to {$server->host}",
+            retryAttempts: 5,
+            retryDelaySeconds: 2
         );
     }
 
@@ -269,7 +222,7 @@ class SshService
 
         $key = $this->loadPrivateKey($server->privateKeyPath);
 
-        return $this->withRetry(
+        return $this->retry->run(
             attemptCallback: function () use ($server, $key) {
                 try {
                     $sftp = new SFTP($server->host, $server->port);
@@ -291,7 +244,9 @@ class SshService
                     );
                 }
             },
-            operationDescription: "connect via SFTP to {$server->host}"
+            operationDescription: "connect via SFTP to {$server->host}",
+            retryAttempts: 5,
+            retryDelaySeconds: 2
         );
     }
 

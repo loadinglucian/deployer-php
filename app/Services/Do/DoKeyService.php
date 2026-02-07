@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DeployerPHP\Services\Do;
 
 use DeployerPHP\Services\FilesystemService;
+use DeployerPHP\Services\RetryService;
 use DigitalOceanV2\Exception\ResourceNotFoundException;
 
 /**
@@ -16,7 +17,9 @@ class DoKeyService extends BaseDoService
 {
     public function __construct(
         private readonly FilesystemService $fs,
+        RetryService $retry,
     ) {
+        parent::__construct($retry);
     }
 
     /**

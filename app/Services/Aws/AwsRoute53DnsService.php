@@ -214,24 +214,30 @@ class AwsRoute53DnsService extends BaseAwsService
         $formattedValue = $this->formatRecordValue($type, $value);
 
         try {
-            $route53->changeResourceRecordSets([
-                'HostedZoneId' => $zoneId,
-                'ChangeBatch' => [
-                    'Changes' => [
-                        [
-                            'Action' => 'UPSERT',
-                            'ResourceRecordSet' => [
-                                'Name' => $fqdn,
-                                'Type' => $type,
-                                'TTL' => $ttl,
-                                'ResourceRecords' => [
-                                    ['Value' => $formattedValue],
+            $this->withAwsRetry(
+                attemptCallback: fn () => $route53->changeResourceRecordSets([
+                    'HostedZoneId' => $zoneId,
+                    'ChangeBatch' => [
+                        'Changes' => [
+                            [
+                                'Action' => 'UPSERT',
+                                'ResourceRecordSet' => [
+                                    'Name' => $fqdn,
+                                    'Type' => $type,
+                                    'TTL' => $ttl,
+                                    'ResourceRecords' => [
+                                        ['Value' => $formattedValue],
+                                    ],
                                 ],
                             ],
                         ],
                     ],
-                ],
-            ]);
+                ]),
+                operationDescription: "set DNS record {$type} {$name}",
+                retryAttempts: 5,
+                retryDelaySeconds: 1,
+                shouldRetry: fn (\Throwable $e): bool => $this->isRetryableRoute53ChangeException($e),
+            );
 
             return ['action' => 'upserted'];
         } catch (\Throwable $e) {
@@ -260,24 +266,30 @@ class AwsRoute53DnsService extends BaseAwsService
         $formattedValue = $this->formatRecordValue($type, $value);
 
         try {
-            $route53->changeResourceRecordSets([
-                'HostedZoneId' => $zoneId,
-                'ChangeBatch' => [
-                    'Changes' => [
-                        [
-                            'Action' => 'DELETE',
-                            'ResourceRecordSet' => [
-                                'Name' => $fqdn,
-                                'Type' => $type,
-                                'TTL' => $ttl,
-                                'ResourceRecords' => [
-                                    ['Value' => $formattedValue],
+            $this->withAwsRetry(
+                attemptCallback: fn () => $route53->changeResourceRecordSets([
+                    'HostedZoneId' => $zoneId,
+                    'ChangeBatch' => [
+                        'Changes' => [
+                            [
+                                'Action' => 'DELETE',
+                                'ResourceRecordSet' => [
+                                    'Name' => $fqdn,
+                                    'Type' => $type,
+                                    'TTL' => $ttl,
+                                    'ResourceRecords' => [
+                                        ['Value' => $formattedValue],
+                                    ],
                                 ],
                             ],
                         ],
                     ],
-                ],
-            ]);
+                ]),
+                operationDescription: "delete DNS record {$type} {$name}",
+                retryAttempts: 5,
+                retryDelaySeconds: 1,
+                shouldRetry: fn (\Throwable $e): bool => $this->isRetryableRoute53ChangeException($e),
+            );
         } catch (\Throwable $e) {
             throw new \RuntimeException("Failed to delete DNS record: " . $e->getMessage(), 0, $e);
         }
@@ -306,5 +318,13 @@ class AwsRoute53DnsService extends BaseAwsService
             'CNAME' => $this->ensureTrailingDot($value),
             default => $value,
         };
+    }
+
+    private function isRetryableRoute53ChangeException(\Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return $this->isRetryableAwsException($e)
+            || str_contains($message, 'priorrequestnotcomplete');
     }
 }

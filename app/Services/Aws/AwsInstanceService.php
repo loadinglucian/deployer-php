@@ -116,29 +116,40 @@ class AwsInstanceService extends BaseAwsService
         $ec2 = $this->createEc2Client();
 
         try {
-            $result = $ec2->describeInstances([
-                'InstanceIds' => [$instanceId],
-            ]);
+            /** @var string $status */
+            $status = $this->withAwsRetry(
+                attemptCallback: function () use ($ec2, $instanceId): string {
+                    $result = $ec2->describeInstances([
+                        'InstanceIds' => [$instanceId],
+                    ]);
 
-            /** @var list<array<string, mixed>> $reservations */
-            $reservations = $result['Reservations'] ?? [];
+                    /** @var list<array<string, mixed>> $reservations */
+                    $reservations = $result['Reservations'] ?? [];
 
-            if (empty($reservations) || empty($reservations[0]['Instances'])) {
-                throw new \RuntimeException("Instance {$instanceId} not found");
-            }
+                    if (empty($reservations) || empty($reservations[0]['Instances'])) {
+                        throw new \RuntimeException("Instance {$instanceId} not found");
+                    }
 
-            /** @var list<array<string, mixed>> $instances */
-            $instances = $reservations[0]['Instances'];
-            /** @var array<string, mixed> $instance */
-            $instance = $instances[0];
-            /** @var array<string, mixed> $state */
-            $state = $instance['State'];
-            /** @var string $stateName */
-            $stateName = $state['Name'];
+                    /** @var list<array<string, mixed>> $instances */
+                    $instances = $reservations[0]['Instances'];
+                    /** @var array<string, mixed> $instance */
+                    $instance = $instances[0];
+                    /** @var array<string, mixed> $state */
+                    $state = $instance['State'];
+                    /** @var string $stateName */
+                    $stateName = $state['Name'];
 
-            return $stateName;
+                    return $stateName;
+                },
+                operationDescription: "get instance status for {$instanceId}",
+                retryAttempts: 6,
+                retryDelaySeconds: 1,
+                shouldRetry: fn (\Throwable $e): bool => $this->isRetryableInstanceStatusException($e),
+            );
+
+            return $status;
         } catch (\Throwable $e) {
-            throw new \RuntimeException("Failed to get instance status: {$e->getMessage()}", 0, $e);
+            throw new \RuntimeException("Failed to get instance status: {$e->getMessage()}", previous: $e);
         }
     }
 
@@ -354,6 +365,15 @@ class AwsInstanceService extends BaseAwsService
         }
 
         return $matches[1];
+    }
+
+    private function isRetryableInstanceStatusException(\Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return $this->isRetryableAwsException($e)
+            || str_contains($message, 'invalidinstanceid.notfound')
+            || str_contains($message, 'does not exist');
     }
 
     /**

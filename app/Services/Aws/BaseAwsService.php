@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DeployerPHP\Services\Aws;
 
 use Aws\Sdk;
+use DeployerPHP\Services\RetryService;
 
 /**
  * Base class for AWS API services.
@@ -13,6 +14,11 @@ use Aws\Sdk;
  */
 abstract class BaseAwsService
 {
+    public function __construct(
+        protected readonly RetryService $retry,
+    ) {
+    }
+
     private ?Sdk $sdk = null;
 
     private ?string $region = null;
@@ -105,5 +111,56 @@ abstract class BaseAwsService
         return $this->getSdk()->createRoute53([
             'region' => 'us-east-1',
         ]);
+    }
+
+    //
+    // Retry Helpers
+    // ----
+
+    /**
+     * Determine whether an AWS exception is transient and safe to retry.
+     */
+    protected function isRetryableAwsException(\Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return str_contains($message, 'throttl')
+            || str_contains($message, 'rate exceeded')
+            || str_contains($message, 'request limit exceeded')
+            || str_contains($message, 'service unavailable')
+            || str_contains($message, 'temporarily unavailable')
+            || str_contains($message, 'internalerror')
+            || str_contains($message, 'internal error')
+            || str_contains($message, 'request timeout')
+            || str_contains($message, 'timed out')
+            || str_contains($message, 'timeout')
+            || str_contains($message, 'connection reset');
+    }
+
+    /**
+     * Execute an AWS operation with retry/backoff.
+     *
+     * @template T
+     * @param callable(): T $attemptCallback
+     * @param callable(\Throwable): bool|null $shouldRetry
+     *
+     * @return T
+     */
+    protected function withAwsRetry(
+        callable $attemptCallback,
+        string $operationDescription,
+        int $retryAttempts = 4,
+        int $retryDelaySeconds = 1,
+        ?callable $shouldRetry = null
+    ): mixed {
+        $retryGuard = $shouldRetry ?? $this->isRetryableAwsException(...);
+
+        return $this->retry->run(
+            attemptCallback: $attemptCallback,
+            operationDescription: $operationDescription,
+            retryAttempts: $retryAttempts,
+            retryDelaySeconds: $retryDelaySeconds,
+            shouldRetry: $retryGuard,
+        );
     }
 }

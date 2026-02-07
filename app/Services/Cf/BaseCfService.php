@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DeployerPHP\Services\Cf;
 
+use DeployerPHP\Services\RetryService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 
@@ -14,6 +15,11 @@ use GuzzleHttp\Exception\GuzzleException;
  */
 abstract class BaseCfService
 {
+    public function __construct(
+        protected readonly RetryService $retry,
+    ) {
+    }
+
     private const API_BASE = 'https://api.cloudflare.com/client/v4/';
 
     private ?Client $client = null;
@@ -69,26 +75,54 @@ abstract class BaseCfService
      */
     protected function request(string $method, string $endpoint, array $options = []): array
     {
-        try {
-            $response = $this->getClient()->request($method, $endpoint, $options);
+        /** @var array<string, mixed> */
+        return $this->retry->run(
+            attemptCallback: function () use ($method, $endpoint, $options): array {
+                try {
+                    $response = $this->getClient()->request($method, $endpoint, $options);
+                } catch (GuzzleException $e) {
+                    throw new \RuntimeException('Cloudflare API request failed: ' . $e->getMessage(), previous: $e);
+                }
 
-            /** @var array<string, mixed>|null $body */
-            $body = json_decode((string) $response->getBody(), true);
+                /** @var array<string, mixed>|null $body */
+                $body = json_decode((string) $response->getBody(), true);
 
-            if (!is_array($body)) {
-                throw new \RuntimeException('Invalid JSON response from Cloudflare API');
-            }
+                if (!is_array($body)) {
+                    throw new \RuntimeException('Invalid JSON response from Cloudflare API');
+                }
 
-            if (!($body['success'] ?? false)) {
-                /** @var array<int, array{message?: string}> $errors */
-                $errors = $body['errors'] ?? [['message' => 'Unknown error']];
-                $errorMessages = array_map(fn (array $e): string => $e['message'] ?? 'Unknown', $errors);
-                throw new \RuntimeException('Cloudflare API error: ' . implode(', ', $errorMessages));
-            }
+                if (!($body['success'] ?? false)) {
+                    /** @var array<int, array{message?: string}> $errors */
+                    $errors = $body['errors'] ?? [['message' => 'Unknown error']];
+                    $errorMessages = array_map(fn (array $e): string => $e['message'] ?? 'Unknown', $errors);
+                    throw new \RuntimeException('Cloudflare API error: ' . implode(', ', $errorMessages));
+                }
 
-            return $body;
-        } catch (GuzzleException $e) {
-            throw new \RuntimeException('Cloudflare API request failed: ' . $e->getMessage(), 0, $e);
-        }
+                return $body;
+            },
+            operationDescription: "call Cloudflare API {$method} {$endpoint}",
+            retryAttempts: 5,
+            retryDelaySeconds: 1,
+            shouldRetry: fn (\Throwable $e): bool => $this->isRetryableCfException($e),
+        );
+    }
+
+    /**
+     * Determine whether a Cloudflare exception is transient and safe to retry.
+     */
+    private function isRetryableCfException(\Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return str_contains($message, 'too many requests')
+            || str_contains($message, '429')
+            || (bool) preg_match('/\b5\d{2}\b/', $message)
+            || str_contains($message, 'service unavailable')
+            || str_contains($message, 'gateway timeout')
+            || str_contains($message, 'temporarily unavailable')
+            || str_contains($message, 'timed out')
+            || str_contains($message, 'timeout')
+            || str_contains($message, 'connection reset')
+            || str_contains($message, 'could not resolve host');
     }
 }
