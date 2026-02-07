@@ -15,11 +15,16 @@ use DeployerPHP\DTOs\SupervisorDTO;
  */
 final class SiteBuilder
 {
+    /** @var array<int, string> */
+    private const VALID_WWW_MODES = ['redirect-to-root', 'redirect-to-www', 'none', 'unknown'];
+
     private string $domain = '';
     private ?string $repo = null;
     private ?string $branch = null;
     private string $server = '';
     private string $phpVersion = '';
+    private string $wwwMode = 'unknown';
+    private bool $hasWww = false;
     private string $webRoot = 'public';
     /** @var array<int, CronDTO> */
     private array $crons = [];
@@ -49,6 +54,8 @@ final class SiteBuilder
             ->branch($dto->branch)
             ->server($dto->server)
             ->phpVersion($dto->phpVersion)
+            ->wwwMode($dto->wwwMode)
+            ->hasWww($dto->hasWww)
             ->webRoot($dto->webRoot)
             ->crons($dto->crons)
             ->supervisors($dto->supervisors);
@@ -69,6 +76,8 @@ final class SiteBuilder
         $branch = $data['branch'] ?? null;
         $server = $data['server'] ?? '';
         $phpVersion = $data['php_version'] ?? null;
+        $wwwModeRaw = $data['www_mode'] ?? 'unknown';
+        $hasWwwRaw = $data['has_www'] ?? null;
         $webRoot = $data['web_root'] ?? 'public';
         $cronsData = $data['crons'] ?? [];
         $supervisorsData = $data['supervisors'] ?? [];
@@ -100,12 +109,22 @@ final class SiteBuilder
             }
         }
 
+        $wwwMode = is_string($wwwModeRaw) && in_array($wwwModeRaw, self::VALID_WWW_MODES, true)
+            ? $wwwModeRaw
+            : 'unknown';
+
+        $hasWww = is_bool($hasWwwRaw)
+            ? $hasWwwRaw
+            : self::inferHasWwwFromMode($wwwMode);
+
         return (new self())
             ->domain(is_string($domain) ? $domain : '')
             ->repo(is_string($repo) ? $repo : null)
             ->branch(is_string($branch) ? $branch : null)
             ->server(is_string($server) ? $server : '')
             ->phpVersion($phpVersion)
+            ->wwwMode($wwwMode)
+            ->hasWww($hasWww)
             ->webRoot(is_string($webRoot) ? $webRoot : 'public')
             ->crons($crons)
             ->supervisors($supervisors);
@@ -142,6 +161,26 @@ final class SiteBuilder
     public function phpVersion(string $phpVersion): self
     {
         $this->phpVersion = $phpVersion;
+
+        return $this;
+    }
+
+    public function wwwMode(string $wwwMode): self
+    {
+        if (! in_array($wwwMode, self::VALID_WWW_MODES, true)) {
+            throw new \RuntimeException(
+                "Invalid WWW mode '{$wwwMode}'. Allowed: " . implode(', ', self::VALID_WWW_MODES)
+            );
+        }
+
+        $this->wwwMode = $wwwMode;
+
+        return $this;
+    }
+
+    public function hasWww(bool $hasWww): self
+    {
+        $this->hasWww = $hasWww;
 
         return $this;
     }
@@ -216,9 +255,16 @@ final class SiteBuilder
             branch: $this->branch,
             server: $this->server,
             phpVersion: $this->phpVersion,
+            wwwMode: $this->wwwMode,
+            hasWww: $this->hasWww,
             webRoot: $this->webRoot,
             crons: $this->crons,
             supervisors: $this->supervisors,
         );
+    }
+
+    private static function inferHasWwwFromMode(string $wwwMode): bool
+    {
+        return in_array($wwwMode, ['redirect-to-root', 'redirect-to-www'], true);
     }
 }

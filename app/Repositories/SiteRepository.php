@@ -330,7 +330,7 @@ final class SiteRepository
      * Only includes repo and branch if they are set. Only includes crons/supervisors if non-empty.
      *
      * @param SiteDTO $site The site DTO to serialize.
-     * @return array<string, mixed> Associative array with keys `domain`, `server`, and optionally `repo`, `branch`, `crons`, `supervisors`.
+     * @return array<string, mixed> Associative array with keys `domain`, `server`, `php_version`, `www_mode`, `has_www`, and optional `repo`, `branch`, `crons`, `supervisors`.
      */
     private function dehydrateSiteDTO(SiteDTO $site): array
     {
@@ -348,6 +348,8 @@ final class SiteRepository
         }
 
         $data['php_version'] = $site->phpVersion;
+        $data['www_mode'] = $site->wwwMode;
+        $data['has_www'] = $site->hasWww;
 
         if ('public' !== $site->webRoot) {
             $data['web_root'] = $site->webRoot;

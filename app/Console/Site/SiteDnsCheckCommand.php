@@ -47,10 +47,18 @@ class SiteDnsCheckCommand extends BaseCommand
         }
 
         $wwwDomain = 'www.' . $site->domain;
+        $shouldCheckWww = $site->hasWww;
+        $wwwIps = [
+            'ipv4' => [],
+            'ipv6' => [],
+        ];
 
         try {
             $apexIps = $this->resolveDnsWithRetry($site->domain);
-            $wwwIps = $this->resolveDnsWithRetry($wwwDomain);
+
+            if ($shouldCheckWww) {
+                $wwwIps = $this->resolveDnsWithRetry($wwwDomain);
+            }
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
 
@@ -59,7 +67,9 @@ class SiteDnsCheckCommand extends BaseCommand
 
         $this->displayDnsDeets($site->domain, $apexIps);
 
-        if (0 < count($wwwIps['ipv4']) || 0 < count($wwwIps['ipv6'])) {
+        if (!$shouldCheckWww) {
+            $this->info("Skipping '{$wwwDomain}' lookup because this site has no WWW alias configured");
+        } elseif (0 < count($wwwIps['ipv4']) || 0 < count($wwwIps['ipv6'])) {
             $this->displayDnsDeets($wwwDomain, $wwwIps);
         } else {
             $this->info("No resolved IPs found for '{$wwwDomain}'");

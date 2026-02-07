@@ -31,6 +31,13 @@ use Symfony\Component\Console\Command\Command;
  */
 trait SitesTrait
 {
+    /** @var array<string, string> */
+    private const WWW_MODE_OPTIONS = [
+        'redirect-to-root' => 'Redirect www to non-www',
+        'redirect-to-www' => 'Redirect non-www to www',
+        'none' => 'Do not configure a www alias',
+    ];
+
     use DomainValidationTrait;
     use ServersTrait;
 
@@ -301,6 +308,75 @@ trait SitesTrait
         }
 
         return $domain;
+    }
+
+    /**
+     * Detect whether a domain is a subdomain.
+     *
+     * Uses two-part ccTLD suffix inference (example.co.uk, example.com.au).
+     */
+    protected function isSubdomain(string $domain): bool
+    {
+        $domain = $this->normalizeDomain($domain);
+        $labels = explode('.', $domain);
+        $labelCount = count($labels);
+
+        // Known second-level suffix labels used with ccTLDs.
+        $ccSecondLevelLabels = ['ac', 'co', 'com', 'edu', 'gov', 'net', 'org'];
+        $tld = $labels[$labelCount - 1] ?? '';
+        $secondLevel = $labels[$labelCount - 2] ?? '';
+
+        $isCcTld = 2 === strlen($tld);
+        $isTwoPartSuffix = $isCcTld && in_array($secondLevel, $ccSecondLevelLabels, true);
+        $apexLabelCount = $isTwoPartSuffix ? 3 : 2;
+
+        return $labelCount > $apexLabelCount;
+    }
+
+    /**
+     * Get available WWW mode options.
+     *
+     * @return array<string, string>
+     */
+    protected function getWwwModeOptions(): array
+    {
+        return self::WWW_MODE_OPTIONS;
+    }
+
+    /**
+     * Validate WWW mode input.
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateWwwMode(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return 'WWW mode must be a string';
+        }
+
+        if (! array_key_exists($value, self::WWW_MODE_OPTIONS)) {
+            return sprintf(
+                "Invalid WWW mode '%s'. Allowed: %s",
+                $value,
+                implode(', ', array_keys(self::WWW_MODE_OPTIONS))
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Determine whether a site should have a WWW alias.
+     *
+     * Subdomains never get a WWW alias, regardless of requested mode.
+     */
+    protected function hasWww(string $domain, string $wwwMode): bool
+    {
+        if ($this->isSubdomain($domain)) {
+            return false;
+        }
+
+        return 'none' !== $wwwMode;
     }
 
     /**
