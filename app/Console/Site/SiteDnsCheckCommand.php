@@ -67,7 +67,7 @@ class SiteDnsCheckCommand extends BaseCommand
 
         $this->displayDnsDeets($site->domain, $apexIps);
 
-        if (!$shouldCheckWww) {
+        if (! $shouldCheckWww) {
             $this->info("Skipping '{$wwwDomain}' lookup because this site has no WWW alias configured");
         } elseif (0 < count($wwwIps['ipv4']) || 0 < count($wwwIps['ipv6'])) {
             $this->displayDnsDeets($wwwDomain, $wwwIps);

@@ -278,7 +278,7 @@ class SiteCreateCommand extends BaseCommand
             // Detect subdomain and determine WWW handling
             // ----
 
-            $wwwModes = $this->getWwwModeOptions();
+            $wwwModes = WwwMode::selectableOptions();
 
             $isSubdomain = $this->isSubdomain($domain);
 

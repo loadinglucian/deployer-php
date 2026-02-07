@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace DeployerPHP\DTOs;
 
+use DeployerPHP\Enums\WwwMode;
+
 readonly class SiteDTO
 {
     /**
@@ -26,7 +28,7 @@ readonly class SiteDTO
         public ?string $branch,
         public string $server,
         public string $phpVersion,
-        public string $wwwMode = 'unknown',
+        public string $wwwMode = WwwMode::UNKNOWN->value,
         public bool $hasWww = false,
         public string $webRoot = 'public',
         /** @var array<int, CronDTO> */

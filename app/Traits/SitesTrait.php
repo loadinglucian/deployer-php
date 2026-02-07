@@ -328,16 +328,6 @@ trait SitesTrait
     }
 
     /**
-     * Get available WWW mode options.
-     *
-     * @return array<string, string>
-     */
-    protected function getWwwModeOptions(): array
-    {
-        return WwwMode::selectableOptions();
-    }
-
-    /**
      * Validate WWW mode input.
      *
      * @return string|null Error message if invalid, null if valid
