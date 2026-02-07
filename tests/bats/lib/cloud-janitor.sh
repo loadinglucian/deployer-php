@@ -144,6 +144,7 @@ deployer_available() {
 deployer_run() { php "${PROJECT_ROOT}/bin/deployer" "$@"; }
 aws_cli_available() { command -v aws > /dev/null 2>&1 && command -v jq > /dev/null 2>&1; }
 do_token() { printf '%s' "${DO_API_TOKEN:-${DIGITALOCEAN_API_TOKEN:-}}"; }
+cf_token() { printf '%s' "${CF_API_TOKEN:-${CLOUDFLARE_API_TOKEN:-}}"; }
 
 aws_cleanup_route53_records_for_suffix() {
 	local suffix="$1"
@@ -162,9 +163,10 @@ aws_cleanup_route53_records_for_suffix() {
 	done
 }
 
-aws_cleanup_cloudflare_records_for_suffix() {
+cf_cleanup_records_for_suffix() {
 	local suffix="$1"
-	local token="${CF_API_TOKEN:-${CLOUDFLARE_API_TOKEN:-}}"
+	local token
+	token="$(cf_token)"
 	[[ -n "$token" && -n "${CF_TEST_DOMAIN:-}" ]] || return 0
 
 	local zone_id
@@ -228,7 +230,6 @@ aws_cleanup_suffix() {
 	run_cmd aws ec2 delete-key-pair --key-name "$server_name" > /dev/null 2>&1 || true
 
 	aws_cleanup_route53_records_for_suffix "$suffix"
-	aws_cleanup_cloudflare_records_for_suffix "$suffix"
 
 	local volume_id
 	for volume_id in $volume_ids $tagged_volume_ids; do
@@ -291,7 +292,7 @@ cf_cleanup_suffix() {
 	if deployer_available && [[ -n "${CF_TEST_DOMAIN:-}" ]]; then
 		run_cmd deployer_run cf:dns:delete --zone="$CF_TEST_DOMAIN" --type=A --name="r${suffix}" --force --yes > /dev/null 2>&1 || true
 	fi
-	aws_cleanup_cloudflare_records_for_suffix "$suffix"
+	cf_cleanup_records_for_suffix "$suffix"
 }
 
 cleanup_suffix() {
@@ -299,7 +300,7 @@ cleanup_suffix() {
 	log_info "Cleaning suffix ${suffix}"
 	provider_enabled aws && aws_cleanup_suffix "$suffix"
 	provider_enabled do && do_cleanup_suffix "$suffix"
-	if provider_enabled cf && ! provider_enabled aws; then
+	if provider_enabled cf; then
 		cf_cleanup_suffix "$suffix"
 	fi
 }
@@ -318,16 +319,22 @@ collect_aws_suffixes() {
 			while IFS= read -r value; do record_suffix_from_value "$value"; done < <(aws route53 list-resource-record-sets --hosted-zone-id "$zone_id" --output json 2> /dev/null | jq -r '.ResourceRecordSets[]? | select(.Type=="A") | .Name' 2> /dev/null || true)
 		fi
 	fi
-	if [[ -n "${CF_TEST_DOMAIN:-}" ]]; then
-		local token="${CF_API_TOKEN:-${CLOUDFLARE_API_TOKEN:-}}"
-		if [[ -n "$token" ]]; then
-			local zone_id
-			zone_id=$(curl -s -H "Authorization: Bearer ${token}" "https://api.cloudflare.com/client/v4/zones?name=${CF_TEST_DOMAIN}" 2> /dev/null | jq -r '.result[0].id // empty' 2> /dev/null || true)
-			if [[ -n "$zone_id" ]]; then
-				while IFS= read -r value; do record_suffix_from_value "$value"; done < <(curl -s -H "Authorization: Bearer ${token}" "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records?type=A&per_page=100" 2> /dev/null | jq -r '.result[]? | .name' 2> /dev/null || true)
-			fi
-		fi
-	fi
+}
+
+collect_cf_suffixes() {
+	local token
+	token="$(cf_token)"
+	[[ -n "$token" && -n "${CF_TEST_DOMAIN:-}" ]] || return 0
+	command -v jq > /dev/null 2>&1 || return 0
+
+	local zone_id
+	zone_id=$(curl -s -H "Authorization: Bearer ${token}" "https://api.cloudflare.com/client/v4/zones?name=${CF_TEST_DOMAIN}" 2> /dev/null | jq -r '.result[0].id // empty' 2> /dev/null || true)
+	[[ -n "$zone_id" ]] || return 0
+
+	local value
+	while IFS= read -r value; do
+		record_suffix_from_value "$value"
+	done < <(curl -s -H "Authorization: Bearer ${token}" "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records?type=A&per_page=100" 2> /dev/null | jq -r '.result[]? | .name' 2> /dev/null || true)
 }
 
 collect_do_suffixes() {
@@ -359,8 +366,9 @@ run_targeted_mode() {
 }
 
 run_sweep_mode() {
-	if provider_enabled aws || provider_enabled cf; then collect_aws_suffixes; fi
+	if provider_enabled aws; then collect_aws_suffixes; fi
 	if provider_enabled do; then collect_do_suffixes; fi
+	if provider_enabled cf; then collect_cf_suffixes; fi
 	load_protected_suffixes
 
 	if [[ "${#CANDIDATE_SUFFIXES[@]}" -eq 0 ]]; then
