@@ -312,7 +312,7 @@ trait SitesTrait
     protected function isSubdomain(string $domain): bool
     {
         $domain = $this->normalizeDomain($domain);
-        $labels = explode('.', $domain);
+        $labels = explode('.', (string) $domain);
         $labelCount = count($labels);
 
         // Known second-level suffix labels used with ccTLDs.
