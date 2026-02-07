@@ -7,6 +7,7 @@ namespace DeployerPHP\Builders;
 use DeployerPHP\DTOs\CronDTO;
 use DeployerPHP\DTOs\SiteDTO;
 use DeployerPHP\DTOs\SupervisorDTO;
+use DeployerPHP\Enums\WwwMode;
 
 /**
  * Builder for SiteDTO - centralizes all SiteDTO instantiation.
@@ -15,15 +16,12 @@ use DeployerPHP\DTOs\SupervisorDTO;
  */
 final class SiteBuilder
 {
-    /** @var array<int, string> */
-    private const VALID_WWW_MODES = ['redirect-to-root', 'redirect-to-www', 'none', 'unknown'];
-
     private string $domain = '';
     private ?string $repo = null;
     private ?string $branch = null;
     private string $server = '';
     private string $phpVersion = '';
-    private string $wwwMode = 'unknown';
+    private string $wwwMode = WwwMode::UNKNOWN->value;
     private bool $hasWww = false;
     private string $webRoot = 'public';
     /** @var array<int, CronDTO> */
@@ -76,7 +74,7 @@ final class SiteBuilder
         $branch = $data['branch'] ?? null;
         $server = $data['server'] ?? '';
         $phpVersion = $data['php_version'] ?? null;
-        $wwwModeRaw = $data['www_mode'] ?? 'unknown';
+        $wwwModeRaw = $data['www_mode'] ?? WwwMode::UNKNOWN->value;
         $hasWwwRaw = $data['has_www'] ?? null;
         $webRoot = $data['web_root'] ?? 'public';
         $cronsData = $data['crons'] ?? [];
@@ -109,9 +107,9 @@ final class SiteBuilder
             }
         }
 
-        $wwwMode = is_string($wwwModeRaw) && in_array($wwwModeRaw, self::VALID_WWW_MODES, true)
+        $wwwMode = is_string($wwwModeRaw) && WwwMode::isValid($wwwModeRaw)
             ? $wwwModeRaw
-            : 'unknown';
+            : WwwMode::UNKNOWN->value;
 
         $hasWww = is_bool($hasWwwRaw)
             ? $hasWwwRaw
@@ -167,9 +165,9 @@ final class SiteBuilder
 
     public function wwwMode(string $wwwMode): self
     {
-        if (! in_array($wwwMode, self::VALID_WWW_MODES, true)) {
+        if (! WwwMode::isValid($wwwMode)) {
             throw new \RuntimeException(
-                "Invalid WWW mode '{$wwwMode}'. Allowed: " . implode(', ', self::VALID_WWW_MODES)
+                "Invalid WWW mode '{$wwwMode}'. Allowed: " . implode(', ', WwwMode::values())
             );
         }
 
@@ -265,6 +263,8 @@ final class SiteBuilder
 
     private static function inferHasWwwFromMode(string $wwwMode): bool
     {
-        return in_array($wwwMode, ['redirect-to-root', 'redirect-to-www'], true);
+        $mode = WwwMode::tryFrom($wwwMode);
+
+        return $mode?->hasWwwAlias() ?? false;
     }
 }

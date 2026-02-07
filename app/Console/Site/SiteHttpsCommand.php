@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DeployerPHP\Console\Site;
 
 use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\Enums\WwwMode;
 use DeployerPHP\Traits\PlaybooksTrait;
 use DeployerPHP\Traits\ServersTrait;
 use DeployerPHP\Traits\SitesTrait;
@@ -78,7 +79,7 @@ class SiteHttpsCommand extends BaseCommand
         /** @var string $wwwMode */
         $wwwMode = $config['www_mode'];
 
-        $validWwwModes = ['redirect-to-root', 'redirect-to-www', 'none'];
+        $validWwwModes = WwwMode::values(includeUnknown: false);
 
         if (!in_array($wwwMode, $validWwwModes, true)) {
             $this->nay(sprintf(

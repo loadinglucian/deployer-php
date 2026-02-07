@@ -8,6 +8,7 @@ use DeployerPHP\Builders\SiteServerBuilder;
 use DeployerPHP\DTOs\ServerDTO;
 use DeployerPHP\DTOs\SiteDTO;
 use DeployerPHP\DTOs\SiteServerDTO;
+use DeployerPHP\Enums\WwwMode;
 use DeployerPHP\Exceptions\ValidationException;
 use DeployerPHP\Repositories\ServerRepository;
 use DeployerPHP\Repositories\SiteRepository;
@@ -31,13 +32,6 @@ use Symfony\Component\Console\Command\Command;
  */
 trait SitesTrait
 {
-    /** @var array<string, string> */
-    private const WWW_MODE_OPTIONS = [
-        'redirect-to-root' => 'Redirect www to non-www',
-        'redirect-to-www' => 'Redirect non-www to www',
-        'none' => 'Do not configure a www alias',
-    ];
-
     use DomainValidationTrait;
     use ServersTrait;
 
@@ -340,7 +334,7 @@ trait SitesTrait
      */
     protected function getWwwModeOptions(): array
     {
-        return self::WWW_MODE_OPTIONS;
+        return WwwMode::selectableOptions();
     }
 
     /**
@@ -354,11 +348,11 @@ trait SitesTrait
             return 'WWW mode must be a string';
         }
 
-        if (! array_key_exists($value, self::WWW_MODE_OPTIONS)) {
+        if (! WwwMode::isSelectable($value)) {
             return sprintf(
                 "Invalid WWW mode '%s'. Allowed: %s",
                 $value,
-                implode(', ', array_keys(self::WWW_MODE_OPTIONS))
+                implode(', ', WwwMode::values(includeUnknown: false))
             );
         }
 
@@ -376,7 +370,7 @@ trait SitesTrait
             return false;
         }
 
-        return 'none' !== $wwwMode;
+        return WwwMode::NONE->value !== $wwwMode;
     }
 
     /**

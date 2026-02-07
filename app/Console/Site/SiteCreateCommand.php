@@ -7,6 +7,7 @@ namespace DeployerPHP\Console\Site;
 use DeployerPHP\Builders\SiteBuilder;
 use DeployerPHP\Builders\SiteServerBuilder;
 use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\Enums\WwwMode;
 use DeployerPHP\Exceptions\ValidationException;
 use DeployerPHP\Traits\PlaybooksTrait;
 use DeployerPHP\Traits\ServersTrait;
@@ -39,7 +40,12 @@ class SiteCreateCommand extends BaseCommand
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Domain name')
             ->addOption('server', null, InputOption::VALUE_REQUIRED, 'Server name')
             ->addOption('php-version', null, InputOption::VALUE_REQUIRED, 'PHP version to use')
-            ->addOption('www-mode', null, InputOption::VALUE_REQUIRED, 'WWW handling mode (redirect-to-root, redirect-to-www, none)')
+            ->addOption(
+                'www-mode',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'WWW handling mode (' . implode(', ', WwwMode::values(includeUnknown: false)) . ')'
+            )
             ->addOption('web-root', null, InputOption::VALUE_REQUIRED, 'Public web directory (default: public)');
     }
 
@@ -161,7 +167,7 @@ class SiteCreateCommand extends BaseCommand
             'Point <fg=cyan>@</> (root) to <fg=cyan>' . $server->host . '</>',
         ];
 
-        if ('none' !== $wwwMode) {
+        if (WwwMode::NONE->value !== $wwwMode) {
             $dnsSteps[] = 'Point <fg=cyan>www</> to <fg=cyan>' . $server->host . '</>';
         }
 
@@ -291,13 +297,13 @@ class SiteCreateCommand extends BaseCommand
                         throw new ValidationException($validationError);
                     }
 
-                    if ('none' !== $requestedWwwMode) {
+                    if (WwwMode::NONE->value !== $requestedWwwMode) {
                         $this->warn("Ignoring --www-mode={$requestedWwwMode} for subdomain '{$domain}'. Using 'none'.");
                     }
                 }
 
                 $this->info("Detected subdomain '{$domain}'. WWW mode automatically set to 'none'.");
-                $wwwMode = 'none';
+                $wwwMode = WwwMode::NONE->value;
             } else {
                 /** @var string $wwwMode */
                 $wwwMode = $this->io->getValidatedOptionOrPrompt(
@@ -305,7 +311,7 @@ class SiteCreateCommand extends BaseCommand
                     fn ($validate) => $this->io->promptSelect(
                         label: "How should 'www.{$domain}' be handled?",
                         options: $wwwModes,
-                        default: 'redirect-to-root',
+                        default: WwwMode::REDIRECT_TO_ROOT->value,
                         validate: $validate
                     ),
                     fn ($value) => $this->validateWwwMode($value)
