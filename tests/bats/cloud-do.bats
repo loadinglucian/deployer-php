@@ -291,8 +291,8 @@ teardown() {
 
 	[ "$status" -eq 0 ]
 	assert_output_contains "$DO_TEST_DOMAIN"
-	assert_output_contains "$DO_TEST_DNS_ROOT_FQDN"
-	assert_output_contains "$DO_TEST_DNS_ROOT_SECONDARY_FQDN"
+	assert_output_contains "$DO_TEST_DNS_ROOT"
+	assert_output_contains "$DO_TEST_DNS_ROOT_SECONDARY"
 	assert_command_replay "do:dns:list"
 }
 
