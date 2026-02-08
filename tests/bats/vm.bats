@@ -1,12 +1,12 @@
 #!/usr/bin/env bats
 
 # VM command tests (server:add, server:info, etc.)
-# Tests: server:add, server:info, server:delete, server:install, server:firewall, server:logs,
-# server:run, mariadb:install, postgresql:install, redis:install, memcached:install,
-# server:install second PHP version,
-# nginx:start|stop|restart, php:start|stop|restart, mariadb:start|stop|restart,
-# postgresql:start|stop|restart, redis:start|stop|restart, memcached:start|stop|restart,
-# supervisor:start|stop|restart
+# Tests: server:add, server:info, server:delete, server:install, server:install second PHP version,
+# server:firewall, server:logs, server:run,
+# nginx:start|stop|restart, php:start|stop|restart, supervisor:start|stop|restart,
+# mariadb:install, postgresql:install, redis:install, memcached:install,
+# mariadb:start|stop|restart, postgresql:start|stop|restart, redis:start|stop|restart,
+# memcached:start|stop|restart, scaffold:ai, scaffold:scripts
 
 load 'lib/helpers'
 load 'lib/lima'
@@ -550,6 +550,57 @@ assert_kv_auth_via_credentials() {
 }
 
 # ----
+# core service lifecycle commands
+# ----
+
+@test "nginx lifecycle commands stop/start/restart work" {
+	add_test_server
+
+	assert_lifecycle_command_success "nginx:restart"
+	assert_remote_service_active "nginx"
+
+	assert_lifecycle_command_success "nginx:stop"
+	assert_remote_service_inactive "nginx"
+
+	assert_lifecycle_command_success "nginx:start"
+	assert_remote_service_active "nginx"
+}
+
+@test "php lifecycle commands stop/start/restart work for at least two versions" {
+	add_test_server
+
+	local php_version php_service
+	mapfile -t installed_php_versions < <(get_installed_php_fpm_versions)
+	[[ "${#installed_php_versions[@]}" -ge 2 ]]
+
+	for php_version in "${installed_php_versions[@]:0:2}"; do
+		php_service="php${php_version}-fpm"
+
+		assert_lifecycle_command_success "php:restart" --php-version="$php_version"
+		assert_remote_service_active "$php_service"
+
+		assert_lifecycle_command_success "php:stop" --php-version="$php_version"
+		assert_remote_service_inactive "$php_service"
+
+		assert_lifecycle_command_success "php:start" --php-version="$php_version"
+		assert_remote_service_active "$php_service"
+	done
+}
+
+@test "supervisor lifecycle commands stop/start/restart work" {
+	add_test_server
+
+	assert_lifecycle_command_success "supervisor:restart"
+	assert_remote_service_active "supervisor"
+
+	assert_lifecycle_command_success "supervisor:stop"
+	assert_remote_service_inactive "supervisor"
+
+	assert_lifecycle_command_success "supervisor:start"
+	assert_remote_service_active "supervisor"
+}
+
+# ----
 # install command happy paths
 # ----
 
@@ -779,42 +830,8 @@ assert_kv_auth_via_credentials() {
 }
 
 # ----
-# service lifecycle commands
+# database/cache lifecycle commands
 # ----
-
-@test "nginx lifecycle commands stop/start/restart work" {
-	add_test_server
-
-	assert_lifecycle_command_success "nginx:restart"
-	assert_remote_service_active "nginx"
-
-	assert_lifecycle_command_success "nginx:stop"
-	assert_remote_service_inactive "nginx"
-
-	assert_lifecycle_command_success "nginx:start"
-	assert_remote_service_active "nginx"
-}
-
-@test "php lifecycle commands stop/start/restart work for at least two versions" {
-	add_test_server
-
-	local php_version php_service
-	mapfile -t installed_php_versions < <(get_installed_php_fpm_versions)
-	[[ "${#installed_php_versions[@]}" -ge 2 ]]
-
-	for php_version in "${installed_php_versions[@]:0:2}"; do
-		php_service="php${php_version}-fpm"
-
-		assert_lifecycle_command_success "php:restart" --php-version="$php_version"
-		assert_remote_service_active "$php_service"
-
-		assert_lifecycle_command_success "php:stop" --php-version="$php_version"
-		assert_remote_service_inactive "$php_service"
-
-		assert_lifecycle_command_success "php:start" --php-version="$php_version"
-		assert_remote_service_active "$php_service"
-	done
-}
 
 @test "mariadb lifecycle commands stop/start/restart work" {
 	add_test_server
@@ -868,17 +885,57 @@ assert_kv_auth_via_credentials() {
 	assert_remote_service_active "memcached"
 }
 
-@test "supervisor lifecycle commands stop/start/restart work" {
-	add_test_server
+# ----
+# scaffold commands
+# ----
 
-	assert_lifecycle_command_success "supervisor:restart"
-	assert_remote_service_active "supervisor"
+@test "scaffold:ai creates codex debugger skill from template" {
+	local destination="${BATS_TEST_TMPDIR}/scaffold-ai"
+	local skill_path="${destination}/.codex/skills/deployer-php/SKILL.md"
+	mkdir -p "$destination"
 
-	assert_lifecycle_command_success "supervisor:stop"
-	assert_remote_service_inactive "supervisor"
+	run_deployer scaffold:ai \
+		--agent="codex" \
+		--tier="debugger" \
+		--destination="$destination"
 
-	assert_lifecycle_command_success "supervisor:start"
-	assert_remote_service_active "supervisor"
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Finished scaffolding ai"
+	assert_command_replay "scaffold:ai"
+	assert_output_contains "--agent='codex'"
+	assert_output_contains "--tier='debugger'"
+	assert_output_contains "--destination='${destination}'"
+
+	[ -f "${skill_path}" ]
+	cmp -s "${skill_path}" "${PROJECT_ROOT}/scaffolds/ai/debugger/SKILL.md"
+}
+
+@test "scaffold:scripts creates script templates from scaffolds" {
+	local destination="${BATS_TEST_TMPDIR}/scaffold-scripts"
+	local target_dir="${destination}/.deployer/scripts"
+	mkdir -p "$destination"
+
+	run_deployer scaffold:scripts \
+		--destination="$destination"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Finished scaffolding scripts"
+	assert_command_replay "scaffold:scripts"
+	assert_output_contains "--destination='${destination}'"
+
+	[ -f "${target_dir}/deploy.sh" ]
+	[ -f "${target_dir}/cron.sh" ]
+	[ -f "${target_dir}/supervisor.sh" ]
+
+	cmp -s "${target_dir}/deploy.sh" "${PROJECT_ROOT}/scaffolds/scripts/deploy.sh"
+	cmp -s "${target_dir}/cron.sh" "${PROJECT_ROOT}/scaffolds/scripts/cron.sh"
+	cmp -s "${target_dir}/supervisor.sh" "${PROJECT_ROOT}/scaffolds/scripts/supervisor.sh"
 }
 
 # ----
