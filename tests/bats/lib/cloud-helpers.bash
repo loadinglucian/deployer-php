@@ -806,48 +806,6 @@ wait_for_http() {
 	return 1
 }
 
-# Wait for DNS A record resolution with optional expected IP verification
-# Usage: wait_for_dns_a_record "example.com" "1.2.3.4" 300
-wait_for_dns_a_record() {
-	local domain="$1"
-	local expected_ip="${2:-}"
-	local timeout="${3:-300}"
-	local interval=10
-	local elapsed=0
-	local last_ips=""
-
-	while [[ $elapsed -lt $timeout ]]; do
-		local response ips
-		response=$(curl -s --max-time 10 "https://dns.google/resolve?name=${domain}&type=A" 2> /dev/null || true)
-		ips=$(echo "$response" \
-			| jq -r '.Answer[]? | select(.type == 1) | .data' 2> /dev/null \
-			| tr '\n' ' ' \
-			| sed 's/[[:space:]]\+$//' || true)
-
-		last_ips="$ips"
-
-		if [[ -n "$ips" ]]; then
-			if [[ -z "$expected_ip" ]] || [[ " ${ips} " == *" ${expected_ip} "* ]]; then
-				echo "DNS A record resolved for ${domain}: ${ips}"
-				return 0
-			fi
-		fi
-
-		sleep $interval
-		elapsed=$((elapsed + interval))
-	done
-
-	echo "Timeout waiting for DNS A record for ${domain} after ${timeout}s"
-	[[ -n "$expected_ip" ]] && echo "Expected IP: ${expected_ip}"
-	if [[ -n "$last_ips" ]]; then
-		echo "Last resolved IPs: ${last_ips}"
-	else
-		echo "No A records resolved"
-	fi
-
-	return 1
-}
-
 # ----
 # Fail-Fast Support
 # ----

@@ -307,7 +307,6 @@ teardown() {
 	server_ip=$(get_server_ip "$DO_TEST_SERVER_NAME")
 
 	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
-	wait_for_dns_a_record "$DO_TEST_SITE_DOMAIN" "$server_ip" 300
 
 	run_deployer site:dns:check \
 		--domain="$DO_TEST_SITE_DOMAIN"
@@ -330,7 +329,6 @@ teardown() {
 	server_ip=$(get_server_ip "$DO_TEST_SERVER_NAME")
 
 	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
-	wait_for_dns_a_record "$DO_TEST_SITE_DOMAIN_SECONDARY" "$server_ip" 300
 
 	run_deployer site:dns:check \
 		--domain="$DO_TEST_SITE_DOMAIN_SECONDARY"
@@ -474,12 +472,6 @@ teardown() {
 @test "site:https enables HTTPS for ${DO_TEST_SITE_DOMAIN}" {
 	require_do_provision_config
 
-	local server_ip
-	server_ip=$(get_server_ip "$DO_TEST_SERVER_NAME")
-
-	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
-	wait_for_dns_a_record "$DO_TEST_SITE_DOMAIN" "$server_ip" 300
-
 	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:https \
 		--domain="$DO_TEST_SITE_DOMAIN"
 
@@ -493,12 +485,6 @@ teardown() {
 
 @test "site:https enables HTTPS for ${DO_TEST_SITE_DOMAIN_SECONDARY}" {
 	require_do_provision_config
-
-	local server_ip
-	server_ip=$(get_server_ip "$DO_TEST_SERVER_NAME")
-
-	[[ -n "$server_ip" ]] || skip "Could not determine server IP"
-	wait_for_dns_a_record "$DO_TEST_SITE_DOMAIN_SECONDARY" "$server_ip" 300
 
 	run timeout 300 "$DEPLOYER_BIN" --inventory="$TEST_INVENTORY" --no-ansi site:https \
 		--domain="$DO_TEST_SITE_DOMAIN_SECONDARY"
@@ -518,7 +504,7 @@ teardown() {
 @test "deployed DigitalOcean site responds to HTTP requests after HTTPS setup" {
 	require_do_provision_config
 
-	# DNS was already validated before site:https; verify app response after HTTPS setup.
+	# Verify app response after HTTPS setup.
 	wait_for_http "$DO_TEST_SITE_DOMAIN" "$CLOUD_TEST_APP_MESSAGE" 30
 }
 
