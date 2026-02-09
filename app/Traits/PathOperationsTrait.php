@@ -100,15 +100,15 @@ trait PathOperationsTrait
             return 'Script path cannot be empty';
         }
 
-        if (str_starts_with($normalized, '/')) {
+        if (str_starts_with((string) $normalized, '/')) {
             return 'Script path must be relative to the project directory';
         }
 
-        if (! preg_match('/^[A-Za-z0-9._\/-]+$/', $normalized)) {
+        if (! preg_match('/^[A-Za-z0-9._\/-]+$/', (string) $normalized)) {
             return 'Script path may only contain letters, numbers, dots, underscores, slashes, and hyphens';
         }
 
-        $segments = explode('/', $normalized);
+        $segments = explode('/', (string) $normalized);
         foreach ($segments as $segment) {
             if ('' === $segment) {
                 return 'Script path cannot contain empty path segments';
