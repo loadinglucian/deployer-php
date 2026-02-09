@@ -26,6 +26,8 @@ use Symfony\Component\Console\Command\Command;
  */
 trait SupervisorsTrait
 {
+    use PathOperationsTrait;
+
     // ----
     // Helpers
     // ----
@@ -235,23 +237,23 @@ trait SupervisorsTrait
     }
 
     /**
-     * Validate supervisor script exists in available scripts.
+     * Validate supervisor script path format.
      *
-     * @param array<int, string> $availableScripts Available scripts from repository
+     * Accepts project-relative paths only using safe characters.
      *
      * @return string|null Error message if invalid, null if valid
      */
-    protected function validateSupervisorScriptInput(mixed $script, array $availableScripts): ?string
+    protected function validateSupervisorScriptInput(mixed $script): ?string
     {
-        if (! is_string($script)) {
-            return 'Script must be a string';
-        }
+        return $this->validateProjectScriptPathInput($script);
+    }
 
-        if (! in_array($script, $availableScripts, true)) {
-            return "Supervisor script not found: .deployer/scripts/{$script}";
-        }
-
-        return null;
+    /**
+     * Normalize script path for storage and comparisons.
+     */
+    protected function normalizeScriptPath(string $script): string
+    {
+        return $this->normalizeProjectScriptPath($script);
     }
 
     /**

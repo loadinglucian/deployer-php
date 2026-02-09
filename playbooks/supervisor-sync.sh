@@ -65,7 +65,7 @@ parse_supervisors_json() {
 #
 # Arguments:
 #   $1 - program name
-#   $2 - script filename
+#   $2 - script path relative to project root
 #   $3 - autostart (true|false)
 #   $4 - autorestart (true|false)
 #   $5 - stopwaitsecs
@@ -83,7 +83,7 @@ generate_supervisor_config() {
 
 	cat <<- EOF
 		[program:${full_name}]
-		command=${RUNNER_PATH} .deployer/scripts/${script}
+		command=${RUNNER_PATH} ${script}
 		directory=${CURRENT_PATH}
 		user=deployer
 		autostart=${autostart}

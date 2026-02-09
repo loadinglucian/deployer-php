@@ -9,7 +9,7 @@ readonly class CronDTO
     /**
      * Create a CronDTO containing the cron's script path and schedule.
      *
-     * @param string $script   Script path within .deployer/scripts/ (e.g., cron.sh).
+     * @param string $script   Script path relative to project directory (e.g., .deployer/scripts/cron.sh).
      * @param string $schedule Cron schedule expression (e.g., "* * * * *").
      */
     public function __construct(

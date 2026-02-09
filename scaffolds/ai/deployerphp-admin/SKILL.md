@@ -38,10 +38,10 @@ PHP_VERSION="8.3"
 WWW_MODE="redirect-to-root"
 WEB_ROOT="public"
 
-CRON_SCRIPT="cron.sh"
+CRON_SCRIPT=".deployer/scripts/cron.sh"
 CRON_SCHEDULE="*/5 * * * *"
 SUPERVISOR_PROGRAM="queue-worker"
-SUPERVISOR_SCRIPT="supervisor.sh"
+SUPERVISOR_SCRIPT=".deployer/scripts/supervisor.sh"
 
 AWS_KEY_PAIR="deployer"
 AWS_ZONE="example.com"
@@ -60,6 +60,8 @@ DO_ZONE="example.com"
 
 CF_ZONE="example.com"
 ```
+
+`CRON_SCRIPT` and `SUPERVISOR_SCRIPT` must be paths relative to project root and do not need a `.sh` extension.
 
 ## Global References
 

@@ -59,4 +59,66 @@ trait PathOperationsTrait
 
         return null;
     }
+
+    /**
+     * Normalize a project-relative script path for storage and comparisons.
+     *
+     * Trims whitespace and removes leading "./" segments.
+     */
+    protected function normalizeProjectScriptPath(string $path): string
+    {
+        $path = trim($path);
+
+        while (str_starts_with($path, './')) {
+            $path = substr($path, 2);
+        }
+
+        return $path;
+    }
+
+    /**
+     * Validate script path input for project-relative script execution.
+     *
+     * Rules:
+     * - string, non-empty
+     * - relative path only (no leading slash)
+     * - safe charset: [A-Za-z0-9._/-]
+     * - no empty segments (no double slashes)
+     * - no parent traversal segments ("..")
+     *
+     * @return string|null Error message if invalid, null if valid
+     */
+    protected function validateProjectScriptPathInput(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return 'Script path must be a string';
+        }
+
+        $normalized = $this->normalizeProjectScriptPath($value);
+
+        if ('' === $normalized) {
+            return 'Script path cannot be empty';
+        }
+
+        if (str_starts_with($normalized, '/')) {
+            return 'Script path must be relative to the project directory';
+        }
+
+        if (! preg_match('/^[A-Za-z0-9._\/-]+$/', $normalized)) {
+            return 'Script path may only contain letters, numbers, dots, underscores, slashes, and hyphens';
+        }
+
+        $segments = explode('/', $normalized);
+        foreach ($segments as $segment) {
+            if ('' === $segment) {
+                return 'Script path cannot contain empty path segments';
+            }
+
+            if ('..' === $segment) {
+                return 'Script path cannot contain parent directory traversal (..)';
+            }
+        }
+
+        return null;
+    }
 }

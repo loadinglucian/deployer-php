@@ -532,7 +532,8 @@ class ServerLogsCommand extends BaseCommand
         }
 
         [$domain, $script] = $parts;
-        $scriptBase = pathinfo($script, PATHINFO_FILENAME);
+        $scriptBase = $script;
+        $scriptBase = str_replace('/', '-', $scriptBase);
         $this->retrieveFileLogs(
             $server,
             "Cron: {$domain}/{$script}",

@@ -4,7 +4,7 @@
 # Site Cron Sync
 #
 # Synchronizes cron jobs from inventory to the deployer user's crontab.
-# Each cron script logs to its own file: /var/log/cron/{domain}-{script}.log
+# Each cron script logs to its own file: /var/log/cron/{domain}-{script-slug}.log
 #
 # Output:
 #   status: success
@@ -29,8 +29,8 @@ CRON_LOG_DIR="/var/log/cron"
 LOGROTATE_DIR="/etc/logrotate.d"
 
 # Populated by parse_crons_json()
-declare -a SCRIPT_NAMES=()
-declare -a SCRIPT_BASES=()
+declare -a SCRIPT_PATHS=()
+declare -a SCRIPT_SLUGS=()
 
 START_MARKER="# DEPLOYER-CRON-START ${DEPLOYER_SITE_DOMAIN}"
 END_MARKER="# DEPLOYER-CRON-END ${DEPLOYER_SITE_DOMAIN}"
@@ -42,7 +42,7 @@ END_MARKER="# DEPLOYER-CRON-END ${DEPLOYER_SITE_DOMAIN}"
 #
 # Parse crons JSON and validate format
 #
-# Sets: CRON_COUNT, SCRIPT_NAMES[], SCRIPT_BASES[]
+# Sets: CRON_COUNT, SCRIPT_PATHS[], SCRIPT_SLUGS[]
 
 parse_crons_json() {
 	if ! echo "$DEPLOYER_CRONS" | jq empty 2> /dev/null; then
@@ -52,13 +52,15 @@ parse_crons_json() {
 
 	CRON_COUNT=$(echo "$DEPLOYER_CRONS" | jq 'length')
 
-	# Build arrays of script names and their base names (without .sh)
+	# Build arrays of script paths and log-safe script slugs
 	local i=0
 	while ((i < CRON_COUNT)); do
-		local script
+		local script slug
 		script=$(echo "$DEPLOYER_CRONS" | jq -r ".[$i].script")
-		SCRIPT_NAMES+=("$script")
-		SCRIPT_BASES+=("${script%.sh}")
+		slug="$script"
+		slug="${slug//\//-}"
+		SCRIPT_PATHS+=("$script")
+		SCRIPT_SLUGS+=("$slug")
 		((i++))
 	done
 }
@@ -71,7 +73,7 @@ parse_crons_json() {
 # Generate cron block for a site
 #
 # Outputs the complete cron section including markers and cron entries
-# Each script logs to /var/log/cron/{domain}-{script_base}.log
+# Each script logs to /var/log/cron/{domain}-{script_slug}.log
 
 generate_cron_block() {
 	local cron_block=""
@@ -83,12 +85,13 @@ generate_cron_block() {
 	# Generate each cron entry using runner.sh
 	local i=0
 	while ((i < CRON_COUNT)); do
-		local schedule script_base script_log
+		local schedule script_path script_slug script_log
 		schedule=$(echo "$DEPLOYER_CRONS" | jq -r ".[$i].schedule")
-		script_base="${SCRIPT_BASES[$i]}"
-		script_log="${CRON_LOG_DIR}/${DEPLOYER_SITE_DOMAIN}-${script_base}.log"
+		script_path="${SCRIPT_PATHS[$i]}"
+		script_slug="${SCRIPT_SLUGS[$i]}"
+		script_log="${CRON_LOG_DIR}/${DEPLOYER_SITE_DOMAIN}-${script_slug}.log"
 
-		cron_block+="${schedule} ${runner_path} .deployer/scripts/${SCRIPT_NAMES[$i]} >> ${script_log} 2>&1"$'\n'
+		cron_block+="${schedule} ${runner_path} ${script_path} >> ${script_log} 2>&1"$'\n'
 
 		((i++))
 	done
@@ -174,8 +177,8 @@ setup_cron_logging() {
 	fi
 
 	# Create per-script log files
-	for script_base in "${SCRIPT_BASES[@]}"; do
-		local log_file="${CRON_LOG_DIR}/${DEPLOYER_SITE_DOMAIN}-${script_base}.log"
+	for script_slug in "${SCRIPT_SLUGS[@]}"; do
+		local log_file="${CRON_LOG_DIR}/${DEPLOYER_SITE_DOMAIN}-${script_slug}.log"
 
 		if ! run_cmd test -f "$log_file"; then
 			run_cmd touch "$log_file" || fail "Failed to create ${log_file}"
@@ -196,11 +199,11 @@ write_logrotate_configs() {
 
 	echo "→ Writing ${CRON_COUNT} logrotate config(s)..."
 
-	for script_base in "${SCRIPT_BASES[@]}"; do
-		local log_file="${CRON_LOG_DIR}/${DEPLOYER_SITE_DOMAIN}-${script_base}.log"
-		local logrotate_file="${LOGROTATE_DIR}/cron-${DEPLOYER_SITE_DOMAIN}-${script_base}.conf"
+	for script_slug in "${SCRIPT_SLUGS[@]}"; do
+		local log_file="${CRON_LOG_DIR}/${DEPLOYER_SITE_DOMAIN}-${script_slug}.log"
+		local logrotate_file="${LOGROTATE_DIR}/cron-${DEPLOYER_SITE_DOMAIN}-${script_slug}.conf"
 
-		echo "→ Writing logrotate for ${DEPLOYER_SITE_DOMAIN}-${script_base}..."
+		echo "→ Writing logrotate for ${DEPLOYER_SITE_DOMAIN}-${script_slug}..."
 
 		if ! run_cmd tee "$logrotate_file" > /dev/null <<- EOF; then
 			${log_file} {
@@ -242,13 +245,13 @@ cleanup_orphaned_logrotate_configs() {
 		[[ -z $file_path ]] && continue
 
 		local basename="${file_path##*/}"
-		local script_base="${basename%.conf}"
-		script_base="${script_base#"$prefix"}"
+		local script_slug="${basename%.conf}"
+		script_slug="${script_slug#"$prefix"}"
 
 		local is_orphan=true
 
-		for name in "${SCRIPT_BASES[@]}"; do
-			if [[ $script_base == "$name" ]]; then
+		for name in "${SCRIPT_SLUGS[@]}"; do
+			if [[ $script_slug == "$name" ]]; then
 				is_orphan=false
 				break
 			fi

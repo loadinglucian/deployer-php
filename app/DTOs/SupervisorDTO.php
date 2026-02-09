@@ -10,7 +10,7 @@ readonly class SupervisorDTO
      * Create a SupervisorDTO containing supervisor program configuration.
      *
      * @param string $program      Program name for supervisor (unique identifier).
-     * @param string $script       Script path within .deployer/scripts/ (e.g., supervisor.sh).
+     * @param string $script       Script path relative to project directory (e.g., .deployer/scripts/supervisor.sh).
      * @param bool $autostart      Whether to start program at supervisord start.
      * @param bool $autorestart    Whether to restart program if it exits.
      * @param int $stopwaitsecs    Seconds to wait for program to stop before SIGKILL.

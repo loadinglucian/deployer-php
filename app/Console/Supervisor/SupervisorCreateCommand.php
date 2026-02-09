@@ -6,6 +6,7 @@ namespace DeployerPHP\Console\Supervisor;
 
 use DeployerPHP\Builders\SupervisorBuilder;
 use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\DTOs\SiteDTO;
 use DeployerPHP\Exceptions\ValidationException;
 use DeployerPHP\Traits\PlaybooksTrait;
 use DeployerPHP\Traits\ServersTrait;
@@ -39,7 +40,7 @@ class SupervisorCreateCommand extends BaseCommand
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain')
             ->addOption('program', null, InputOption::VALUE_REQUIRED, 'Process name identifier')
-            ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Script in .deployer/scripts/ (supervisor*.sh)')
+            ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Script path relative to project directory')
             ->addOption('autostart', null, InputOption::VALUE_NEGATABLE, 'Start on supervisord start')
             ->addOption('autorestart', null, InputOption::VALUE_NEGATABLE, 'Restart on exit')
             ->addOption('stopwaitsecs', null, InputOption::VALUE_REQUIRED, 'Seconds to wait for stop')
@@ -72,33 +73,13 @@ class SupervisorCreateCommand extends BaseCommand
             return $deployedResult;
         }
 
-        try {
-            $availableScripts = $this->getAvailableScripts($site, '.deployer/scripts');
-            $availableScripts = array_values(array_filter(
-                $availableScripts,
-                fn (string $script): bool => str_starts_with($script, 'supervisor') && str_ends_with($script, '.sh')
-            ));
-            sort($availableScripts);
-        } catch (\RuntimeException $e) {
-            $this->nay($e->getMessage());
-
-            return Command::FAILURE;
-        }
-
-        if ([] === $availableScripts) {
-            $this->warn('No supervisor scripts (supervisor*.sh) found in repository');
-            $this->info('Run <|cyan>scaffold:scripts</> to create them');
-
-            return Command::FAILURE;
-        }
-
         //
         // Gather supervisor details
         // ----
 
         $this->io->write("\n");
 
-        $deets = $this->gatherSupervisorDeets($site->domain, $availableScripts);
+        $deets = $this->gatherSupervisorDeets($site);
 
         if (is_int($deets)) {
             return $deets;
@@ -154,29 +135,42 @@ class SupervisorCreateCommand extends BaseCommand
     /**
      * Gather supervisor details from user input or CLI options.
      *
-     * @param array<int, string> $availableScripts
-     *
      * @return array{script: string, program: string, autostart: bool, autorestart: bool, stopwaitsecs: int, numprocs: int}|int
      */
-    protected function gatherSupervisorDeets(string $domain, array $availableScripts): array|int
+    protected function gatherSupervisorDeets(SiteDTO $site): array|int
     {
         try {
             /** @var string $script */
             $script = $this->io->getValidatedOptionOrPrompt(
                 'script',
-                fn ($validate) => $this->io->promptSelect(
-                    label: 'Select supervisor script:',
-                    options: $availableScripts,
-                    scroll: 10,
+                fn ($validate) => $this->io->promptText(
+                    label: 'Supervisor script path (relative to project root):',
+                    placeholder: '.deployer/scripts/supervisor.sh',
+                    required: true,
                     validate: $validate
                 ),
-                fn ($value) => $this->validateSupervisorScriptInput($value, $availableScripts)
+                fn ($value) => $this->validateSupervisorScriptInput($value)
             );
+            $script = $this->normalizeScriptPath($script);
 
             // Check for duplicate script in site's supervisors
-            $duplicateScriptError = $this->validateSupervisorScript($script, $domain);
+            $duplicateScriptError = $this->validateSupervisorScript($script, $site->domain);
             if (null !== $duplicateScriptError) {
                 $this->nay($duplicateScriptError);
+
+                return Command::FAILURE;
+            }
+
+            try {
+                $scriptExists = $this->scriptExistsInRemoteRepo($script, $site);
+            } catch (\RuntimeException $e) {
+                $this->nay($e->getMessage());
+
+                return Command::FAILURE;
+            }
+
+            if (! $scriptExists) {
+                $this->nay("Supervisor script not found in repository: {$script}");
 
                 return Command::FAILURE;
             }
@@ -195,7 +189,7 @@ class SupervisorCreateCommand extends BaseCommand
             $program = trim($program);
 
             // Check for duplicate program in site's supervisors
-            $duplicateProgramError = $this->validateSupervisorProgram($program, $domain);
+            $duplicateProgramError = $this->validateSupervisorProgram($program, $site->domain);
             if (null !== $duplicateProgramError) {
                 $this->nay($duplicateProgramError);
 
@@ -294,12 +288,21 @@ class SupervisorCreateCommand extends BaseCommand
         $site = $this->sites->findByDomain($domain);
         if (null !== $site) {
             foreach ($site->supervisors as $existingSupervisor) {
-                if ($existingSupervisor->script === $script) {
+                if ($this->normalizeScriptPath($existingSupervisor->script) === $script) {
                     return "Supervisor script '{$script}' is already configured for '{$domain}'";
                 }
             }
         }
 
         return null;
+    }
+
+    /**
+     * Check whether script path exists in the site's configured repo and branch.
+     */
+    private function scriptExistsInRemoteRepo(string $script, SiteDTO $site): bool
+    {
+        $checks = $this->checkRemoteSiteFiles($site, [$script]);
+        return $checks[$script] ?? false;
     }
 }

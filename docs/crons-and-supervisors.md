@@ -40,7 +40,7 @@ deployer cron:create
 DeployerPHP will prompt you for:
 
 - **Site** - The site to add the cron job to
-- **Script** - Select from the scripts in your `.deployer/scripts/` directory (matching `cron*.sh`)
+- **Script** - Enter a script path relative to your project root (for example, `.deployer/scripts/cron.sh`). Script paths do not need a `.sh` extension.
 - **Schedule** - A cron expression like `* * * * *` (every minute) or `0 * * * *` (hourly)
 
 ### Syncing Cron Jobs
@@ -80,7 +80,7 @@ deployer supervisor:create
 DeployerPHP will prompt you for:
 
 - **Site** - The site to add the process to
-- **Script** - Select from your `.deployer/scripts/` directory (matching `supervisor*.sh`)
+- **Script** - Enter a script path relative to your project root (for example, `.deployer/scripts/supervisor.sh`). Script paths do not need a `.sh` extension.
 - **Program name** - A unique identifier for this process (e.g., "queue-worker")
 - **Process settings** - Options like autostart, autorestart, and number of instances
 

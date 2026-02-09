@@ -6,6 +6,7 @@ namespace DeployerPHP\Console\Cron;
 
 use DeployerPHP\Builders\CronBuilder;
 use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\DTOs\SiteDTO;
 use DeployerPHP\Exceptions\ValidationException;
 use DeployerPHP\Traits\CronsTrait;
 use DeployerPHP\Traits\PlaybooksTrait;
@@ -38,7 +39,7 @@ class CronCreateCommand extends BaseCommand
 
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain')
-            ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Cron script path within .deployer/scripts/ (cron*.sh)')
+            ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Cron script path relative to project directory')
             ->addOption('schedule', null, InputOption::VALUE_REQUIRED, 'Cron schedule expression (e.g., "*/5 * * * *")');
     }
 
@@ -68,33 +69,13 @@ class CronCreateCommand extends BaseCommand
             return $deployedResult;
         }
 
-        try {
-            $availableScripts = $this->getAvailableScripts($site, '.deployer/scripts');
-            $availableScripts = array_values(array_filter(
-                $availableScripts,
-                fn (string $script): bool => str_starts_with($script, 'cron') && str_ends_with($script, '.sh')
-            ));
-            sort($availableScripts);
-        } catch (\RuntimeException $e) {
-            $this->nay($e->getMessage());
-
-            return Command::FAILURE;
-        }
-
-        if ([] === $availableScripts) {
-            $this->warn('No cron scripts (cron*.sh) found in repository');
-            $this->info('Run <|cyan>scaffold:scripts</> to create them');
-
-            return Command::FAILURE;
-        }
-
         //
         // Gather cron details
         // ----
 
         $this->io->write("\n");
 
-        $cronDeets = $this->gatherCronDeets($site->domain, $availableScripts);
+        $cronDeets = $this->gatherCronDeets($site);
 
         if (is_int($cronDeets)) {
             return $cronDeets;
@@ -142,29 +123,42 @@ class CronCreateCommand extends BaseCommand
     /**
      * Gather cron details from user input or CLI options.
      *
-     * @param array<int, string> $availableScripts
-     *
      * @return array{script: string, schedule: string}|int
      */
-    protected function gatherCronDeets(string $domain, array $availableScripts): array|int
+    protected function gatherCronDeets(SiteDTO $site): array|int
     {
         try {
             /** @var string $script */
             $script = $this->io->getValidatedOptionOrPrompt(
                 'script',
-                fn ($validate) => $this->io->promptSelect(
-                    label: 'Select cron script:',
-                    options: $availableScripts,
-                    scroll: 10,
+                fn ($validate) => $this->io->promptText(
+                    label: 'Cron script path (relative to project root):',
+                    placeholder: '.deployer/scripts/cron.sh',
+                    required: true,
                     validate: $validate
                 ),
-                fn ($value) => $this->validateCronScriptInput($value, $availableScripts)
+                fn ($value) => $this->validateCronScriptInput($value)
             );
+            $script = $this->normalizeScriptPath($script);
 
             // Check for duplicate in site's crons
-            $duplicateError = $this->validateCronScript($script, $domain);
+            $duplicateError = $this->validateCronScript($script, $site->domain);
             if (null !== $duplicateError) {
                 $this->nay($duplicateError);
+
+                return Command::FAILURE;
+            }
+
+            try {
+                $scriptExists = $this->scriptExistsInRemoteRepo($script, $site);
+            } catch (\RuntimeException $e) {
+                $this->nay($e->getMessage());
+
+                return Command::FAILURE;
+            }
+
+            if (! $scriptExists) {
+                $this->nay("Cron script not found in repository: {$script}");
 
                 return Command::FAILURE;
             }
@@ -207,12 +201,21 @@ class CronCreateCommand extends BaseCommand
         $site = $this->sites->findByDomain($domain);
         if (null !== $site) {
             foreach ($site->crons as $existingCron) {
-                if ($existingCron->script === $script) {
+                if ($this->normalizeScriptPath($existingCron->script) === $script) {
                     return "Cron '{$script}' is already configured for '{$domain}'";
                 }
             }
         }
 
         return null;
+    }
+
+    /**
+     * Check whether script path exists in the site's configured repo and branch.
+     */
+    private function scriptExistsInRemoteRepo(string $script, SiteDTO $site): bool
+    {
+        $checks = $this->checkRemoteSiteFiles($site, [$script]);
+        return $checks[$script] ?? false;
     }
 }
