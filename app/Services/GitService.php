@@ -82,11 +82,11 @@ final readonly class GitService
                 );
             }
 
-            // Check each path
+            // Check each path is a regular file (not a directory/symlink target directory)
             $results = [];
             foreach ($paths as $path) {
                 $fullPath = $tempDir.'/'.ltrim($path, '/');
-                $results[$path] = $this->fs->exists($fullPath);
+                $results[$path] = $this->fs->isFile($fullPath);
             }
 
             return $results;

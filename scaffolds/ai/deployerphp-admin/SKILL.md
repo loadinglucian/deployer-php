@@ -61,7 +61,7 @@ DO_ZONE="example.com"
 CF_ZONE="example.com"
 ```
 
-`CRON_SCRIPT` and `SUPERVISOR_SCRIPT` must be paths relative to project root and do not need a `.sh` extension.
+`CRON_SCRIPT` and `SUPERVISOR_SCRIPT` must be paths relative to project root.
 
 ## Global References
 

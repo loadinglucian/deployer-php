@@ -129,6 +129,14 @@ final readonly class FilesystemService
     }
 
     /**
+     * Check if path is a regular file.
+     */
+    public function isFile(string $path): bool
+    {
+        return $this->exists($path) && is_file($path);
+    }
+
+    /**
      * Get parent directory path.
      *
      * @param int $levels Number of parent directories to traverse (default: 1)
