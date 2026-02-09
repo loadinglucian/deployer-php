@@ -4,11 +4,72 @@ declare(strict_types=1);
 
 namespace DeployerPHP\Traits;
 
+use DeployerPHP\Enums\WwwMode;
+use DeployerPHP\Exceptions\ValidationException;
+use DeployerPHP\Services\DomainClassifierService;
+
 /**
- * Centralized domain name validation.
+ * Centralized domain operations and validation.
  */
-trait DomainValidationTrait
+trait DomainOperationsTrait
 {
+    // ----
+    // Normalization
+    // ----
+
+    /**
+     * Normalize domain name (lowercase and strip www.).
+     */
+    protected function normalizeDomain(string $domain): string
+    {
+        $domain = strtolower(trim($domain));
+
+        if (str_starts_with($domain, 'www.')) {
+            $domain = substr($domain, 4);
+        }
+
+        return $domain;
+    }
+
+    /**
+     * Detect whether a domain is a subdomain.
+     *
+     * Uses Public Suffix List (PSL) resolution.
+     *
+     * @throws ValidationException When domain classification fails
+     */
+    protected function isSubdomain(string $domain): bool
+    {
+        $domain = $this->normalizeDomain($domain);
+
+        try {
+            /** @var DomainClassifierService $classifier */
+            $classifier = $this->container->build(DomainClassifierService::class);
+
+            return $classifier->isSubdomain($domain);
+        } catch (\RuntimeException $e) {
+            throw new ValidationException($e->getMessage(), previous: $e);
+        }
+    }
+
+    /**
+     * Determine whether a site should have a WWW alias.
+     *
+     * Subdomains never get a WWW alias, regardless of requested mode.
+     */
+    protected function hasWww(string $domain, string $wwwMode): bool
+    {
+        if ($this->isSubdomain($domain)) {
+            return false;
+        }
+
+        return WwwMode::NONE->value !== $wwwMode;
+    }
+
+    // ----
+    // Validation
+    // ----
+
     /**
      * Validate domain format.
      *

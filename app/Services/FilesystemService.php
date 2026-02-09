@@ -94,6 +94,21 @@ final readonly class FilesystemService
     }
 
     /**
+     * Get file modification time as Unix timestamp.
+     *
+     * @throws \RuntimeException If modification time cannot be determined
+     */
+    public function getFileModificationTime(string $path): int
+    {
+        $mtime = @filemtime($path);
+        if ($mtime === false) {
+            throw new \RuntimeException("Cannot read file modification time: {$path}");
+        }
+
+        return $mtime;
+    }
+
+    /**
      * Join path segments into a canonical path.
      */
     public function joinPaths(string ...$paths): string
@@ -118,6 +133,79 @@ final readonly class FilesystemService
         }
 
         return $cwd;
+    }
+
+    /**
+     * Get current user home directory.
+     *
+     * Returns null when no home directory environment variables are available.
+     */
+    public function getHomeDirectory(): ?string
+    {
+        $home = getenv('HOME') ?: '';
+        if ($home !== '') {
+            return Path::canonicalize($home);
+        }
+
+        $userProfile = getenv('USERPROFILE') ?: '';
+        if ($userProfile !== '') {
+            return Path::canonicalize($userProfile);
+        }
+
+        $drive = getenv('HOMEDRIVE') ?: '';
+        $path = getenv('HOMEPATH') ?: '';
+        if ($drive !== '' && $path !== '') {
+            return Path::canonicalize($drive . $path);
+        }
+
+        return null;
+    }
+
+    /**
+     * Get operating system temporary directory.
+     */
+    public function getTempDirectory(): string
+    {
+        $tmp = sys_get_temp_dir();
+        if ($tmp === '') {
+            throw new \RuntimeException('Unable to determine temporary directory');
+        }
+
+        return Path::canonicalize($tmp);
+    }
+
+    /**
+     * Get user cache directory for the current operating system.
+     *
+     * Returns null when user cache location cannot be determined.
+     */
+    public function getUserCacheDirectory(): ?string
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            $localAppData = getenv('LOCALAPPDATA') ?: '';
+            if ($localAppData !== '') {
+                return Path::canonicalize($localAppData);
+            }
+
+            $appData = getenv('APPDATA') ?: '';
+            return $appData !== '' ? Path::canonicalize($appData) : null;
+        }
+
+        $home = $this->getHomeDirectory();
+        if ($home === null) {
+            return null;
+        }
+
+        if (PHP_OS_FAMILY === 'Darwin') {
+            return Path::canonicalize(Path::join($home, 'Library', 'Caches'));
+        }
+
+        $xdgCacheHome = getenv('XDG_CACHE_HOME') ?: '';
+        if ($xdgCacheHome !== '') {
+            return Path::canonicalize($xdgCacheHome);
+        }
+
+        return Path::canonicalize(Path::join($home, '.cache'));
     }
 
     /**
@@ -196,19 +284,8 @@ final readonly class FilesystemService
             return $path;
         }
 
-        // Determine home directory (POSIX first, then Windows fallbacks)
-        $home = getenv('HOME') ?: '';
-        if ($home === '') {
-            $home = getenv('USERPROFILE') ?: '';
-            if ($home === '') {
-                $drive = getenv('HOMEDRIVE') ?: '';
-                $hpath = getenv('HOMEPATH') ?: '';
-                if ($drive !== '' && $hpath !== '') {
-                    $home = $drive . $hpath;
-                }
-            }
-        }
-        if ($home === '') {
+        $home = $this->getHomeDirectory();
+        if ($home === null) {
             throw new \RuntimeException('Could not determine home directory (HOME/USERPROFILE not set)');
         }
 
@@ -233,19 +310,8 @@ final readonly class FilesystemService
             return $path;
         }
 
-        $home = getenv('HOME') ?: '';
-        if ('' === $home) {
-            $home = getenv('USERPROFILE') ?: '';
-            if ('' === $home) {
-                $drive = getenv('HOMEDRIVE') ?: '';
-                $hpath = getenv('HOMEPATH') ?: '';
-                if ('' !== $drive && '' !== $hpath) {
-                    $home = $drive . $hpath;
-                }
-            }
-        }
-
-        if ('' === $home) {
+        $home = $this->getHomeDirectory();
+        if ($home === null) {
             return $path;
         }
 

@@ -19,7 +19,7 @@ use Symfony\Component\Console\Command\Command;
  */
 trait CfTrait
 {
-    use DomainValidationTrait;
+    use DomainOperationsTrait;
 
     // ----
     // Helpers

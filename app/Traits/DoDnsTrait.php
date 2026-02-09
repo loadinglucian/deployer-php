@@ -16,7 +16,7 @@ use DeployerPHP\Services\IoService;
  */
 trait DoDnsTrait
 {
-    use DomainValidationTrait;
+    use DomainOperationsTrait;
 
     // ----
     // Helpers

@@ -32,7 +32,7 @@ use Symfony\Component\Console\Command\Command;
  */
 trait SitesTrait
 {
-    use DomainValidationTrait;
+    use DomainOperationsTrait;
     use ServersTrait;
 
     // ----
@@ -303,43 +303,6 @@ trait SitesTrait
     // ----
 
     /**
-     * Normalize domain name (lowercase and strip www.).
-     */
-    protected function normalizeDomain(string $domain): string
-    {
-        $domain = strtolower(trim($domain));
-
-        if (str_starts_with($domain, 'www.')) {
-            $domain = substr($domain, 4);
-        }
-
-        return $domain;
-    }
-
-    /**
-     * Detect whether a domain is a subdomain.
-     *
-     * Uses two-part ccTLD suffix inference (example.co.uk, example.com.au).
-     */
-    protected function isSubdomain(string $domain): bool
-    {
-        $domain = $this->normalizeDomain($domain);
-        $labels = explode('.', (string) $domain);
-        $labelCount = count($labels);
-
-        // Known second-level suffix labels used with ccTLDs.
-        $ccSecondLevelLabels = ['ac', 'co', 'com', 'edu', 'gov', 'net', 'org'];
-        $tld = $labels[$labelCount - 1] ?? '';
-        $secondLevel = $labels[$labelCount - 2] ?? '';
-
-        $isCcTld = 2 === strlen($tld);
-        $isTwoPartSuffix = $isCcTld && in_array($secondLevel, $ccSecondLevelLabels, true);
-        $apexLabelCount = $isTwoPartSuffix ? 3 : 2;
-
-        return $labelCount > $apexLabelCount;
-    }
-
-    /**
      * Validate WWW mode input.
      *
      * @return string|null Error message if invalid, null if valid
@@ -359,20 +322,6 @@ trait SitesTrait
         }
 
         return null;
-    }
-
-    /**
-     * Determine whether a site should have a WWW alias.
-     *
-     * Subdomains never get a WWW alias, regardless of requested mode.
-     */
-    protected function hasWww(string $domain, string $wwwMode): bool
-    {
-        if ($this->isSubdomain($domain)) {
-            return false;
-        }
-
-        return WwwMode::NONE->value !== $wwwMode;
     }
 
     /**

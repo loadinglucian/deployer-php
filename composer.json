@@ -20,6 +20,7 @@
         "ext-pcntl": "*",
         "aws/aws-sdk-php": "^3.369",
         "guzzlehttp/guzzle": "^7.10",
+        "jeremykendall/php-domain-parser": "^6.4",
         "laravel/prompts": "^0.3.11",
         "phpseclib/phpseclib": "^3.0",
         "symfony/console": "^7.4",
