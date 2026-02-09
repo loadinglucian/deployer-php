@@ -120,7 +120,7 @@ Run `scaffold:scripts` to create example cron scripts in your repository:
 deployer scaffold:scripts
 ```
 
-This creates `.deployer/scripts/` with `cron.sh`, which includes defaults for Laravel's scheduler and Symfony Messenger. Customize or duplicate it as `cron*.sh` scripts as needed.
+This creates `.deployer/scripts/` with an example cron script that includes defaults for Laravel's scheduler and Symfony Messenger. Customize or duplicate scripts as needed.
 
 ### Creating Cron Jobs
 
@@ -130,7 +130,7 @@ The `cron:create` command adds a cron job to a site:
 deployer cron:create
 ```
 
-You'll be prompted to select a script from `.deployer/scripts/` (matching `cron*.sh`) and provide a schedule expression (e.g., `*/5 * * * *` for every 5 minutes).
+You'll be prompted to enter a script path from `.deployer/scripts/` and provide a schedule expression (e.g., `*/5 * * * *` for every 5 minutes).
 
 ### Syncing Cron Jobs
 
@@ -165,7 +165,7 @@ Run `scaffold:scripts` to create example supervisor scripts:
 deployer scaffold:scripts
 ```
 
-This creates `.deployer/scripts/` with `supervisor.sh`, which includes defaults for Laravel queue workers and Symfony Messenger consumers. Customize or duplicate it as `supervisor*.sh` scripts as needed.
+This creates `.deployer/scripts/` with an example supervisor script that includes defaults for Laravel queue workers and Symfony Messenger consumers. Customize or duplicate scripts as needed.
 
 ### Creating Processes
 
