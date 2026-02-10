@@ -1,29 +1,23 @@
 [![PHP Version](https://img.shields.io/badge/php-%5E8.2-blue.svg)](https://php.net)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Please visit the official documentation site at [https://deployerphp.com](https://deployerphp.com/)
+Read the documentation at [https://deployerphp.com](https://deployerphp.com/)
 
-# Deployment Tools For PHP
+[Follow me on X](https://x.com/loadinglucian) for updates, memes and hot take.
 
-This is DeployerPHP, a set of command-line interface (CLI) tools for provisioning, installing, and deploying servers and sites using PHP. It serves as an open-source alternative to services such as Laravel Forge and Ploi.
+# Meet DeployerPHP
 
-DeployerPHP allows you to easily:
-
-- configure servers for hosting PHP applications
-- manage servers and services from start to finish
-- set up and deploy your PHP applications
-- manage scheduled tasks and background processes
-- provision cloud instances and manage DNS
+This is DeployerPHP, a super comprehensive set of CLI tools for provisioning, installing, and deploying servers and sites using PHP. It serves as an open-source alternative to services such as Laravel Forge and Ploi.
 
 <!-- toc -->
 
 - [Crash Course](#crash-course)
 - [Benefits](#benefits)
-  - [Unlimited Servers & Sites](#unlimited-servers--sites)
-  - [No Vendor Lock-In](#no-vendor-lock-in)
-  - [End-To-End Management](#end-to-end-management)
-  - [Composable Commands](#composable-commands)
-  - [AI Automation](#ai-automation)
+    - [Unlimited Servers & Sites](#unlimited-servers--sites)
+    - [No Vendor Lock-In](#no-vendor-lock-in)
+    - [End-To-End Management](#end-to-end-management)
+    - [Composable Commands](#composable-commands)
+    - [AI Automation](#ai-automation)
 - [License](#license)
 - [Contributing](#contributing)
 
@@ -106,7 +100,7 @@ Atomic commands allow you to easily create automation pipelines for spinning up 
 
 ### AI Automation
 
-Use your favorite AI agents to help you debug server and site issues, using DeployerPHP's composable commands and built-in agent skills. When you run `scaffold:ai`, choose either `.agents` (shared directory supported by Codex, Cursor, and OpenCode) or `.claude`.
+Use your favorite AI agents to help you debug server and site issues, using DeployerPHP's composable commands and built-in agent skills. When you run `scaffold:ai`, choose either `.agents` (for Codex, Cursor, OpenCode, etc.) or `.claude`.
 
 <a name="license"></a>
 
@@ -124,4 +118,4 @@ This also means there are no guarantees or warranties that apply. You are on you
 
 Thank you for considering contributing to DeployerPHP!
 
-Please see [CONTRIBUTING](/CONTRIBUTING.md) for details.
+Please see [CONTRIBUTING](/CONTRIBUTING) for details.

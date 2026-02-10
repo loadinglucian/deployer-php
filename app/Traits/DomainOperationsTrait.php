@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace DeployerPHP\Traits;
 
+use DeployerPHP\Container;
 use DeployerPHP\Enums\WwwMode;
 use DeployerPHP\Exceptions\ValidationException;
 use DeployerPHP\Services\DomainClassifierService;
 
 /**
  * Centralized domain operations and validation.
+ *
+ * @property Container $container
  */
 trait DomainOperationsTrait
 {
