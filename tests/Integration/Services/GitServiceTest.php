@@ -18,8 +18,7 @@ it('returns file-only results for remote script paths', function (): void {
         $process->run();
 
         expect(
-            $process->isSuccessful(),
-            "Command failed: ".implode(' ', $command)."\nSTDOUT: ".$process->getOutput()."\nSTDERR: ".$process->getErrorOutput()
+            $process->isSuccessful()
         )->toBeTrue();
 
         return $process;
