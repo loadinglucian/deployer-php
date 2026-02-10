@@ -5,9 +5,27 @@ permissions:
 
 on:
   pull_request:
+    paths:
+      - "tests/CICanary.php"
+      - "pint.json"
+      - "phpstan.neon"
+      - "rector-canary.php"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/ci-canary.yml"
   push:
     branches:
       - main
+    paths:
+      - "tests/CICanary.php"
+      - "pint.json"
+      - "phpstan.neon"
+      - "rector-canary.php"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/ci-canary.yml"
 
 jobs:
   canary:

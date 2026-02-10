@@ -1,0 +1,111 @@
+name: BATS Cloud Tests (AWS)
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "!app/Console/Cloud/Do/**"
+      - "!app/Services/Do/**"
+      - "!app/Services/DoService.php"
+      - "!app/Traits/DoTrait.php"
+      - "!app/Traits/DoDnsTrait.php"
+      - "bin/**"
+      - "playbooks/**"
+      - "scaffolds/**"
+      - "tests/bats/cloud-aws.bats"
+      - "tests/bats/lib/cloud-helpers.bash"
+      - "tests/bats/lib/cloud-janitor.sh"
+      - "tests/bats/lib/helpers.bash"
+      - "tests/bats/lib/inventory.bash"
+      - "bats.sh"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/bats-cloud-aws.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "!app/Console/Cloud/Do/**"
+      - "!app/Services/Do/**"
+      - "!app/Services/DoService.php"
+      - "!app/Traits/DoTrait.php"
+      - "!app/Traits/DoDnsTrait.php"
+      - "bin/**"
+      - "playbooks/**"
+      - "scaffolds/**"
+      - "tests/bats/cloud-aws.bats"
+      - "tests/bats/lib/cloud-helpers.bash"
+      - "tests/bats/lib/cloud-janitor.sh"
+      - "tests/bats/lib/helpers.bash"
+      - "tests/bats/lib/inventory.bash"
+      - "bats.sh"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/bats-cloud-aws.yml"
+
+jobs:
+  cloud-tests-aws:
+    name: cloud-tests (aws)
+    if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    concurrency:
+      group: bats-cloud-aws-${{ github.ref }}
+      cancel-in-progress: true
+
+    env:
+      CI: "true"
+      BATS_RUN_SUFFIX: ${{ github.run_id }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Install BATS and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq curl
+          aws --version
+
+      - name: Setup environment file
+        run: |
+          cat <<'EOF' > .env
+          ${{ secrets.DOTENV_FILE }}
+          EOF
+
+      - name: Setup SSH key for cloud provisioning
+        run: |
+          mkdir -p ~/.ssh tests/bats/fixtures/keys
+          echo "${{ secrets.SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
+          cp ~/.ssh/id_ed25519.pub tests/bats/fixtures/keys/id_test.pub
+
+      - name: Run AWS tests
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
+          ./bats.sh ci cloud aws
+
+      - name: Cleanup cloud resources (backstop)
+        if: always()
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
+          tests/bats/lib/cloud-janitor.sh \
+            --mode=targeted \
+            --suffix="${BATS_RUN_SUFFIX}" \
+            --providers="aws"

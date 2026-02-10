@@ -5,9 +5,27 @@ permissions:
 
 on:
   pull_request:
+    paths:
+      - "app/**"
+      - "bin/**"
+      - "tests/**"
+      - "rector.php"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/rector.yml"
   push:
     branches:
       - main
+    paths:
+      - "app/**"
+      - "bin/**"
+      - "tests/**"
+      - "rector.php"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/rector.yml"
 
 jobs:
   rector:

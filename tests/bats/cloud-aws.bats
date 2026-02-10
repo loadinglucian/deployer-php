@@ -506,6 +506,218 @@ teardown() {
 }
 
 # ----
+# cron/supervisor
+# ----
+
+@test "cron:create adds hello.sh cron for AWS site" {
+	require_aws_provision_config
+
+	run_deployer cron:create \
+		--domain="$AWS_TEST_SITE_DOMAIN" \
+		--script="$CLOUD_TEST_CRON_SUPERVISOR_SCRIPT" \
+		--schedule="* * * * *"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "added to inventory"
+	assert_command_replay "cron:create"
+}
+
+@test "cron:sync applies hello.sh cron to AWS server" {
+	require_aws_provision_config
+
+	run_deployer cron:sync \
+		--domain="$AWS_TEST_SITE_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "synced to server"
+	assert_command_replay "cron:sync"
+}
+
+@test "cron:sync writes AWS crontab entry and log file for hello.sh" {
+	require_aws_provision_config
+
+	run_deployer server:run \
+		--server="$AWS_TEST_SERVER_NAME" \
+		--command="sudo -n crontab -l -u deployer | grep -F 'runner.sh $CLOUD_TEST_CRON_SUPERVISOR_SCRIPT'"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains "runner.sh $CLOUD_TEST_CRON_SUPERVISOR_SCRIPT"
+
+	run_deployer server:run \
+		--server="$AWS_TEST_SERVER_NAME" \
+		--command="test -f /var/log/cron/$AWS_TEST_SITE_DOMAIN-$CLOUD_TEST_CRON_SUPERVISOR_SCRIPT.log && echo cron-log-found"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains "cron-log-found"
+}
+
+@test "supervisor:create adds hello.sh program for AWS site" {
+	require_aws_provision_config
+
+	run_deployer supervisor:create \
+		--domain="$AWS_TEST_SITE_DOMAIN" \
+		--program="$CLOUD_TEST_SUPERVISOR_PROGRAM" \
+		--script="$CLOUD_TEST_CRON_SUPERVISOR_SCRIPT" \
+		--no-autostart \
+		--no-autorestart \
+		--stopwaitsecs="10" \
+		--numprocs="1"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "added to inventory"
+	assert_command_replay "supervisor:create"
+}
+
+@test "supervisor:sync applies hello.sh program to AWS server" {
+	require_aws_provision_config
+
+	run_deployer supervisor:sync \
+		--domain="$AWS_TEST_SITE_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "synced to server"
+	assert_command_replay "supervisor:sync"
+}
+
+@test "supervisor:sync writes AWS supervisor config for hello.sh" {
+	require_aws_provision_config
+
+	run_deployer server:run \
+		--server="$AWS_TEST_SERVER_NAME" \
+		--command="test -f /etc/supervisor/conf.d/$AWS_TEST_SITE_DOMAIN-$CLOUD_TEST_SUPERVISOR_PROGRAM.conf && grep -F 'runner.sh $CLOUD_TEST_CRON_SUPERVISOR_SCRIPT' /etc/supervisor/conf.d/$AWS_TEST_SITE_DOMAIN-$CLOUD_TEST_SUPERVISOR_PROGRAM.conf && echo supervisor-config-found"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains "supervisor-config-found"
+}
+
+@test "supervisor lifecycle commands restart/stop/start work on AWS server" {
+	require_aws_provision_config
+
+	run_deployer supervisor:restart \
+		--server="$AWS_TEST_SERVER_NAME"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_command_replay "supervisor:restart"
+
+	run_deployer supervisor:stop \
+		--server="$AWS_TEST_SERVER_NAME"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_command_replay "supervisor:stop"
+
+	run_deployer supervisor:start \
+		--server="$AWS_TEST_SERVER_NAME"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_command_replay "supervisor:start"
+}
+
+@test "cron:delete removes hello.sh cron for AWS site" {
+	require_aws_provision_config
+
+	run_deployer cron:delete \
+		--domain="$AWS_TEST_SITE_DOMAIN" \
+		--script="$CLOUD_TEST_CRON_SUPERVISOR_SCRIPT" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "removed from inventory"
+	assert_command_replay "cron:delete"
+}
+
+@test "cron:sync removes hello.sh crontab entry from AWS server" {
+	require_aws_provision_config
+
+	run_deployer cron:sync \
+		--domain="$AWS_TEST_SITE_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_command_replay "cron:sync"
+
+	run_deployer server:run \
+		--server="$AWS_TEST_SERVER_NAME" \
+		--command="if sudo -n crontab -l -u deployer 2>/dev/null | grep -Fq 'runner.sh $CLOUD_TEST_CRON_SUPERVISOR_SCRIPT'; then echo cron-entry-present; exit 1; else echo cron-entry-absent; fi"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains "cron-entry-absent"
+}
+
+@test "supervisor:delete removes hello.sh program for AWS site" {
+	require_aws_provision_config
+
+	run_deployer supervisor:delete \
+		--domain="$AWS_TEST_SITE_DOMAIN" \
+		--program="$CLOUD_TEST_SUPERVISOR_PROGRAM" \
+		--force \
+		--yes
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "removed from inventory"
+	assert_command_replay "supervisor:delete"
+}
+
+@test "supervisor:sync removes hello.sh supervisor config from AWS server" {
+	require_aws_provision_config
+
+	run_deployer supervisor:sync \
+		--domain="$AWS_TEST_SITE_DOMAIN"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_command_replay "supervisor:sync"
+
+	run_deployer server:run \
+		--server="$AWS_TEST_SERVER_NAME" \
+		--command="if test -f /etc/supervisor/conf.d/$AWS_TEST_SITE_DOMAIN-$CLOUD_TEST_SUPERVISOR_PROGRAM.conf; then echo supervisor-config-present; exit 1; else echo supervisor-config-absent; fi"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_output_contains "supervisor-config-absent"
+}
+
+# ----
 # site:https
 # ----
 

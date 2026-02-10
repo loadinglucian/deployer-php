@@ -1,0 +1,109 @@
+name: BATS VM Tests (Ubuntu 24.04)
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "!app/Console/Cloud/**"
+      - "!app/Services/Aws/**"
+      - "!app/Services/Do/**"
+      - "!app/Services/Cf/**"
+      - "!app/Services/AwsService.php"
+      - "!app/Services/DoService.php"
+      - "!app/Services/CfService.php"
+      - "!app/Traits/AwsTrait.php"
+      - "!app/Traits/AwsDnsTrait.php"
+      - "!app/Traits/DoTrait.php"
+      - "!app/Traits/DoDnsTrait.php"
+      - "!app/Traits/CfTrait.php"
+      - "bin/**"
+      - "playbooks/**"
+      - "scaffolds/**"
+      - "tests/bats/vm.bats"
+      - "tests/bats/lima/**"
+      - "tests/bats/lib/helpers.bash"
+      - "tests/bats/lib/inventory.bash"
+      - "tests/bats/lib/lima-core.bash"
+      - "tests/bats/lib/lima.bash"
+      - "tests/bats/lib/vm-matrix.bash"
+      - "bats.sh"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/bats-vm-ubuntu24.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "!app/Console/Cloud/**"
+      - "!app/Services/Aws/**"
+      - "!app/Services/Do/**"
+      - "!app/Services/Cf/**"
+      - "!app/Services/AwsService.php"
+      - "!app/Services/DoService.php"
+      - "!app/Services/CfService.php"
+      - "!app/Traits/AwsTrait.php"
+      - "!app/Traits/AwsDnsTrait.php"
+      - "!app/Traits/DoTrait.php"
+      - "!app/Traits/DoDnsTrait.php"
+      - "!app/Traits/CfTrait.php"
+      - "bin/**"
+      - "playbooks/**"
+      - "scaffolds/**"
+      - "tests/bats/vm.bats"
+      - "tests/bats/lima/**"
+      - "tests/bats/lib/helpers.bash"
+      - "tests/bats/lib/inventory.bash"
+      - "tests/bats/lib/lima-core.bash"
+      - "tests/bats/lib/lima.bash"
+      - "tests/bats/lib/vm-matrix.bash"
+      - "bats.sh"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/bats-vm-ubuntu24.yml"
+
+jobs:
+  vm-tests-ubuntu24:
+    name: vm-tests (ubuntu24)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    concurrency:
+      group: bats-vm-ubuntu24-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Install BATS and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq
+
+      - name: Setup Lima
+        uses: lima-vm/lima-actions/setup@v1
+
+      - name: Setup test fixtures
+        run: |
+          mkdir -p tests/bats/fixtures/keys tests/bats/fixtures/inventory
+          ssh-keygen -t ed25519 -f tests/bats/fixtures/keys/id_test -N "" -C "deployer-bats-test"
+
+      - name: Setup environment file
+        run: |
+          cat <<'EOF' > .env
+          ${{ secrets.DOTENV_FILE }}
+          EOF
+
+      - name: Run VM tests for ubuntu24
+        env:
+          CI: "true"
+          BATS_DISTRO: ubuntu24
+        run: ./bats.sh ci vm ubuntu24

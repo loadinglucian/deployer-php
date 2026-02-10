@@ -5,9 +5,29 @@ permissions:
 
 on:
   pull_request:
+    paths:
+      - "app/**"
+      - "bin/**"
+      - "tests/**"
+      - "*.php"
+      - "pint.json"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/pint.yml"
   push:
     branches:
       - main
+    paths:
+      - "app/**"
+      - "bin/**"
+      - "tests/**"
+      - "*.php"
+      - "pint.json"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/pint.yml"
 
 jobs:
   pint:
