@@ -5,9 +5,35 @@ permissions:
 
 on:
   pull_request:
+    paths:
+      - "app/**"
+      - "bin/**"
+      - "playbooks/**"
+      - "scaffolds/**"
+      - "tests/bats/**"
+      - "bats.sh"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/bats-vm.yml"
+      - ".github/workflows/bats-cloud.yml"
+      - ".github/workflows/bats-cloud-janitor.yml"
   push:
     branches:
       - main
+    paths:
+      - "app/**"
+      - "bin/**"
+      - "playbooks/**"
+      - "scaffolds/**"
+      - "tests/bats/**"
+      - "bats.sh"
+      - "composer.json"
+      - "composer.lock"
+      - ".github/actions/setup-php-composer/**"
+      - ".github/workflows/bats-vm.yml"
+      - ".github/workflows/bats-cloud.yml"
+      - ".github/workflows/bats-cloud-janitor.yml"
 
 jobs:
   vm-tests:
