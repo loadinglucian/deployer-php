@@ -504,7 +504,7 @@ teardown() {
 
 	run_deployer server:run \
 		--server="$DO_TEST_SERVER_NAME" \
-		--command="crontab -l -u deployer | grep -F 'runner.sh $CLOUD_TEST_CRON_SUPERVISOR_SCRIPT'"
+		--command="sudo -n crontab -l -u deployer | grep -F 'runner.sh $CLOUD_TEST_CRON_SUPERVISOR_SCRIPT'"
 
 	debug_output
 
@@ -630,7 +630,7 @@ teardown() {
 
 	run_deployer server:run \
 		--server="$DO_TEST_SERVER_NAME" \
-		--command="if crontab -l -u deployer 2>/dev/null | grep -Fq 'runner.sh $CLOUD_TEST_CRON_SUPERVISOR_SCRIPT'; then echo cron-entry-present; exit 1; else echo cron-entry-absent; fi"
+		--command="if sudo -n crontab -l -u deployer 2>/dev/null | grep -Fq 'runner.sh $CLOUD_TEST_CRON_SUPERVISOR_SCRIPT'; then echo cron-entry-present; exit 1; else echo cron-entry-absent; fi"
 
 	debug_output
 
