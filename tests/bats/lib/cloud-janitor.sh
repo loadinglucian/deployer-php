@@ -355,13 +355,17 @@ collect_do_suffixes() {
 
 load_protected_suffixes() {
 	[[ -n "${GITHUB_TOKEN:-}" && -n "${GITHUB_REPOSITORY:-}" ]] || return 0
-	local runs_json
-	runs_json=$(curl -s -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/bats-cloud.yml/runs?per_page=100" 2> /dev/null || true)
-	[[ -n "$runs_json" ]] || return 0
-	local run_id
-	while IFS= read -r run_id; do
-		[[ -n "$run_id" ]] && add_protected_suffix "$run_id"
-	done < <(jq -r --argjson min_age "$MIN_AGE_MINUTES" '.workflow_runs[]? | ((now - (.created_at | fromdateiso8601)) / 60) as $age | select(.status != "completed" or $age < $min_age) | (.id | tostring)' <<< "$runs_json" 2> /dev/null || true)
+	local workflow_file
+	while IFS= read -r workflow_file; do
+		[[ -n "$workflow_file" ]] || continue
+		local runs_json
+		runs_json=$(curl -s -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_file}/runs?per_page=100" 2> /dev/null || true)
+		[[ -n "$runs_json" ]] || continue
+		local run_id
+		while IFS= read -r run_id; do
+			[[ -n "$run_id" ]] && add_protected_suffix "$run_id"
+		done < <(jq -r --argjson min_age "$MIN_AGE_MINUTES" '.workflow_runs[]? | ((now - (.created_at | fromdateiso8601)) / 60) as $age | select(.status != "completed" or $age < $min_age) | (.id | tostring)' <<< "$runs_json" 2> /dev/null || true)
+	done < <(find .github/workflows -maxdepth 1 -type f -name 'bats-cloud-*.yml' ! -name 'bats-cloud-janitor.yml' -exec basename {} \; 2> /dev/null | sort)
 }
 
 run_targeted_mode() {

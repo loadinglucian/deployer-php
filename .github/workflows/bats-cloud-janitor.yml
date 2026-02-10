@@ -6,7 +6,7 @@ permissions:
 
 on:
   workflow_run:
-    workflows: ["BATS Cloud Tests"]
+    workflows: ["BATS Cloud Tests (AWS)", "BATS Cloud Tests (DO)"]
     types: [completed]
   schedule:
     - cron: "0 * * * *"
@@ -51,14 +51,6 @@ jobs:
 
     env:
       GITHUB_TOKEN: ${{ github.token }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_TEST_HOSTED_ZONE: ${{ vars.AWS_TEST_HOSTED_ZONE }}
-      DO_API_TOKEN: ${{ secrets.DO_API_TOKEN }}
-      DO_TEST_DOMAIN: ${{ vars.DO_TEST_DOMAIN }}
-      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-      CF_TEST_DOMAIN: ${{ vars.CF_TEST_DOMAIN }}
 
     steps:
       - name: Checkout repository
@@ -81,6 +73,10 @@ jobs:
       - name: Janitor cleanup after BATS workflow completion
         if: ${{ github.event_name == 'workflow_run' }}
         run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
           tests/bats/lib/cloud-janitor.sh \
             --mode=targeted \
             --suffix="${{ github.event.workflow_run.id }}" \
@@ -89,6 +85,10 @@ jobs:
       - name: Janitor scheduled sweep
         if: ${{ github.event_name == 'schedule' }}
         run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
           tests/bats/lib/cloud-janitor.sh \
             --mode=sweep \
             --providers="aws,do,cf" \
@@ -97,6 +97,10 @@ jobs:
       - name: Janitor manual run
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
           ARGS=(
             "--mode=${{ inputs.mode }}"
             "--providers=${{ inputs.providers }}"
