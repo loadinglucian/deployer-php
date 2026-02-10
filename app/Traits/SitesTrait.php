@@ -97,6 +97,18 @@ trait SitesTrait
     }
 
     /**
+     * Check whether a script path exists in the site's configured repo and branch.
+     *
+     * @throws \RuntimeException If git operations fail
+     */
+    protected function scriptExistsInRemoteRepo(string $script, SiteDTO $site): bool
+    {
+        $checks = $this->checkRemoteSiteFiles($site, [$script]);
+
+        return $checks[$script] ?? false;
+    }
+
+    /**
      * Get available scripts from a remote site directory.
      *
      * @param string $directory Directory path (e.g., '.deployer/scripts')

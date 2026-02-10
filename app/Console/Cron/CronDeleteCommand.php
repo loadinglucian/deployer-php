@@ -37,7 +37,7 @@ class CronDeleteCommand extends BaseCommand
         $this
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Site domain')
             ->addOption('script', null, InputOption::VALUE_REQUIRED, 'Cron script path relative to project directory')
-            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the script name to confirm')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip typing the script path to confirm')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip Yes/No confirmation prompt');
     }
 
@@ -82,12 +82,12 @@ class CronDeleteCommand extends BaseCommand
             $this->io->write("\n");
 
             $typedScript = $this->io->promptText(
-                label: "Type the cron script name '{$cron->script}' to confirm deletion:",
+                label: "Type the cron script path '{$cron->script}' to confirm deletion:",
                 required: true
             );
 
             if ($typedScript !== $cron->script) {
-                $this->nay('Cron script name does not match. Deletion cancelled.');
+                $this->nay('Cron script path does not match. Deletion cancelled.');
 
                 return Command::FAILURE;
             }

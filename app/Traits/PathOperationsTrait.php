@@ -84,6 +84,7 @@ trait PathOperationsTrait
      * - relative path only (no leading slash)
      * - safe charset: [A-Za-z0-9._/-]
      * - no empty segments (no double slashes)
+     * - no current directory segments (".")
      * - no parent traversal segments ("..")
      *
      * @return string|null Error message if invalid, null if valid
@@ -112,6 +113,10 @@ trait PathOperationsTrait
         foreach ($segments as $segment) {
             if ('' === $segment) {
                 return 'Script path cannot contain empty path segments';
+            }
+
+            if ('.' === $segment) {
+                return 'Script path cannot contain current directory segments (.)';
             }
 
             if ('..' === $segment) {

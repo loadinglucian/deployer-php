@@ -210,12 +210,4 @@ class CronCreateCommand extends BaseCommand
         return null;
     }
 
-    /**
-     * Check whether script path exists in the site's configured repo and branch.
-     */
-    private function scriptExistsInRemoteRepo(string $script, SiteDTO $site): bool
-    {
-        $checks = $this->checkRemoteSiteFiles($site, [$script]);
-        return $checks[$script] ?? false;
-    }
 }

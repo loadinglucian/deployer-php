@@ -130,7 +130,7 @@ The `cron:create` command adds a cron job to a site:
 deployer cron:create
 ```
 
-You'll be prompted to enter a script path from `.deployer/scripts/` and provide a schedule expression (e.g., `*/5 * * * *` for every 5 minutes).
+You'll be prompted to enter a script path relative to the project root (for example, `.deployer/scripts/cron.sh` or `bin/schedule.sh`) and provide a schedule expression (e.g., `*/5 * * * *` for every 5 minutes).
 
 ### Syncing Cron Jobs
 
