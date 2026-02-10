@@ -83,13 +83,22 @@ jobs:
           EOF
 
       - name: Setup SSH key for cloud provisioning
+        env:
+          FALLBACK_SSH_PRIVATE_KEY_B64: ${{ secrets.SSH_PRIVATE_KEY_B64 }}
         run: |
           set -a
           # shellcheck disable=SC1091
           source .env
           set +a
+
+          SSH_KEY_B64="${FALLBACK_SSH_PRIVATE_KEY_B64:-${SSH_PRIVATE_KEY_B64:-}}"
+          if [[ -z "${SSH_KEY_B64}" ]]; then
+            echo "::error::Missing SSH private key for cloud tests. Set SSH_PRIVATE_KEY_B64 in DOTENV_FILE (preferred) or secrets.SSH_PRIVATE_KEY_B64."
+            exit 1
+          fi
+
           mkdir -p ~/.ssh tests/bats/fixtures/keys
-          echo "${SSH_PRIVATE_KEY_B64}" | base64 -d > ~/.ssh/id_ed25519
+          printf '%s' "${SSH_KEY_B64}" | base64 -d > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
           cp ~/.ssh/id_ed25519.pub tests/bats/fixtures/keys/id_test.pub
