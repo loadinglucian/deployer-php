@@ -8,6 +8,7 @@
 - [The Inventory](#the-inventory)
 - [Configuration Paths](#configuration-paths)
 - [Command Replays](#command-replays)
+- [Next Steps](#next-steps)
 
 <!-- /toc -->
 
@@ -120,4 +121,6 @@ $> deployer server:add  \
   --private-key-path='~/.ssh/id_ed25519'
 ```
 
-Read [Zero to Deploy](/docs/zero-to-deploy) next to get started with your first deployment. Exciting!
+## Next Steps
+
+With the core concepts in place, the best next move is to run through your first real deployment workflow. For more information, see [Zero to Deploy](/docs/zero-to-deploy).

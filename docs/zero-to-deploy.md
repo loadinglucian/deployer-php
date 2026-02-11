@@ -24,7 +24,7 @@ This guide is going to walk you through deploying your first application with De
 - Fully configured a server runtime environment with Nginx, PHP, Bun, and a dedicated deployment user with its own deploy key
 - Set up additional PHP versions and your preferred database or cache services (MariaDB, PostgreSQL, Redis, or Memcached)
 - Created a deploy-ready site structure with releases, shared resources, and zero downtime deployment support
-- Deployed your application from Git using atomic deployment scripts for build, migration, cron, and worker workflows
+- Deployed your application from Git using a customizable deployment script for build, migration, cron, and worker workflows
 - Enabled Let's Encrypt HTTPS and automatic renewal with guided DNS setup and verification for your domain
 
 All you have to do is run a few simple commands and respond to a couple of interactive prompts. DeployerPHP will take care of all the hard stuff.
@@ -39,7 +39,7 @@ Run the `server:add` command to add a new server to your inventory:
 deployer server:add
 ```
 
-The command will ask for your server details, including the host/IP, SSH port, username, key, and a name for your new server. It will try connecting to the server and then confirm adding your server to the inventory:
+The command will ask for your server details, including the host/IP, SSH port, username, key, and a name for your new server. It will try connecting to the server and then add it to the inventory:
 
 ```DeployerPHP nocopy
 ▒ ≡ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -67,7 +67,7 @@ $> deployer server:add  \
   --private-key-path='~/.ssh/id_ed25519'
 ```
 
-For more information, see [Managing Servers](/docs/managing-servers)
+For more information, see [Managing Servers](/docs/managing-servers).
 
 ### Cloud Instances
 
@@ -180,46 +180,17 @@ If you use any of the supported DNS providers, you can configure your DNS using 
 
 For more information, see [Cloud Providers](/docs/cloud-providers).
 
-## Step 4: Deploy a Site
+### Scaffold Scripts
 
-Run the `site:deploy` command to deploy your application from a Git repository:
-
-```shell
-deployer site:deploy
-```
-
-DeployerPHP will prompt you for:
-
-- **Repository URL** - The Git repository containing your application code
-- **Branch** - The branch to deploy (e.g., `main`, `production`)
-
-DeployerPHP uses a release-based deployment model that enables zero-downtime deployments. Instead of updating files in place, each deployment creates a new timestamped release directory. Once the release is fully prepared, the `current` symlink atomically switches to point to the new release. This atomic symlink swap means your application is never in a partially-updated state during deployment.
-
-### The Deployment Lifecycle
-
-Understanding the deployment lifecycle helps you write effective deployment scripts and troubleshoot issues. Here's what happens when you run `site:deploy`:
-
-1. **Repository Setup** - On the first deployment, DeployerPHP clones your repository into the `repo/` directory. On subsequent deployments, it fetches the latest changes from the remote.
-
-2. **Release Creation** - A new timestamped directory is created in `releases/` (e.g., `releases/20240115_143052`). Your code is exported from the repository into this directory using `git archive`, ensuring a clean copy without Git metadata.
-
-3. **Deploy Script** - If your project has a `.deployer/scripts/deploy.sh` script, it runs now. This single script handles the entire pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The release is isolated at this point, so failures here won't affect your live site.
-
-4. **Activation** - The `current` symlink atomically switches to point to the new release. This is the moment your new code goes live. The atomic nature of symlink operations means there's no "in-between" state.
-
-5. **PHP-FPM Reload** - DeployerPHP reloads PHP-FPM to clear the opcode cache, ensuring PHP serves your new code immediately.
-
-6. **Cleanup** - Old releases beyond the keep count (default: 5) are removed to free disk space.
-
-### Deployment Scripts
-
-Run the `scaffold:scripts` command in your project directory to scaffold your deployment scripts:
+Run the `scaffold:scripts` command in your project directory to scaffold a few sample scripts:
 
 ```shell
 deployer scaffold:scripts
 ```
 
-This creates `deploy.sh`, `cron.sh`, and `supervisor.sh` in the `.deployer/scripts` directory. The `deploy.sh` script handles the complete pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The `cron.sh` and `supervisor.sh` scripts are starting points for scheduled tasks and long-running workers.
+This creates `deploy.sh`, `cron.sh`, and `supervisor.sh` in the `.deployer/scripts` directory. DeployerPHP uses these scripts for deploying your website and configuring your cron or supervisor processes.
+
+The `deploy.sh` script handles the complete pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The `cron.sh` and `supervisor.sh` scripts are starting points for scheduled tasks and long-running workers.
 
 Each script has access to these environment variables:
 
@@ -235,9 +206,37 @@ The script runs in the release directory with the `deployer` user. Adding `set -
 > [!INFO]
 > The deploy script is the ideal place to create shared directories your application needs. For example, if your application stores user uploads, create the directory with `mkdir -p "$DEPLOYER_SHARED_PATH/uploads"` and symlink it into the release.
 
+## Step 4: Deploy a Site
+
+Run the `site:deploy` command to deploy your application from a Git repository:
+
+```shell
+deployer site:deploy
+```
+
+The command will ask for your repository details, including repository URL and the branch to deploy. It will try connecting to the repository and then add it to the inventory.
+
+The deployment process will begin immediately afterward. DeployerPHP uses a release-based deployment model that enables zero-downtime deployments. Instead of updating files in place, each deployment creates a new timestamped release directory. Once the release is fully prepared, the `current` symlink atomically switches to point to the new release. This atomic symlink swap means your application is never in a partially-updated state during deployment.
+
+### The Deployment
+
+Understanding the deployment lifecycle helps you write effective deployment scripts and troubleshoot issues. Here's what happens when you run `site:deploy`:
+
+1. **Repository Setup** - On the first deployment, DeployerPHP clones your repository into the `repo/` directory. On subsequent deployments, it only fetches the latest changes from the remote repository.
+
+2. **Release Creation** - A new timestamped directory is created in `releases/` (e.g., `releases/20240115_143052`). Your code is exported from the repository into this directory using `git archive`, ensuring a clean copy without Git metadata.
+
+3. **Deploy Script** - If your project has a `.deployer/scripts/deploy.sh` script, it runs now. This single script handles the entire pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The release is isolated at this point, so failures here won't affect your live site.
+
+4. **Activation** - The `current` symlink atomically switches to point to the new release. This is the moment your new code goes live. The atomic nature of symlink operations means there's no "in-between" state.
+
+5. **PHP-FPM Reload** - DeployerPHP reloads PHP-FPM to clear the opcode cache, ensuring PHP serves your new code immediately.
+
+6. **Cleanup** - Old releases beyond the keep count are removed to free disk space.
+
 ### Shared Files
 
-Shared files and directories persist across deployments. Common examples include `.env` configuration files, user-uploaded content, and SQLite databases. The deploy script links specific shared items into each release, giving you fine-grained control over what gets symlinked and how.
+Shared files and directories persist across deployments. Common examples include `.env` files, user-uploaded content, and SQLite databases. The deploy script links specific shared items into each release, giving you fine-grained control over what is shared and how.
 
 Use the `site:shared:push` command to upload a file to a site's shared directory:
 
@@ -245,10 +244,10 @@ Use the `site:shared:push` command to upload a file to a site's shared directory
 deployer site:shared:push
 ```
 
-DeployerPHP will prompt you for the server, site, local file path, and remote file path within the shared directory. Use `site:shared:pull` to download a shared file to your local machine.
+The command will prompt you for the server, site, local file path, and remote file path within the shared directory. Use `site:shared:pull` to download a shared file to your local machine.
 
 > [!INFO]
-> The `site:shared:*` commands support single files. Create directory structures your application needs in the deploy script.
+> The `site:shared:*` commands only support single files. You can create any shared directory structures your application needs in the deploy script.
 
 ### Release Management
 
@@ -256,29 +255,28 @@ Each deployment creates a new release directory with a timestamp in the format `
 
 By default, DeployerPHP keeps the 5 most recent releases. You can customize this when running the deploy command.
 
-Keeping multiple releases enables quick rollbacks. If a deployment causes issues, you can manually switch back to a previous release by updating the `current` symlink to point to an older release directory and reloading PHP-FPM.
+If you want, you can manually switch back to a previous release by updating the `current` symlink to point to an older release directory and reloading PHP-FPM. That said, DeployerPHP uses a forward-only deployment philosophy.
 
-> [!INFO]
-> You can view your releases by SSHing into the server and listing the `releases/` directory. The timestamps make it easy to identify when each deployment occurred.
+> [!IMPORTANT]
+> DeployerPHP uses a forward-only deployment philosophy:
+>
+> - Rollbacks mask problems rather than fixing them. The underlying issue remains.
+> - Forward-only fixes create an auditable history of what changed and why.
+> - Modern CI/CD makes deploying a fix just as fast as rolling back.
 
 ## Step 5: Enable HTTPS
 
-The `site:https` command installs an SSL certificate using Certbot:
+Run the `site:https` command to install an SSL certificate:
 
 ```shell
 deployer site:https
 ```
 
-This:
-
-1. Installs Certbot if not present
-2. Obtains a Let's Encrypt certificate
-3. Configures Nginx for HTTPS
-4. Sets up automatic certificate renewal
+This installs Certbot, obtains a Let's Encrypt certificate, configures Nginx for HTTPS, and sets up automatic certificate renewal.
 
 > [!INFO]
 > Your domain's DNS must point to your server before running this command.
 
 ## Next Steps
 
-With your application deployed and secured with HTTPS, you may want to set up automation for scheduled tasks and long-running processes. See [Crons and Supervisors](/docs/crons-and-supervisors) to learn how to configure Laravel schedulers, queue workers, and other background processes.
+With your server installed and you application deployed and secured with HTTPS, you may want to set up some scheduled tasks and long-running processes. For more information, see [Crons and Supervisors](/docs/crons-and-supervisors).
