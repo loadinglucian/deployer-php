@@ -106,6 +106,20 @@ class SiteHttpsCommand extends BaseCommand
         }
 
         //
+        // Validate DNS points to selected server before running Certbot
+        // ----
+
+        $dnsValidation = $this->ensureDnsPointsToServer(
+            domain: $siteServer->site->domain,
+            hasWww: $siteServer->site->hasWww,
+            serverHost: $siteServer->server->host
+        );
+
+        if (is_int($dnsValidation)) {
+            return $dnsValidation;
+        }
+
+        //
         // Execute playbook
         // ----
 
@@ -133,5 +147,166 @@ class SiteHttpsCommand extends BaseCommand
         ]);
 
         return Command::SUCCESS;
+    }
+
+    // ----
+    // Helpers
+    // ----
+
+    private function ensureDnsPointsToServer(string $domain, bool $hasWww, string $serverHost): ?int
+    {
+        try {
+            $expectedIps = $this->resolveExpectedServerIps($serverHost);
+        } catch (\RuntimeException $e) {
+            $this->nay($e->getMessage());
+
+            return Command::FAILURE;
+        }
+
+        $domainsToCheck = [$domain];
+
+        if ($hasWww) {
+            $domainsToCheck[] = 'www.' . $domain;
+        } else {
+            $this->info("Skipping 'www.{$domain}' DNS validation because this site has no WWW alias configured");
+        }
+
+        foreach ($domainsToCheck as $domainToCheck) {
+            try {
+                $resolvedIps = $this->resolveDnsWithRetry($domainToCheck);
+            } catch (\RuntimeException $e) {
+                $this->nay($e->getMessage());
+
+                return Command::FAILURE;
+            }
+
+            if (0 === count($resolvedIps['ipv4']) && 0 === count($resolvedIps['ipv6'])) {
+                $this->warn("No A/AAAA records found for '{$domainToCheck}'");
+                $this->displayDnsComparisonDeets(
+                    domain: $domainToCheck,
+                    expectedIps: $expectedIps,
+                    resolvedIps: $resolvedIps
+                );
+                $this->nay("DNS for '{$domainToCheck}' must point to '{$serverHost}' before enabling HTTPS");
+
+                return Command::FAILURE;
+            }
+
+            $unexpectedIpv4 = array_values(array_diff($resolvedIps['ipv4'], $expectedIps['ipv4']));
+            $unexpectedIpv6 = array_values(array_diff($resolvedIps['ipv6'], $expectedIps['ipv6']));
+
+            if (0 < count($unexpectedIpv4) || 0 < count($unexpectedIpv6)) {
+                $this->warn("DNS for '{$domainToCheck}' is not fully pointed at '{$serverHost}'");
+                $this->displayDnsComparisonDeets(
+                    domain: $domainToCheck,
+                    expectedIps: $expectedIps,
+                    resolvedIps: $resolvedIps
+                );
+                $this->nay("Cannot enable HTTPS until '{$domainToCheck}' resolves only to '{$serverHost}'");
+                $this->info("Run <|cyan>site:dns:check --domain={$domain}</> after updating DNS");
+
+                return Command::FAILURE;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve the expected server IPs from the stored server host.
+     *
+     * @return array{ipv4: array<int, string>, ipv6: array<int, string>}
+     */
+    private function resolveExpectedServerIps(string $serverHost): array
+    {
+        $trimmedHost = trim($serverHost);
+
+        if ('' === $trimmedHost) {
+            throw new \RuntimeException('Server host cannot be empty');
+        }
+
+        $ipv4 = [];
+        $ipv6 = [];
+
+        if (false !== filter_var($trimmedHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $ipv4[] = $trimmedHost;
+        } elseif (false !== filter_var($trimmedHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $ipv6[] = $trimmedHost;
+        } else {
+            $resolvedHostIps = $this->resolveDnsWithRetry($trimmedHost);
+            $ipv4 = $resolvedHostIps['ipv4'];
+            $ipv6 = $resolvedHostIps['ipv6'];
+        }
+
+        if (0 === count($ipv4) && 0 === count($ipv6)) {
+            throw new \RuntimeException(
+                "Could not resolve any A/AAAA records for server host '{$trimmedHost}'"
+            );
+        }
+
+        return [
+            'ipv4' => $ipv4,
+            'ipv6' => $ipv6,
+        ];
+    }
+
+    /**
+     * Resolve DNS records for a domain with retry/backoff.
+     *
+     * @return array{ipv4: array<int, string>, ipv6: array<int, string>}
+     */
+    private function resolveDnsWithRetry(string $domain): array
+    {
+        /** @var array{ipv4: array<int, string>, ipv6: array<int, string>} $ips */
+        $ips = $this->io->promptSpin(
+            fn () => $this->retry->run(
+                attemptCallback: fn () => $this->http->resolveGoogleIps($domain),
+                operationDescription: "resolve DNS records for '{$domain}' via Google DNS",
+                retryAttempts: 4,
+                retryDelaySeconds: 1
+            ),
+            "Resolving DNS for '{$domain}'..."
+        );
+
+        return [
+            'ipv4' => $this->normalizeIps($ips['ipv4']),
+            'ipv6' => $this->normalizeIps($ips['ipv6']),
+        ];
+    }
+
+    /**
+     * @param array{ipv4: array<int, string>, ipv6: array<int, string>} $expectedIps
+     * @param array{ipv4: array<int, string>, ipv6: array<int, string>} $resolvedIps
+     */
+    private function displayDnsComparisonDeets(string $domain, array $expectedIps, array $resolvedIps): void
+    {
+        $this->displayDeets([
+            'Domain' => $domain,
+            'Expected A' => $this->formatIps($expectedIps['ipv4']),
+            'Expected AAAA' => $this->formatIps($expectedIps['ipv6']),
+            'Resolved A' => $this->formatIps($resolvedIps['ipv4']),
+            'Resolved AAAA' => $this->formatIps($resolvedIps['ipv6']),
+        ]);
+        $this->out('───');
+    }
+
+    /**
+     * @param array<int, string> $ips
+     * @return array<int, string>
+     */
+    private function normalizeIps(array $ips): array
+    {
+        $unique = array_values(array_unique($ips));
+        sort($unique);
+
+        return $unique;
+    }
+
+    /**
+     * @param array<int, string> $ips
+     */
+    private function formatIps(array $ips): string
+    {
+        return [] === $ips ? 'None' : implode(', ', $ips);
     }
 }
