@@ -19,9 +19,14 @@
 
 <!-- /toc -->
 
-This guide will help you deploy your first application using DeployerPHP. By the end, you'll have a fully configured Nginx server with Let's Encrypt HTTPS support, multiple versions of PHP running in parallel, Bun as a JavaScript runtime, and your PHP application running on your domain.
+This guide is going to walk you through deploying your first application with DeployerPHP. By the time we're done, DeployerPHP will have:
 
-It may seem overwhelming, but you only need to run a few simple commands and respond to a couple of interactive prompts. DeployerPHP will set everything up for you.
+- Fully configured an Nginx server with Let's Encrypt HTTPS support
+- Installed multiple versions of PHP running in parallel
+- Installed Bun as a JavaScript runtime
+- Set up your PHP application to run on your domain
+
+All you have to do is run a few simple commands and respond to a couple of interactive prompts, DeployerPHP will take care of all the hard stuff.
 
 ## Step 1: Add A Server
 

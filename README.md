@@ -7,7 +7,7 @@ Read the documentation at [https://deployerphp.com](https://deployerphp.com/)
 
 # Meet DeployerPHP
 
-This is DeployerPHP, a super comprehensive set of CLI tools for provisioning, installing, and deploying servers and sites using PHP. It serves as an open-source alternative to services such as Laravel Forge and Ploi.
+This is DeployerPHP, a super comprehensive set of CLI tools for provisioning, installing, and deploying servers and sites using PHP. It serves as an open-source alternative to services such as Ploi, RunCloud or Laravel Forge.
 
 <!-- toc -->
 
@@ -27,7 +27,7 @@ This is DeployerPHP, a super comprehensive set of CLI tools for provisioning, in
 
 ## Crash Course
 
-Here's the crashiest of crash courses to start deploying immediately:
+Here's a quick run-through to start deploying immediately:
 
 ```shell
 # 1. Install as a dev dependency
@@ -39,18 +39,19 @@ alias deployer="./vendor/bin/deployer"
 # 3. Add your server to the inventory
 deployer server:add
 
-# Or provision through a cloud provider to automatically
-# add to your inventory (see docs/cloud-providers.md):
-# deployer aws:provision
+# OR provision through a cloud provider to automatically
+# add to your inventory (see Cloud Providers):
+deployer aws:provision
+deployer do:provision
 
-# 4. Install your preferred database service:
-# deployer mariadb:install
-# deployer postgresql:install
-# deployer redis:install
-# deployer memcached:install
-
-# 5. Install Nginx, PHP, Bun and generate a deploy key
+# 4. Install Nginx, PHP, Bun and generate a deploy key
 deployer server:install
+
+# 5. Install your preferred database services
+deployer mariadb:install
+deployer postgresql:install
+deployer redis:install
+deployer memcached:install
 
 # 6. Create a site
 deployer site:create
@@ -64,7 +65,7 @@ deployer site:shared:push
 # 9. Deploy your application
 deployer site:deploy
 
-# 10. Enable HTTPS (after DNS propagates)
+# 10. Enable HTTPS
 deployer site:https
 ```
 
@@ -82,7 +83,7 @@ There aren't any limits or restrictions on how many servers and sites you can de
 
 ### No Vendor Lock-In
 
-You can manage servers and deploy sites with any hosting or cloud provider. If your server runs Ubuntu LTS and you can SSH into it, you can deploy sites there using DeployerPHP.
+You can manage servers and deploy sites with any hosting or cloud provider. If your server runs Ubuntu LTS and you can SSH into it, you can manage it with DeployerPHP.
 
 <a name="end-to-end-management"></a>
 
@@ -94,13 +95,13 @@ With DeployerPHP, you can effortlessly provision cloud instances, install servic
 
 ### Composable Commands
 
-Atomic commands allow you to easily create automation pipelines for spinning up servers, installing services, deploying sites, or running custom workflows on demand.
+Atomic commands allow you to easily spin up new servers and create automation pipelines for running your own custom workflows on demand.
 
 <a name="ai-automation"></a>
 
-### AI Automation
+### AI Agent Support
 
-Use your favorite AI agents to help you debug server and site issues, using DeployerPHP's composable commands and built-in agent skills. When you run `scaffold:ai`, choose either `.agents` (for Codex, Cursor, OpenCode, etc.) or `.claude`.
+Use your favorite AI agents to debug server and site issues, using DeployerPHP's built-in agent skills scaffolding.
 
 <a name="license"></a>
 
@@ -110,7 +111,7 @@ DeployerPHP is open-source software distributed under the [MIT License](/LICENSE
 
 You can use it freely for personal or commercial projects, without any restrictions.
 
-This also means there are no guarantees or warranties that apply. You are on your own.
+This also means there are no guarantees or warranties. You are on your own.
 
 <a name="contributing"></a>
 

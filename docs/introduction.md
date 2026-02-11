@@ -11,11 +11,11 @@
 
 <!-- /toc -->
 
-This is DeployerPHP, a set of command-line interface (CLI) tools for provisioning, installing, and deploying servers and sites using PHP. It serves as an open-source alternative to services like Laravel Forge and Ploi.
+This guide is your starting point for understanding DeployerPHP. It walks you through the main operational concepts so you can move forward with the right mental model.
 
 ## Installation
 
-DeployerPHP is built around Symfony Console and comes bundled as a Composer package so you can easily install and use it as part of your existing workflow:
+Install DeployerPHP just like any other Composer package:
 
 ```shell
 # Install as a dev dependency
@@ -23,6 +23,9 @@ composer require --dev loadinglucian/deployer-php
 
 # Add an alias for convenience
 alias deployer="./vendor/bin/deployer"
+
+# I use it a lot, so I prefer to shorten it even more
+alias dep="deployer"
 ```
 
 > [!TIP]
@@ -30,24 +33,24 @@ alias deployer="./vendor/bin/deployer"
 
 ## Requirements
 
-DeployerPHP has some basic requirements:
+DeployerPHP has some pretty basic requirements:
 
 - At least PHP 8.2
 - The `pcntl` PHP extension (if you want to use the `server:ssh` command)
 
-Your target servers should run a supported Linux distribution:
-
-- Ubuntu LTS (such as 24.04, 26.04, etc., no interim releases like 25.04)
+Your target servers should run Ubuntu LTS >= 24.04 (no interim releases like 25.04).
 
 ## The Commands
 
-Once installed, run the `list` command to see all the other available commands:
+DeployerPHP has a lot of commands and capabilities. There are quite a few, which can feel a bit daunting at first. The key is not to try to remember what each one is called or what it does but rather how they're all organized.
+
+Run the `list` command to see all the available commands:
 
 ```shell
 deployer list
 ```
 
-DeployerPHP has a wide range of commands and capabilities. All commands are organized into namespaces that represent what each group manages:
+Commands are organized into namespaces that represent what each group manages:
 
 - **`server:*`**: Add, install, delete, and manage servers
 - **`site:*`**: Create, deploy, delete, and manage sites
@@ -58,25 +61,22 @@ DeployerPHP has a wide range of commands and capabilities. All commands are orga
 - **`scaffold:*`**: Generate cron, hook, supervisor, and AI skills config files
 - **`aws:*`**, **`cf:*`**, **`do:*`**: Cloud provider integrations
 
-Don't worry about what each of these does. For now, just focus on how everything is laid out and organized. We'll cover each of them in detail in other sections of the documentation.
-
 ## The Inventory
 
-DeployerPHP tracks your servers and sites in a `.deployer/inventory.yml` file, which it initializes in your current working directory. This inventory file stores the details of servers you add and sites you create, so you don't have to re-enter connection details each time you run a command.
+DeployerPHP tracks your servers and sites in an inventory file, which it initializes in your current working directory as `.deployer/inventory.yml`. This inventory file stores the details of servers you add and sites you create, so you don't have to re-enter connection details, domain names or IPs each time you run a command.
 
-Commands automatically reference the inventory, making multi-server management straightforward. You can commit this file to version control to share your infrastructure configuration with your team.
+Commands automatically reference the inventory, making it easy to manage multiple servers or sites. This file does not contain any sensitive information, so it is safe to commit to version control.
 
 ## Configuration Paths
 
-DeployerPHP uses two configuration files to manage your infrastructure:
+Besides the inventory, commands also automatically reference the `.env` file in your current working directory if it exists.
 
-- **`.env`** - Environment variables like API keys for cloud providers
-- **`.deployer/inventory.yml`** - The inventory file that stores your servers and sites
+Running any DeployerPHP command should display which environment or inventory files are being actively referenced right at the top:
 
 ```DeployerPHP
 ▒ ≡ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ▒
-▒ Ver: dev-main
+▒ Ver: ...
 ▒ Env: ~/example.com/.env
 ▒ Inv: ~/example.com/.deployer/inventory.yml
 .
@@ -84,9 +84,7 @@ DeployerPHP uses two configuration files to manage your infrastructure:
 .
 ```
 
-By default, DeployerPHP looks for both files in your current working directory. This works well for most projects, but you may need more flexibility when managing multiple environments or working from different directories.
-
-If you have an existing `deployer.yml`, move it to `.deployer/inventory.yml` or run commands with `--inventory` to target the legacy path.
+By default, DeployerPHP looks for both files in your current working directory. This works well for most projects, but you may need a little more flexibility when managing multiple environments or working from different directories.
 
 Every command accepts two global options for overriding these paths:
 
@@ -104,7 +102,9 @@ For example, you might maintain `deployer-staging.yml` and `deployer-production.
 
 ## Command Replays
 
-Every DeployerPHP command provides a non-interactive command replay at the end of execution. This replay displays the exact command along with all your interactive prompt responses filled in:
+Every DeployerPHP command provides a non-interactive command replay at the end of execution. This replay displays the exact command along with all your interactive prompt responses filled in.
+
+Commands are meant to be composable, allowing you to copy and paste these replies as building blocks for your own scripts, workflows, or CI pipelines.
 
 ```DeployerPHP nocopy
 .
@@ -120,6 +120,4 @@ $> deployer server:add  \
   --private-key-path='~/.ssh/id_ed25519'
 ```
 
-You can copy these replays directly into scripts or CI pipelines to automate your workflow.
-
-Read [Zero to Deploy](/docs/zero-to-deploy) next to get started with your first deployment!
+Read [Zero to Deploy](/docs/zero-to-deploy) next to get started with your first deployment. Exciting!
