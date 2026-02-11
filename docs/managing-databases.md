@@ -17,7 +17,7 @@
 
 Most applications need persistent data storage. DeployerPHP supports installing and managing relational databases (MariaDB, PostgreSQL) and key-value stores (Redis, Memcached) on your servers.
 
-> [!NOTE]
+> [!INFO]
 > DeployerPHP installs databases from your Ubuntu release's native packages and handles all configuration automatically.
 
 ## Relational Databases
@@ -144,7 +144,7 @@ DATABASE_URL=mysql://deployer:...@localhost/deployer
 
 You can copy these values directly into your application's `.env` file.
 
-> [!WARNING]
+> [!IMPORTANT]
 > Credentials are generated only once during installation. If you choose to display them, copy them immediately. DeployerPHP won't be able to show them again.
 
 If saving to a file fails, DeployerPHP automatically falls back to displaying the credentials on screen so you don't lose them.

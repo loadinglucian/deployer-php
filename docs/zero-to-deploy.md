@@ -21,16 +21,17 @@
 
 This guide is going to walk you through deploying your first application with DeployerPHP. By the time we're done, DeployerPHP will have:
 
-- Fully configured an Nginx server with Let's Encrypt HTTPS support
-- Installed multiple versions of PHP running in parallel
-- Installed Bun as a JavaScript runtime
-- Set up your PHP application to run on your domain
+- Fully configured a server runtime environment with Nginx, PHP, Bun, and a dedicated deployment user with its own deploy key
+- Set up additional PHP versions and your preferred database or cache services (MariaDB, PostgreSQL, Redis, or Memcached)
+- Created a deploy-ready site structure with releases, shared resources, and zero downtime deployment support
+- Deployed your application from Git using atomic deployment scripts for build, migration, cron, and worker workflows
+- Enabled Let's Encrypt HTTPS and automatic renewal with guided DNS setup and verification for your domain
 
-All you have to do is run a few simple commands and respond to a couple of interactive prompts, DeployerPHP will take care of all the hard stuff.
+All you have to do is run a few simple commands and respond to a couple of interactive prompts. DeployerPHP will take care of all the hard stuff.
 
 ## Step 1: Add A Server
 
-Before we can deploy anything we'll need a fresh new server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can connect to it via SSH and it is running `Ubuntu LTS >= 24.04` as specified by the [Requirements](/docs/introduction#requirements).
+Before we can deploy anything we'll need a server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can SSH into it and it runs Ubuntu LTS >= 24.04 (no interim releases like 25.04).
 
 Run the `server:add` command to add a new server to your inventory:
 
@@ -66,28 +67,28 @@ $> deployer server:add  \
   --private-key-path='~/.ssh/id_ed25519'
 ```
 
-For more information, please read [Managing Servers](/docs/managing-servers)
+For more information, see [Managing Servers](/docs/managing-servers)
 
 ### Cloud Instances
 
-Alternatively, you can provision a cloud instance and automatically add it to the inventory using one of the cloud provider commands. For more information, please read [Cloud Providers](/docs/cloud-providers).
+Alternatively, you can provision a cloud instance and add it to the inventory automatically using one of the dedicated cloud provider commands. For more information, see [Cloud Providers](/docs/cloud-providers).
 
 ## Step 2: Install The Server
 
-With your new server in the inventory, run the `server:install` command to install and configure everything necessary to deploy and host your PHP applications:
+To install your new server, run the `server:install` command. This will configure the runtime environment necessary to deploy and host your applications:
 
 ```shell
 deployer server:install
 ```
 
-This installs and configures:
+This installs and configures your server runtime environment with:
 
 - **Base packages** - git, curl, unzip, and essential utilities
 - **System timezone** - Ensures consistent timestamps across services
 - **Nginx** - Web server with optimized configuration
 - **PHP** - Your selected version with extensions
 - **Bun** - JavaScript runtime for building assets
-- **Deployer user** - Dedicated user for deployments with SSH key
+- **Deployer user** - Dedicated user for deployments with deploy key
 
 ```DeployerPHP nocopy
 ▒ ≡ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -110,22 +111,22 @@ This installs and configures:
 ```
 
 > [!IMPORTANT]
-> After installation, the command displays the server's public key. Add this key to your Git provider to enable access to your repositories.
+> After installation, the command displays the deploy user's public key. Use this key to enable access to your application's repository through your Git provider.
 
 ### Additional PHP Versions
 
 You can run the `server:install` command at any time to install additional PHP versions or different extensions.
 
-The `server:install` command is additive; it will never uninstall anything. Every other version or extension you installed previously will remain unchanged, so don't worry about losing anything.
+The `server:install` command is additive, meaning it will always add new components without uninstalling anything. Any previous versions or extensions you installed will remain unchanged, so simply choose what you want to install now.
 
-> [!NOTE]
-> When you have multiple PHP versions installed, the `server:install` command will always prompt you to select the default PHP version you want to use for your server CLI.
+> [!INFO]
+> When you have multiple PHP versions installed, the `server:install` command will prompt you for the default PHP version you want to use for your server CLI.
 
-For more information, please read [Managing Services](/docs/managing-services).
+For more information, see [Managing Services](/docs/managing-services).
 
 ### Installing Databases
 
-Install your preferred database or cache server by running one of the dedicated installation commands:
+You can install your preferred database or cache services by running one of the dedicated installation commands:
 
 | Command              | Description                        |
 | -------------------- | ---------------------------------- |
@@ -134,17 +135,17 @@ Install your preferred database or cache server by running one of the dedicated 
 | `redis:install`      | Install Redis key-value store      |
 | `memcached:install`  | Install Memcached caching server   |
 
-For more information, please read [Managing Databases](/docs/managing-databases).
+For more information, see [Managing Databases](/docs/managing-databases).
 
 ## Step 3: Create a Site
 
-With your new server installed and ready, run the `site:create` command to create a new site:
+At this point, your server runtime environment should be installed and ready for your application. Run the `site:create` command to create a new site:
 
 ```shell
 deployer site:create
 ```
 
-This creates an Nginx configuration as well as a deploy-ready directory structure:
+This creates an Nginx configuration as well as a deploy-ready directory structure structure with releases, shared resources and current release symlink for zero downtime deployment support:
 
 ```EXAMPLE nocopy
 /home/deployer/sites/example.com/
@@ -157,24 +158,31 @@ This creates an Nginx configuration as well as a deploy-ready directory structur
 
 ### Managing DNS
 
-Before you can access your site or enable HTTPS, configure your domain's DNS settings:
+Point your DNS to the server through your DNS provider:
 
 - **A Record**: Point your domain to your server's IP address
+- **AAAA records** (optional): Point your domain to your server's IPv6 addresses
 - **CNAME Record** (optional): Point www subdomain to your main domain
 
-DNS propagation typically takes a few minutes to 24 hours. You can check your current DNS resolution directly from DeployerPHP:
+DNS propagation typically takes a while, so the sooner you can get it out of the way, the better. Run the `deployer site:dns:check` command to check your DNS resolution:
 
 ```shell
 deployer site:dns:check
 ```
 
-This resolves A (IPv4) and AAAA (IPv6) records for your site domain using Google Public DNS and also checks `www.{domain}`.
+If you use any of the supported DNS providers, you can configure your DNS using one of the dedicate provider commands:
 
-If you use one of the supported DNS providers, you can configure DNS using one of the cloud provider commands. For more information, please read [Cloud Providers](/docs/cloud-providers).
+| Command       | Description                                |
+| ------------- | ------------------------------------------ |
+| `aws:dns:set` | Create or update a AWS Route53 record      |
+| `cf:dns:set`  | Create or update a Cloudflare DNS record   |
+| `do:dns:set`  | Create or update a DigitalOcean DNS record |
+
+For more information, see [Cloud Providers](/docs/cloud-providers).
 
 ## Step 4: Deploy a Site
 
-With your site created, run the `site:deploy` command to deploy your application from a Git repository:
+Run the `site:deploy` command to deploy your application from a Git repository:
 
 ```shell
 deployer site:deploy
@@ -224,7 +232,7 @@ Each script has access to these environment variables:
 
 The script runs in the release directory with the `deployer` user. Adding `set -e` at the top ensures the deployment stops if any command fails, preventing a broken release from going live.
 
-> [!TIP]
+> [!INFO]
 > The deploy script is the ideal place to create shared directories your application needs. For example, if your application stores user uploads, create the directory with `mkdir -p "$DEPLOYER_SHARED_PATH/uploads"` and symlink it into the release.
 
 ### Shared Files
@@ -239,7 +247,7 @@ deployer site:shared:push
 
 DeployerPHP will prompt you for the server, site, local file path, and remote file path within the shared directory. Use `site:shared:pull` to download a shared file to your local machine.
 
-> [!NOTE]
+> [!INFO]
 > The `site:shared:*` commands support single files. Create directory structures your application needs in the deploy script.
 
 ### Release Management
@@ -250,7 +258,7 @@ By default, DeployerPHP keeps the 5 most recent releases. You can customize this
 
 Keeping multiple releases enables quick rollbacks. If a deployment causes issues, you can manually switch back to a previous release by updating the `current` symlink to point to an older release directory and reloading PHP-FPM.
 
-> [!TIP]
+> [!INFO]
 > You can view your releases by SSHing into the server and listing the `releases/` directory. The timestamps make it easy to identify when each deployment occurred.
 
 ## Step 5: Enable HTTPS
@@ -268,7 +276,7 @@ This:
 3. Configures Nginx for HTTPS
 4. Sets up automatic certificate renewal
 
-> [!NOTE]
+> [!INFO]
 > Your domain's DNS must point to your server before running this command.
 
 ## Next Steps

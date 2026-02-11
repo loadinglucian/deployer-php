@@ -66,7 +66,7 @@ deployer site:shared:pull
 
 You'll be prompted for the site, the remote filename, and the local destination path.
 
-> [!NOTE]
+> [!INFO]
 > The `site:shared:*` commands support single files. Create directory structures your application needs in the deploy script as described in [Zero to Deploy](/docs/zero-to-deploy).
 
 ## Checking DNS
@@ -109,7 +109,7 @@ Select your server, then choose from the available log sources. For full documen
 
 Cron jobs run scheduled tasks for your site. DeployerPHP stores cron script paths relative to your project directory and syncs them to the server.
 
-> [!TIP]
+> [!INFO]
 > New to cron jobs? See [Cron Jobs](/docs/crons-and-supervisors#cron-jobs) in the Crons and Supervisors guide for a quick introduction.
 
 ### Scaffolding Cron Scripts
@@ -154,7 +154,7 @@ You'll be prompted to select the site and cron script to delete, with confirmati
 
 Supervisor manages long-running processes like queue workers, WebSocket servers, or custom daemons. DeployerPHP stores supervisor script paths relative to your project directory.
 
-> [!TIP]
+> [!INFO]
 > New to supervisor? See [Supervisor Processes](/docs/crons-and-supervisors#supervisor-processes) in the Crons and Supervisors guide for a quick introduction.
 
 ### Scaffolding Supervisor Scripts
@@ -265,7 +265,7 @@ deployer site:delete
 
 For safety, you must type the domain to confirm, then respond to an additional Yes/No prompt.
 
-> [!WARNING]
+> [!IMPORTANT]
 > This permanently deletes all site files, releases, and shared data from the server. Use the inventory-only mode if you only want to remove the site from your local inventory without affecting the server.
 
 If remote deletion fails (for example, due to connection issues), you'll be prompted whether to remove the site from inventory anyway.

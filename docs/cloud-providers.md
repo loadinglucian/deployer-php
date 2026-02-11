@@ -125,7 +125,7 @@ You can create an IAM policy with these permissions in the [AWS IAM Console](htt
 }
 ```
 
-> [!TIP]
+> [!INFO]
 > If you only need DNS management (no server provisioning), you can create a policy with just the Route53 permissions.
 
 ### Managing SSH Keys
@@ -167,12 +167,12 @@ If any step fails after the instance is created, DeployerPHP automatically rolls
 
 After provisioning, run `deployer server:install` to set up the server.
 
-> [!NOTE]
+> [!INFO]
 > The command replay uses durable OS image slugs (e.g., `ubuntu-24.04`) that resolve to the latest AMI at runtime, so you can safely reuse the output in CI pipelines without worrying about image deprecation.
 
 <!-- -->
 
-> [!NOTE]
+> [!INFO]
 > When you delete a server provisioned through AWS, DeployerPHP also terminates the EC2 instance and releases the Elastic IP.
 
 ### Managing DNS Records
@@ -227,7 +227,7 @@ deployer cf:dns:delete
 
 The `cf:dns:set` command creates a new DNS record or updates an existing one. Cloudflare supports proxying traffic through their CDN and DDoS protection network. When proxy is enabled, Cloudflare hides your origin IP address and routes traffic through their global network.
 
-> [!NOTE]
+> [!INFO]
 > Cloudflare commands also support the full `cloudflare:` prefix (e.g., `cloudflare:dns:list`).
 
 ## DigitalOcean
@@ -281,7 +281,7 @@ You'll be prompted for server details, droplet configuration, and optional featu
 
 After provisioning, run `deployer server:install` to set up the server.
 
-> [!NOTE]
+> [!INFO]
 > When you delete a server provisioned through DigitalOcean, DeployerPHP also destroys the Droplet.
 
 ### Managing DNS Records
@@ -301,5 +301,5 @@ deployer do:dns:delete
 
 Your domain must be added to DigitalOcean's DNS management before you can create records. The `do:dns:set` command creates a new DNS record or updates an existing one. When prompted for a record name, use `@` for the root domain.
 
-> [!NOTE]
+> [!INFO]
 > DigitalOcean commands also support the full `digitalocean:` prefix (e.g., `digitalocean:dns:list`).

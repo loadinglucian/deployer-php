@@ -28,7 +28,7 @@ alias deployer="./vendor/bin/deployer"
 alias dep="deployer"
 ```
 
-> [!TIP]
+> [!INFO]
 > Add the alias to your shell profile (`~/.bashrc`, `~/.zshrc`) to make it permanent.
 
 ## Requirements

@@ -63,7 +63,7 @@ deployer server:ssh
 
 This opens a full SSH session to your server. Use `exit` or press `Ctrl+D` to return to your local machine.
 
-> [!NOTE]
+> [!INFO]
 > Interactive SSH sessions require PHP's `pcntl` extension to be installed on your local machine. Most PHP installations include this by default.
 
 ## Configuring the Firewall
@@ -81,7 +81,7 @@ DeployerPHP will:
 3. Let you select which ports to allow through the firewall
 4. Apply the UFW rules
 
-> [!NOTE]
+> [!INFO]
 > SSH access (port 22) is always preserved regardless of your selections. DeployerPHP won't let you lock yourself out of your server.
 
 ## Viewing Logs
@@ -124,7 +124,7 @@ If the server was provisioned through a cloud provider using DeployerPHP, you'll
 - **Yes** - Destroys the cloud instance and releases associated resources
 - **No** - Only removes the server from your local inventory, leaving the cloud instance running
 
-> [!WARNING]
+> [!IMPORTANT]
 > If you choose not to destroy the cloud instance, your server will continue running and incurring costs. Check with your cloud provider to ensure it is fully terminated when no longer needed.
 
 If cloud destruction fails (for example, due to API errors), you'll be prompted whether to remove the server from inventory anyway.

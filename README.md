@@ -39,8 +39,8 @@ alias deployer="./vendor/bin/deployer"
 # 3. Add your server to the inventory
 deployer server:add
 
-# OR provision through a cloud provider to automatically
-# add to your inventory (see Cloud Providers):
+# Alternatively, provision a cloud instance and add it
+# to the inventory automatically with a single command
 deployer aws:provision
 deployer do:provision
 

@@ -52,7 +52,7 @@ When using quiet mode, you must provide **all required options via CLI**. Deploy
 Option --domain is required when using --quiet mode
 ```
 
-> [!NOTE]
+> [!INFO]
 > The `--yes` flag skips confirmation prompts. In automation, you'll typically combine `--quiet` with `--yes` to run completely non-interactively.
 
 <a name="ai-automation"></a>
@@ -61,7 +61,7 @@ Option --domain is required when using --quiet mode
 
 If you use AI tools like Claude, Codex, Cursor, or OpenCode, you can create a skills file that guides agents on safely interacting with your DeployerPHP-managed servers. This is useful when debugging issues with your application in production. Agents can read logs or execute remote, non-destructive commands on your server to investigate and resolve problems.
 
-> [!WARNING]
+> [!IMPORTANT]
 > **Use at your own risk!** Granting AI agents access to production servers can be risky. Always review generated skills and monitor AI-initiated actions. You are solely responsible for any changes, data loss, or issues arising from AI-assisted debugging.
 
 Run the `scaffold:ai` command from your project directory:
@@ -81,7 +81,7 @@ The supported directories are:
 - **`.agents`**: Shared skills directory for Codex, Cursor, and OpenCode (`.agents/skills/`)
 - **`.claude`**: Claude skills directory (`.claude/skills/`)
 
-> [!NOTE]
+> [!INFO]
 > The selection flow above is based on whether agent directories already exist in your project.
 
 <a name="permission-tiers"></a>
@@ -102,7 +102,7 @@ When scaffolding AI skills, you'll select a permission tier that determines what
 
 **Admin** grants full access to DeployerPHP commands. Your assistant can deploy code, manage services, configure sites, and perform any operation you could do manually. Only use this tier with AI agents you fully trust, and always review the generated skills before enabling them.
 
-> [!TIP]
+> [!INFO]
 > Start with the Debugger tier. It provides enough access for most troubleshooting scenarios while keeping guardrails in place. You can always scaffold a higher tier later if needed.
 
 The generated skills file provides your AI assistant with:
