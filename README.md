@@ -1,9 +1,18 @@
-[![PHP Version](https://img.shields.io/badge/php-%5E8.2-blue.svg)](https://php.net)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+<p align="center">
+    <a href="https://deployerphp.com" target="_blank">
+        <img src="logo-mark.svg" width="400" alt="DeployerPHP Logo">
+    </a>
+</p>
 
-Read the documentation at [https://deployerphp.com](https://deployerphp.com/)
+<p align="center">
+    <a href="https://packagist.org/packages/loadinglucian/deployer-php"><img src="https://img.shields.io/badge/php-%5E8.2-blue.svg" alt="Supports PHP >= 8.2"></a>
+    <a href="https://packagist.org/packages/loadinglucian/deployer-php"><img src="https://img.shields.io/packagist/v/loadinglucian/deployer-php" alt="Latest Stable Version"></a>
+    <a href="https://packagist.org/packages/loadinglucian/deployer-php"><img src="https://img.shields.io/packagist/l/loadinglucian/deployer-php" alt="License"></a>
+</p>
 
-[Follow me on X](https://x.com/loadinglucian) for updates, memes and hot take.
+<p align="center">
+    <a href="https://deployerphp.com/">https://deployerphp.com</a>
+</p>
 
 # Meet DeployerPHP
 
