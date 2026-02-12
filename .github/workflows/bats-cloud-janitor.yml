@@ -62,7 +62,8 @@ jobs:
       - name: Install janitor dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq curl awscli
+          sudo apt-get install -y jq curl
+          aws --version
 
       - name: Setup environment file
         run: |
