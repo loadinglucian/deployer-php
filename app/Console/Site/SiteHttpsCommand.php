@@ -229,9 +229,15 @@ class SiteHttpsCommand extends BaseCommand
         $ipv6 = [];
 
         if (false !== filter_var($trimmedHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            $ipv4[] = $trimmedHost;
+            $canonicalIpv4 = $this->canonicalizeIp($trimmedHost);
+            if (null !== $canonicalIpv4) {
+                $ipv4[] = $canonicalIpv4;
+            }
         } elseif (false !== filter_var($trimmedHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-            $ipv6[] = $trimmedHost;
+            $canonicalIpv6 = $this->canonicalizeIp($trimmedHost);
+            if (null !== $canonicalIpv6) {
+                $ipv6[] = $canonicalIpv6;
+            }
         } else {
             $resolvedHostIps = $this->resolveDnsWithRetry($trimmedHost);
             $ipv4 = $resolvedHostIps['ipv4'];
@@ -296,10 +302,35 @@ class SiteHttpsCommand extends BaseCommand
      */
     private function normalizeIps(array $ips): array
     {
-        $unique = array_values(array_unique($ips));
+        $normalized = [];
+
+        foreach ($ips as $ip) {
+            $canonical = $this->canonicalizeIp($ip);
+            if (null !== $canonical) {
+                $normalized[] = $canonical;
+            }
+        }
+
+        $unique = array_values(array_unique($normalized));
         sort($unique);
 
         return $unique;
+    }
+
+    private function canonicalizeIp(string $ip): ?string
+    {
+        if (false === filter_var($ip, FILTER_VALIDATE_IP)) {
+            return null;
+        }
+
+        $packed = inet_pton($ip);
+        if (false === $packed) {
+            return null;
+        }
+
+        $canonical = inet_ntop($packed);
+
+        return false === $canonical ? null : $canonical;
     }
 
     /**
