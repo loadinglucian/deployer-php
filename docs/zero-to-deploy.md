@@ -41,7 +41,7 @@ deployer server:add
 
 The command will ask for your server details, including the host/IP, SSH port, username, key, and a name for your new server. It will try connecting to the server and then add it to the inventory:
 
-```DeployerPHP nocopy
+```EXAMPLE nocopy
 ▒ ≡ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ▒
 .
@@ -90,7 +90,7 @@ This installs and configures your server runtime environment with:
 - **Bun** - JavaScript runtime for building assets
 - **Deployer user** - Dedicated user for deployments with deploy key
 
-```DeployerPHP nocopy
+```EXAMPLE nocopy
 ▒ ≡ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ▒
 .
