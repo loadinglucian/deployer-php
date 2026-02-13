@@ -19,8 +19,8 @@
 This is DeployerPHP, a super comprehensive set of CLI tools for provisioning, installing, and deploying servers and sites using PHP. It serves as an open-source alternative to services such as Ploi, RunCloud or Laravel Forge.
 
 <p align="center">
-    <img src="https://raw.githubusercontent.com/loadinglucian/deployer-php/main/docs/images/deployerphp.webp" width="auto" alt="Screenshot with DeployerPHP in action" class="dark:hidden">
-    <img src="https://raw.githubusercontent.com/loadinglucian/deployer-php/main/docs/images/deployerphp-dark.webp" width="auto" alt="Screenshot with DeployerPHP in action" class="hidden dark:block">
+    <img src="https://raw.githubusercontent.com/loadinglucian/deployer-php/main/docs/images/deployerphp.webp" width="auto" alt="DeployerPHP in action" class="dark:hidden">
+    <img src="https://raw.githubusercontent.com/loadinglucian/deployer-php/main/docs/images/deployerphp-dark.webp" width="auto" alt="DeployerPHP in action" class="hidden dark:block">
 </p>
 
 <!-- toc -->

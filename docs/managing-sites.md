@@ -107,10 +107,10 @@ Select your server, then choose from the available log sources. For full documen
 
 ## Cron Jobs
 
-Cron jobs run scheduled tasks for your site. DeployerPHP stores cron script paths relative to your project directory and syncs them to the server.
-
-> [!INFO]
-> New to cron jobs? See [Cron Jobs](/docs/crons-and-supervisors#cron-jobs) in the Crons and Supervisors guide for a quick introduction.
+Cron jobs run scheduled tasks for your site. Many applications use cron for
+queue dispatching, scheduled reports, or periodic cleanup. DeployerPHP stores
+cron script paths relative to your project directory and syncs them to the
+server.
 
 ### Scaffolding Cron Scripts
 
@@ -130,7 +130,14 @@ The `cron:create` command adds a cron job to a site:
 deployer cron:create
 ```
 
-You'll be prompted to enter a script path relative to your project root (for example, `.deployer/scripts/cron.sh`) and provide a schedule expression (e.g., `*/5 * * * *` for every 5 minutes). Script paths do not need a `.sh` extension.
+DeployerPHP prompts you for:
+
+- **Site** - The site to add the cron job to
+- **Script** - A script path relative to your project root (for example,
+  `.deployer/scripts/cron.sh`)
+- **Schedule** - A cron expression such as `*/5 * * * *`
+
+Script paths do not need a `.sh` extension.
 
 ### Syncing Cron Jobs
 
@@ -142,6 +149,8 @@ deployer cron:sync
 
 Run this after adding or modifying cron jobs in your inventory.
 
+This updates the server's crontab with your scheduled tasks.
+
 ### Deleting Cron Jobs
 
 ```shell
@@ -152,10 +161,10 @@ You'll be prompted to select the site and cron script to delete, with confirmati
 
 ## Supervisor Processes
 
-Supervisor manages long-running processes like queue workers, WebSocket servers, or custom daemons. DeployerPHP stores supervisor script paths relative to your project directory.
-
-> [!INFO]
-> New to supervisor? See [Supervisor Processes](/docs/crons-and-supervisors#supervisor-processes) in the Crons and Supervisors guide for a quick introduction.
+Supervisor manages long-running processes like queue workers, WebSocket
+servers, or custom daemons. It keeps processes alive and restarts them if they
+exit unexpectedly. DeployerPHP stores supervisor script paths relative to your
+project directory.
 
 ### Scaffolding Supervisor Scripts
 
@@ -175,7 +184,17 @@ The `supervisor:create` command adds a supervised process:
 deployer supervisor:create
 ```
 
-You'll be prompted for the site, program name, script path relative to your project root, and process settings like the number of instances. Script paths do not need a `.sh` extension.
+DeployerPHP prompts you for:
+
+- **Site** - The site to add the process to
+- **Script** - A script path relative to your project root (for example,
+  `.deployer/scripts/supervisor.sh`)
+- **Program name** - A unique identifier for the process (for example,
+  `queue-worker`)
+- **Process settings** - Runtime behavior such as instance count and restart
+  behavior
+
+Script paths do not need a `.sh` extension.
 
 ### Managing Processes
 
@@ -198,6 +217,8 @@ deployer supervisor:sync
 ```
 
 Run this after adding or modifying supervisor processes in your inventory.
+
+This writes supervisor configuration and reloads the supervisor daemon.
 
 ### Deleting Processes
 
@@ -231,7 +252,7 @@ deployer scaffold:ai
 
 DeployerPHP selects the AI agent directory using this flow: if exactly one supported directory exists (`.agents` or `.claude`), it is selected automatically; if multiple exist, you'll be prompted to choose one; if none exist, you'll be prompted to choose one to create. You'll also select a permission tier (Debugger is the default). The `.agents` directory is shared across Codex, Cursor, and OpenCode.
 
-For more details on using AI agents with DeployerPHP, see [AI Automation](/docs/automation#ai-automation).
+For more information, see [AI Automation](/docs/automation#ai-automation).
 
 ## Rollbacks
 

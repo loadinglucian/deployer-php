@@ -1,8 +1,8 @@
-# Introduction
+# Installation
 
 <!-- toc -->
 
-- [Installation](#installation)
+- [Install DeployerPHP](#install-deployerphp)
 - [Requirements](#requirements)
 - [The Commands](#the-commands)
 - [The Inventory](#the-inventory)
@@ -14,7 +14,7 @@
 
 This guide is your starting point for understanding DeployerPHP. It walks you through the main operational concepts so you can move forward with the right mental model.
 
-## Installation
+## Install DeployerPHP
 
 Install DeployerPHP just like any other Composer package:
 

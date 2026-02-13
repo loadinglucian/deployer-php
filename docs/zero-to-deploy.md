@@ -279,4 +279,4 @@ This installs Certbot, obtains a Let's Encrypt certificate, configures Nginx for
 
 ## Next Steps
 
-With your server installed and your application deployed and secured with HTTPS, you may want to set up some scheduled tasks and long-running processes. For more information, see [Crons and Supervisors](/docs/crons-and-supervisors).
+With your server installed and your application deployed and secured with HTTPS, you may want to set up some scheduled tasks and long-running processes. For more information, see [Cron Jobs](/docs/managing-sites#cron-jobs) and [Supervisor Processes](/docs/managing-sites#supervisor-processes).
