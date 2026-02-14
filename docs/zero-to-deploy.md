@@ -21,7 +21,7 @@ All you have to do is run a few simple commands and respond to a couple of inter
 
 ## Step 1: Your Server
 
-Before we can deploy anything we'll need a server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can SSH into it and it runs Ubuntu LTS >= 24.04 (no interim releases like 25.04).
+Before we can deploy anything, we'll need a server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can SSH into it and it runs Ubuntu LTS >= 24.04 (no interim releases like 25.04).
 
 ### Adding a Server
 
@@ -72,7 +72,7 @@ Alternatively, you can provision a cloud instance and add it to the inventory au
 
 For more information, see [Cloud Providers](/docs/cloud-providers).
 
-### Installing The Server
+### Installing the Server
 
 To install your new server, run the `server:install` command. This will configure the runtime environment necessary to deploy and host your applications:
 
@@ -138,7 +138,7 @@ For more information, see [Managing Databases](/docs/managing-databases).
 
 ## Step 2: Your Site
 
-At this stage, your server runtime environment should be fully installed and prepared for your application, it's time to create and deploy your site next.
+At this stage, your server runtime environment should be fully installed and prepared for your application. Next, it's time to create and deploy your site.
 
 ### Creating a Site
 
@@ -148,7 +148,7 @@ Run the `site:create` command to create a new site:
 deployer site:create
 ```
 
-This creates an Nginx configuration as well as a deploy-ready directory structure structure with releases, shared resources and current release symlink for zero downtime deployment support:
+This creates an Nginx configuration as well as a deploy-ready directory structure with releases, shared resources, and a `current` symlink for zero-downtime deployments:
 
 ```EXAMPLE nocopy
 /home/deployer/sites/example.com/
@@ -163,9 +163,9 @@ This creates an Nginx configuration as well as a deploy-ready directory structur
 
 Point your DNS to the server through your DNS provider:
 
-- **A Record**: Point your domain to your server's IP address
+- **A record**: Point your domain to your server's IP address
 - **AAAA records** (optional): Point your domain to your server's IPv6 addresses
-- **CNAME Record** (optional): Point www subdomain to your main domain
+- **CNAME record** (optional): Point the `www` subdomain to your main domain
 
 DNS propagation typically takes a while, so the sooner you can get it out of the way, the better. Run the `deployer site:dns:check` command to check your DNS resolution:
 
@@ -173,11 +173,11 @@ DNS propagation typically takes a while, so the sooner you can get it out of the
 deployer site:dns:check
 ```
 
-If you use any of the supported DNS providers, you can configure your DNS using one of the dedicate provider commands:
+If you use any of the supported DNS providers, you can configure your DNS using one of the dedicated provider commands:
 
 | Command       | Description                                |
 | ------------- | ------------------------------------------ |
-| `aws:dns:set` | Create or update a AWS Route53 record      |
+| `aws:dns:set` | Create or update an AWS Route53 record     |
 | `cf:dns:set`  | Create or update a Cloudflare DNS record   |
 | `do:dns:set`  | Create or update a DigitalOcean DNS record |
 
@@ -221,7 +221,7 @@ deployer scaffold:scripts
 
 This creates `deploy.sh`, `cron.sh`, and `supervisor.sh` in your project's `.deployer/scripts` directory:
 
-- The `deploy.sh` script manages your project's deployment workflow by installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches.
+- The `deploy.sh` script handles your project's deployment workflow by installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches.
 - The `cron.sh` and `supervisor.sh` scripts serve as starting points for scheduled tasks and long-running workers.
 
 Each script has access to these environment variables:
@@ -258,7 +258,7 @@ Understanding the deployment lifecycle helps you write effective deployment scri
 
 2. **Release Creation** - A new timestamped directory is created in `releases/` (e.g., `releases/20240115_143052`). Your code is exported from the repository into this directory using `git archive`, ensuring a clean copy without Git metadata.
 
-3. **Deploy Script** - If your project has a `.deployer/scripts/deploy.sh` script, it runs now. This single script handles the entire pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The release is isolated at this point, so failures here won't affect your live site.
+3. **Deploy Script** - If your project has a `.deployer/scripts/deploy.sh` script, it runs now. This script handles your project's deployment workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The release is isolated, so failures won't affect your live site.
 
 4. **Activation** - The `current` symlink atomically switches to point to the new release. This is the moment your new code goes live. The atomic nature of symlink operations means there's no "in-between" state.
 
@@ -272,7 +272,7 @@ Each deployment creates a new release directory with a timestamp in the format `
 
 By default, DeployerPHP keeps the 5 most recent releases. You can customize this when running the deploy command.
 
-If you want, you can manually switch back to a previous release by updating the `current` symlink to point to an older release directory and reloading PHP-FPM. That said, DeployerPHP uses a forward-only deployment philosophy.
+If you want, you can manually switch back to a previous release by updating the `current` symlink to point to an older release directory and reloading PHP-FPM. That said, DeployerPHP espouses a forward-only deployment philosophy.
 
 > [!IMPORTANT]
 > DeployerPHP uses a forward-only deployment philosophy:
