@@ -2,19 +2,9 @@
 
 <!-- toc -->
 
-- [Step 1: Add A Server](#step-1-add-a-server)
-    - [Cloud Instances](#cloud-instances)
-- [Step 2: Install The Server](#step-2-install-the-server)
-    - [Additional PHP Versions](#additional-php-versions)
-    - [Installing Databases](#installing-databases)
-- [Step 3: Create a Site](#step-3-create-a-site)
-    - [Managing DNS](#managing-dns)
-- [Step 4: Deploy a Site](#step-4-deploy-a-site)
-    - [The Deployment Lifecycle](#the-deployment-lifecycle)
-    - [Deployment Scripts](#deployment-scripts)
-    - [Shared Files](#shared-files)
-    - [Release Management](#release-management)
-- [Step 5: Enable HTTPS](#step-5-enable-https)
+- [Step 1: Your Server](#step-1-your-server)
+- [Step 2: Your Site](#step-2-your-site)
+- [Step 3: Deploy](#step-3-deploy)
 - [Next Steps](#next-steps)
 
 <!-- /toc -->
@@ -29,9 +19,11 @@ This guide is going to walk you through deploying your first application with De
 
 All you have to do is run a few simple commands and respond to a couple of interactive prompts. DeployerPHP will take care of all the hard stuff.
 
-## Step 1: Add A Server
+## Step 1: Your Server
 
 Before we can deploy anything we'll need a server to deploy to. You can use any physical server, VPS, or cloud instance as long as you can SSH into it and it runs Ubuntu LTS >= 24.04 (no interim releases like 25.04).
+
+### Adding a Server
 
 Run the `server:add` command to add a new server to your inventory:
 
@@ -69,11 +61,18 @@ $> deployer server:add  \
 
 For more information, see [Managing Servers](/docs/managing-servers).
 
-### Cloud Instances
+### Cloud Providers
 
-Alternatively, you can provision a cloud instance and add it to the inventory automatically using one of the dedicated cloud provider commands. For more information, see [Cloud Providers](/docs/cloud-providers).
+Alternatively, you can provision a cloud instance and add it to the inventory automatically using one of the dedicated cloud provider commands:
 
-## Step 2: Install The Server
+| Command         | Description                                          |
+| --------------- | ---------------------------------------------------- |
+| `aws:provision` | Provision AWS EC2 instances and add to inventory     |
+| `do:provision`  | Provision DigitalOcean droplets and add to inventory |
+
+For more information, see [Cloud Providers](/docs/cloud-providers).
+
+### Installing The Server
 
 To install your new server, run the `server:install` command. This will configure the runtime environment necessary to deploy and host your applications:
 
@@ -137,9 +136,13 @@ You can install your preferred database or cache services by running one of the 
 
 For more information, see [Managing Databases](/docs/managing-databases).
 
-## Step 3: Create a Site
+## Step 2: Your Site
 
-At this point, your server runtime environment should be installed and ready for your application. Run the `site:create` command to create a new site:
+At this stage, your server runtime environment should be fully installed and prepared for your application, it's time to create and deploy your site next.
+
+### Creating a Site
+
+Run the `site:create` command to create a new site:
 
 ```shell
 deployer site:create
@@ -156,7 +159,7 @@ This creates an Nginx configuration as well as a deploy-ready directory structur
 └── shared/                   # Persistent files (.env, storage, etc.)
 ```
 
-### Managing DNS
+### Pointing Your DNS
 
 Point your DNS to the server through your DNS provider:
 
@@ -180,7 +183,35 @@ If you use any of the supported DNS providers, you can configure your DNS using 
 
 For more information, see [Cloud Providers](/docs/cloud-providers).
 
-### Scaffold Scripts
+### Enable HTTPS
+
+Run the `site:https` command to install an SSL certificate:
+
+```shell
+deployer site:https
+```
+
+This installs Certbot, obtains a Let's Encrypt certificate, configures Nginx for HTTPS, and sets up automatic certificate renewal.
+
+> [!INFO]
+> Your domain's DNS must point to your server before running this command.
+
+### Shared Files
+
+Shared files and directories persist across releases. Common examples include `.env` files, user-uploaded content, and SQLite databases. The deploy script links specific shared items into each release, giving you fine-grained control over what is shared and how.
+
+Use the `site:shared:push` command to upload a file to a site's shared directory:
+
+```shell
+deployer site:shared:push
+```
+
+The command will prompt you for the server, site, local file path, and remote file path within the shared directory. Use `site:shared:pull` to download a shared file to your local machine.
+
+> [!INFO]
+> The `site:shared:*` commands only support single files. You can create any shared directory structures your application needs in the deploy script. For more information, see the next section.
+
+### Scaffolding Scripts
 
 Run the `scaffold:scripts` command in your project directory to scaffold a few sample scripts:
 
@@ -188,9 +219,10 @@ Run the `scaffold:scripts` command in your project directory to scaffold a few s
 deployer scaffold:scripts
 ```
 
-This creates `deploy.sh`, `cron.sh`, and `supervisor.sh` in the `.deployer/scripts` directory. DeployerPHP uses these scripts for deploying your website and configuring your cron or supervisor processes.
+This creates `deploy.sh`, `cron.sh`, and `supervisor.sh` in your project's `.deployer/scripts` directory:
 
-The `deploy.sh` script handles the complete pre-activation workflow: installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches. The `cron.sh` and `supervisor.sh` scripts are starting points for scheduled tasks and long-running workers.
+- The `deploy.sh` script manages your project's deployment workflow by installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches.
+- The `cron.sh` and `supervisor.sh` scripts serve as starting points for scheduled tasks and long-running workers.
 
 Each script has access to these environment variables:
 
@@ -206,7 +238,7 @@ The script runs in the release directory with the `deployer` user. Adding `set -
 > [!INFO]
 > The deploy script is the ideal place to create shared directories your application needs. For example, if your application stores user uploads, create the directory with `mkdir -p "$DEPLOYER_SHARED_PATH/uploads"` and symlink it into the release.
 
-## Step 4: Deploy a Site
+## Step 3: Deploy
 
 Run the `site:deploy` command to deploy your application from a Git repository:
 
@@ -234,22 +266,7 @@ Understanding the deployment lifecycle helps you write effective deployment scri
 
 6. **Cleanup** - Old releases beyond the keep count are removed to free disk space.
 
-### Shared Files
-
-Shared files and directories persist across deployments. Common examples include `.env` files, user-uploaded content, and SQLite databases. The deploy script links specific shared items into each release, giving you fine-grained control over what is shared and how.
-
-Use the `site:shared:push` command to upload a file to a site's shared directory:
-
-```shell
-deployer site:shared:push
-```
-
-The command will prompt you for the server, site, local file path, and remote file path within the shared directory. Use `site:shared:pull` to download a shared file to your local machine.
-
-> [!INFO]
-> The `site:shared:*` commands only support single files. You can create any shared directory structures your application needs in the deploy script.
-
-### Release Management
+### Release History
 
 Each deployment creates a new release directory with a timestamp in the format `YYYYMMDD_HHMMSS`. The `current` symlink always points to the active release.
 
@@ -263,19 +280,6 @@ If you want, you can manually switch back to a previous release by updating the 
 > - Rollbacks mask problems rather than fixing them. The underlying issue remains.
 > - Forward-only fixes create an auditable history of what changed and why.
 > - Modern CI/CD makes deploying a fix just as fast as rolling back.
-
-## Step 5: Enable HTTPS
-
-Run the `site:https` command to install an SSL certificate:
-
-```shell
-deployer site:https
-```
-
-This installs Certbot, obtains a Let's Encrypt certificate, configures Nginx for HTTPS, and sets up automatic certificate renewal.
-
-> [!INFO]
-> Your domain's DNS must point to your server before running this command.
 
 ## Next Steps
 
