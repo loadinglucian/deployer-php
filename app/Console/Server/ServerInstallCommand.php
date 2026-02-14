@@ -471,12 +471,12 @@ class ServerInstallCommand extends BaseCommand
         $defaultExtensions = [
             'bcmath', 'common', 'curl', 'gd', 'gmp',
             'igbinary', 'imagick', 'imap', 'intl', 'mbstring',
-            'memcached', 'msgpack', 'mysql', 'opcache', 'pgsql',
+            'memcached', 'msgpack', 'mysql', 'pgsql',
             'readline', 'redis', 'soap', 'sqlite3', 'swoole', 'xml', 'zip',
         ];
 
         // Required extensions - always installed, not user-selectable
-        $requiredExtensions = ['cli', 'fpm'];
+        $requiredExtensions = ['cli', 'fpm', 'opcache'];
 
         //
         // Extract available PHP versions
@@ -583,7 +583,7 @@ class ServerInstallCommand extends BaseCommand
         // Filter defaults to only those available for this version
         $preSelected = array_values(array_intersect($defaultExtensions, $selectableExtensions));
 
-        $this->info('PHP cli and fpm extensions are always installed');
+        $this->info('PHP cli, fpm, and opcache extensions are always installed');
 
         try {
             $selectedExtensions = $this->io->getValidatedOptionOrPrompt(

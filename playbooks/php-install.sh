@@ -131,6 +131,28 @@ configure_php_fpm() {
 }
 
 #
+# OPcache Configuration
+# ----
+
+#
+# Ensure OPcache is enabled for PHP-FPM only
+
+configure_opcache() {
+	echo "→ Enabling OPcache for PHP ${DEPLOYER_PHP_VERSION}..."
+
+	local fpm_opcache_ini
+	fpm_opcache_ini="/etc/php/${DEPLOYER_PHP_VERSION}/fpm/conf.d/99-deployer-opcache.ini"
+
+	if ! run_cmd tee "$fpm_opcache_ini" > /dev/null <<- 'EOF'; then
+		; Managed by DeployerPHP
+		opcache.enable=1
+	EOF
+		echo "Error: Failed to write OPcache config for PHP-FPM" >&2
+		exit 1
+	fi
+}
+
+#
 # PHP-FPM logrotate config
 # ----
 
@@ -266,6 +288,7 @@ update_nginx_config() {
 main() {
 	# Execute installation tasks
 	install_php_packages
+	configure_opcache
 	configure_php_fpm
 	config_logrotate
 	set_as_default
