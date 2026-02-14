@@ -272,7 +272,7 @@ Each deployment creates a new release directory with a timestamp in the format `
 
 By default, DeployerPHP keeps the 5 most recent releases. You can customize this when running the deploy command.
 
-If you want, you can manually switch back to a previous release by updating the `current` symlink to point to an older release directory and reloading PHP-FPM. That said, DeployerPHP espouses a forward-only deployment philosophy.
+You can manually switch back to a previous release by updating the `current` symlink to point to an older release directory and reloading PHP-FPM. That said, DeployerPHP espouses a forward-only deployment philosophy.
 
 > [!IMPORTANT]
 > DeployerPHP uses a forward-only deployment philosophy:
