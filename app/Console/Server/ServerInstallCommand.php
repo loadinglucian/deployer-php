@@ -475,8 +475,8 @@ class ServerInstallCommand extends BaseCommand
             'readline', 'redis', 'soap', 'sqlite3', 'swoole', 'xml', 'zip',
         ];
 
-        // Required extensions - always installed, not user-selectable
-        $requiredExtensions = ['cli', 'fpm', 'opcache'];
+        // Required package extensions - always installed, not user-selectable
+        $requiredExtensions = ['cli', 'fpm'];
 
         //
         // Extract available PHP versions
@@ -545,6 +545,14 @@ class ServerInstallCommand extends BaseCommand
             return Command::FAILURE;
         }
 
+        // OPcache is packaged as phpX.Y-opcache before 8.5 and built-in from 8.5+
+        $builtInExtensions = [];
+        if (version_compare($phpVersion, '8.5', '<')) {
+            $requiredExtensions[] = 'opcache';
+        } else {
+            $builtInExtensions[] = 'opcache';
+        }
+
         //
         // Select PHP extensions
         // ----
@@ -577,13 +585,18 @@ class ServerInstallCommand extends BaseCommand
             return Command::FAILURE;
         }
 
-        // Remove required extensions from selectable list (they're always installed)
-        $selectableExtensions = array_values(array_diff($availableExtensions, $requiredExtensions));
+        // Remove always-on extensions from selectable list (required or built-in)
+        $alwaysOnExtensions = array_values(array_unique([...$requiredExtensions, ...$builtInExtensions]));
+        $selectableExtensions = array_values(array_diff($availableExtensions, $alwaysOnExtensions));
 
         // Filter defaults to only those available for this version
         $preSelected = array_values(array_intersect($defaultExtensions, $selectableExtensions));
 
-        $this->info('PHP cli, fpm, and opcache extensions are always installed');
+        if ([] === $builtInExtensions) {
+            $this->info('PHP cli, fpm, and opcache extensions are always installed');
+        } else {
+            $this->info('PHP cli and fpm extensions are always installed; opcache is built in for PHP 8.5+');
+        }
 
         try {
             $selectedExtensions = $this->io->getValidatedOptionOrPrompt(
@@ -595,7 +608,12 @@ class ServerInstallCommand extends BaseCommand
                     scroll: 15,
                     validate: $validate
                 ),
-                fn ($value) => $this->validatePhpExtensionsInput($value, $selectableExtensions, $requiredExtensions)
+                fn ($value) => $this->validatePhpExtensionsInput(
+                    $value,
+                    $selectableExtensions,
+                    $requiredExtensions,
+                    $builtInExtensions
+                )
             );
         } catch (ValidationException $e) {
             $this->nay($e->getMessage());
@@ -611,6 +629,9 @@ class ServerInstallCommand extends BaseCommand
                 static fn (string $ext): bool => $ext !== ''
             )
             : $selectedExtensions;
+
+        // Filter built-in extensions (e.g. opcache on 8.5+) from package install list
+        $normalizedExtensions = array_values(array_diff($normalizedExtensions, $builtInExtensions));
 
         // Merge required extensions (always installed)
         /** @var array<int, string> $selectedExtensions */
@@ -734,10 +755,16 @@ class ServerInstallCommand extends BaseCommand
      *
      * @param array<int|string, string> $selectableExtensions Selectable PHP extensions
      * @param array<int, string> $requiredExtensions Required extensions to filter from input
+     * @param array<int, string> $builtInExtensions Built-in extensions to filter from input
      *
      * @return string|null Error message if invalid, null if valid
      */
-    private function validatePhpExtensionsInput(mixed $value, array $selectableExtensions, array $requiredExtensions = []): ?string
+    private function validatePhpExtensionsInput(
+        mixed $value,
+        array $selectableExtensions,
+        array $requiredExtensions = [],
+        array $builtInExtensions = []
+    ): ?string
     {
         // CLI provides comma-separated string, prompt provides array
         $extensions = $value;
@@ -754,6 +781,7 @@ class ServerInstallCommand extends BaseCommand
 
         // Filter out required extensions (they're always installed, so ignore if user specifies them)
         $extensions = array_diff($extensions, $requiredExtensions);
+        $extensions = array_diff($extensions, $builtInExtensions);
 
         if ([] === $extensions) {
             return 'At least one optional extension must be selected';
