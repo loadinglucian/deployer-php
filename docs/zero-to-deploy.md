@@ -87,7 +87,7 @@ This installs and configures your server runtime environment with:
 - **Nginx** - Web server with optimized configuration
 - **PHP** - Your selected version with extensions
 - **Bun** - JavaScript runtime for building assets
-- **Deployer user** - Dedicated user for deployments with deploy key
+- **Dedicated user** - Dedicated `deployer` user with its own SSH key pair
 
 ```EXAMPLE nocopy
 ▒ ≡ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -224,19 +224,10 @@ This creates `deploy.sh`, `cron.sh`, and `supervisor.sh` in your project's `.dep
 - The `deploy.sh` script handles your project's deployment workflow by installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches.
 - The `cron.sh` and `supervisor.sh` scripts serve as starting points for scheduled tasks and long-running workers.
 
-Each script has access to these environment variables:
-
-| Variable           | Description                           |
-| ------------------ | ------------------------------------- |
-| `DEPLOYER_RELEASE` | Path to the current release directory |
-| `DEPLOYER_SHARED`  | Path to the shared directory          |
-| `DEPLOYER_CURRENT` | Path to the current symlink           |
-| `DEPLOYER_REPO`    | Path to the repository directory      |
-
-The script runs in the release directory with the `deployer` user. Adding `set -e` at the top ensures the deployment stops if any command fails, preventing a broken release from going live.
+Each script has access to several environment variables (see the scaffolded scripts for a complete reference) and runs in the release directory as the dedicated `deployer` user. Adding `set -e` at the top ensures that the deployment stops if any command fails, preventing a broken release from going live.
 
 > [!INFO]
-> The deploy script is the ideal place to create shared directories your application needs. For example, if your application stores user uploads, create the directory with `mkdir -p "$DEPLOYER_SHARED/uploads"` and symlink it into the release.
+> The deploy script is the ideal place to create shared directories your application needs. For example, if your application stores user uploads, create the directory with `mkdir -p "$DEPLOYER_SHARED_PATH/uploads"` and symlink it into the release.
 
 ## Step 3: Deploy
 

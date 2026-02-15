@@ -239,13 +239,13 @@ DeployerPHP can provision Droplets, manage SSH keys, and configure DNS records i
 Set your DigitalOcean API token as an environment variable:
 
 ```shell
-export DIGITALOCEAN_TOKEN="your-api-token"
+export DIGITALOCEAN_API_TOKEN="your-api-token"
 ```
 
 Or in a `.env` file:
 
 ```env
-DIGITALOCEAN_TOKEN=your-api-token
+DIGITALOCEAN_API_TOKEN=your-api-token
 ```
 
 Generate an API token at [cloud.digitalocean.com/account/api/tokens](https://cloud.digitalocean.com/account/api/tokens) with read and write access.
