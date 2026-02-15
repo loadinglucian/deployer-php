@@ -764,8 +764,7 @@ class ServerInstallCommand extends BaseCommand
         array $selectableExtensions,
         array $requiredExtensions = [],
         array $builtInExtensions = []
-    ): ?string
-    {
+    ): ?string {
         // CLI provides comma-separated string, prompt provides array
         $extensions = $value;
         if (is_string($extensions)) {
