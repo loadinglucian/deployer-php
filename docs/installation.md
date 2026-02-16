@@ -62,6 +62,8 @@ Commands are organized into namespaces that represent what each group manages:
 - **`scaffold:*`**: Generate cron, hook, supervisor, and AI skills config files
 - **`aws:*`**, **`cf:*`**, **`do:*`**: Cloud provider integrations
 
+For namespace-by-namespace behavior details, see the [Documentation Index](/docs/documentation) and its command reference sections.
+
 ## The Inventory
 
 DeployerPHP tracks your servers and sites in an inventory file, which it initializes in your current working directory as `.deployer/inventory.yml`. This inventory file stores the details of servers you add and sites you create, so you don't have to re-enter connection details, domain names or IPs each time you run a command.

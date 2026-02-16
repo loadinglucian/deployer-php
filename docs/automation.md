@@ -1,4 +1,4 @@
-# Automation
+# Automation & AI Guide
 
 <!-- toc -->
 
@@ -9,51 +9,31 @@
 
 <!-- /toc -->
 
-While managing servers and deployments manually works well during development, you'll often want to automate these tasks for CI/CD pipelines, scheduled jobs, or AI-assisted workflows. DeployerPHP provides several features to make automation seamless.
+While managing servers and deployments manually works well during development, you'll often want to automate these tasks for CI/CD pipelines, scheduled jobs, or AI-assisted workflows. This guide explains the automation model and how to use AI safely with DeployerPHP.
 
 <a name="command-replays"></a>
 
 ## Command Replays
 
-Every DeployerPHP command displays a **non-interactive command replay** at the end of execution. This replay shows the exact command with all options you selected during the interactive session, making it easy to copy and use in scripts or CI pipelines.
+Every DeployerPHP command displays a non-interactive command replay at the end of execution. The replay reflects your interactive choices and can be reused as the starting point for scripts, CI jobs, and repeatable runbooks.
 
-For example, when you run `deployer server:add` interactively and fill in the prompts, you'll see output like:
+The intended workflow is simple:
 
-```shell
-# Non-interactive command replay
-deployer server:add \
-    --name=production \
-    --host=192.168.1.100 \
-    --port=22 \
-    --username=root \
-    --private-key-path=~/.ssh/id_rsa
-```
-
-You can copy this command directly into your automation scripts. The replay teaches you the CLI syntax as you use the tool: run interactively once, then automate with the generated command.
+1. Run a command interactively once.
+2. Validate the behavior and outcome.
+3. Reuse the generated replay in automation contexts.
 
 <a name="quiet-mode"></a>
 
 ## Quiet Mode
 
-If you want minimal output, use the `--quiet` (or `-q`) global option. This option is available on all commands and suppresses all output except errors.
+Quiet mode is intended for non-interactive automation runs where human-readable terminal output is unnecessary. In this mode, command output is minimized and errors still surface.
 
-```shell
-deployer site:deploy \
-    --domain=example.com \
-    --repo=git@github.com:user/app.git \
-    --branch=main \
-    --yes \
-    --quiet
-```
+When using quiet, non-interactive execution:
 
-When using quiet mode, you must provide **all required options via CLI**. DeployerPHP can't prompt for missing values when output is suppressed. If a required option is missing, you'll receive a clear error:
-
-```
-Option --domain is required when using --quiet mode
-```
-
-> [!INFO]
-> The `--yes` flag skips confirmation prompts. In automation, you'll typically combine `--quiet` with `--yes` to run completely non-interactively.
+- Provide all required command inputs up front.
+- Expect prompt-driven flows to be bypassed.
+- Treat replay output as the canonical source for repeatable command construction.
 
 <a name="ai-automation"></a>
 
@@ -64,11 +44,7 @@ If you use AI tools like Claude, Codex, Cursor, or OpenCode, you can create a sk
 > [!IMPORTANT]
 > **Use at your own risk!** Granting AI agents access to production servers can be risky. Always review generated skills and monitor AI-initiated actions. You are solely responsible for any changes, data loss, or issues arising from AI-assisted debugging.
 
-Run the `scaffold:ai` command from your project directory:
-
-```shell
-deployer scaffold:ai
-```
+Run `scaffold:ai` from your project directory to generate agent skills.
 
 DeployerPHP will select the AI agent directory using this flow:
 
@@ -113,3 +89,5 @@ The generated skills file provides your AI assistant with:
 - **Guardrails**: Explicit restrictions preventing destructive operations like deployments, service restarts, or configuration changes
 
 This ensures your AI assistant can help troubleshoot issues on your servers without accidentally running commands that could affect production stability.
+
+For command-level behavior details, see [Scaffold Reference](/docs/reference-scaffold) and [Server Reference](/docs/reference-server).

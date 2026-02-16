@@ -11,17 +11,43 @@ Everything you need to deploy PHP applications:
 - [Introduction](../README.md)
 - [Installation](installation.md)
 - [Zero to Deploy](zero-to-deploy.md)
+- [Automation & AI Guide](automation.md)
 
 <a name="references"></a>
 
 ## References
 
-- [Managing Sites](managing-sites.md)
-- [Managing Servers](managing-servers.md)
-- [Managing Services](managing-services.md)
-- [Managing Databases](managing-databases.md)
-- [Cloud Providers](cloud-providers.md)
-- [Automation & AI](automation.md)
+### Server & Site Operations
+
+- [Server](reference-server.md)
+- [Site](reference-site.md)
+
+### Scheduling & Process Control
+
+- [Cron](reference-cron.md)
+- [Supervisor](reference-supervisor.md)
+
+### Web Runtime Services
+
+- [Nginx](reference-nginx.md)
+- [PHP-FPM](reference-php.md)
+
+### Data Services
+
+- [MariaDB](reference-mariadb.md)
+- [PostgreSQL](reference-postgresql.md)
+- [Redis](reference-redis.md)
+- [Memcached](reference-memcached.md)
+
+### Cloud Providers
+
+- [AWS](reference-aws.md)
+- [Cloudflare](reference-cloudflare.md)
+- [DigitalOcean](reference-digitalocean.md)
+
+### Scaffolding
+
+- [Scaffold](reference-scaffold.md)
 
 ## Images
 
