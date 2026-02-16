@@ -2,43 +2,35 @@
 
 <!-- toc -->
 
-- [nginx:start](#nginx-start)
-- [nginx:stop](#nginx-stop)
-- [nginx:restart](#nginx-restart)
+- [At a Glance](#at-a-glance)
+- [Details](#details)
+- [Safety and Guardrails](#safety-and-guardrails)
+- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
-Use these commands to control the Nginx service on installed servers.
+Use `nginx:*` commands to control the web server runtime on managed hosts.
 
-<a name="nginx-start"></a>
+## At a Glance
 
-## nginx:start
+| Command         | Use it when you need to...                    |
+| --------------- | --------------------------------------------- |
+| `nginx:start`   | bring Nginx online                            |
+| `nginx:stop`    | stop Nginx for controlled maintenance         |
+| `nginx:restart` | reload Nginx state after changes or incidents |
 
-- **What it does**: Starts the Nginx service.
-- **When to use it**: Recovering from downtime or bringing a newly installed server online.
-- **Prerequisites**: Nginx installed and server reachable.
-- **Effects on server/inventory/resources**: Starts remote service.
-- **Related commands**: `nginx:stop`, `nginx:restart`, `server:logs`.
-- **Failure/guardrail behavior**: Surfaces service startup errors directly.
+## Details
 
-<a name="nginx-stop"></a>
+These commands are service lifecycle controls. Prefer `nginx:restart` for most recovery and post-change workflows.
 
-## nginx:stop
+If you are diagnosing traffic failures, inspect logs before and after service actions.
 
-- **What it does**: Stops the Nginx service.
-- **When to use it**: Controlled maintenance windows and low-level troubleshooting.
-- **Prerequisites**: Nginx installed and server reachable.
-- **Effects on server/inventory/resources**: Stops remote service.
-- **Related commands**: `nginx:start`, `nginx:restart`.
-- **Failure/guardrail behavior**: Stops with service-level errors if shutdown fails.
+## Safety and Guardrails
 
-<a name="nginx-restart"></a>
+> [!IMPORTANT]
+> Stopping Nginx makes web traffic unavailable for sites on the target server.
 
-## nginx:restart
+## Related Guides
 
-- **What it does**: Restarts Nginx to reload service state.
-- **When to use it**: After web config updates or runtime recovery actions.
-- **Prerequisites**: Nginx installed and server reachable.
-- **Effects on server/inventory/resources**: Restarts remote service.
-- **Related commands**: `nginx:start`, `nginx:stop`, `server:logs`.
-- **Failure/guardrail behavior**: Reports restart failures with actionable context.
+- [Managing Services](/docs/managing-services)
+- [Managing Servers](/docs/managing-servers)

@@ -1,8 +1,14 @@
 # Documentation
 
-DeployerPHP documentation is organized as a progressive guide.
+<!-- toc -->
 
-Everything you need to deploy PHP applications:
+- [Guides](#guides)
+- [References](#references)
+- [Images](#images)
+
+<!-- /toc -->
+
+DeployerPHP documentation is split into guides and references. Use guides for workflows and operational decisions, and use references for fast command lookup.
 
 <a name="guides"></a>
 
@@ -12,6 +18,13 @@ Everything you need to deploy PHP applications:
 - [Installation](installation.md)
 - [Zero to Deploy](zero-to-deploy.md)
 - [Automation & AI Guide](automation.md)
+- [Managing Servers](managing-servers.md)
+- [Managing Sites](managing-sites.md)
+- [Managing Services](managing-services.md)
+- [Managing Databases](managing-databases.md)
+- [Cloud Providers](cloud-providers.md)
+- [Cron Jobs & Processes](cron-and-processes.md)
+- [Scaffolding](scaffolding.md)
 
 <a name="references"></a>
 
@@ -19,35 +32,35 @@ Everything you need to deploy PHP applications:
 
 ### Server & Site Operations
 
-- [Server](reference-server.md)
-- [Site](reference-site.md)
+- [Server Reference](reference-server.md)
+- [Site Reference](reference-site.md)
 
 ### Scheduling & Process Control
 
-- [Cron](reference-cron.md)
-- [Supervisor](reference-supervisor.md)
+- [Cron Reference](reference-cron.md)
+- [Supervisor Reference](reference-supervisor.md)
 
 ### Web Runtime Services
 
-- [Nginx](reference-nginx.md)
-- [PHP-FPM](reference-php.md)
+- [Nginx Reference](reference-nginx.md)
+- [PHP-FPM Reference](reference-php.md)
 
 ### Data Services
 
-- [MariaDB](reference-mariadb.md)
-- [PostgreSQL](reference-postgresql.md)
-- [Redis](reference-redis.md)
-- [Memcached](reference-memcached.md)
+- [MariaDB Reference](reference-mariadb.md)
+- [PostgreSQL Reference](reference-postgresql.md)
+- [Redis Reference](reference-redis.md)
+- [Memcached Reference](reference-memcached.md)
 
 ### Cloud Providers
 
-- [AWS](reference-aws.md)
-- [Cloudflare](reference-cloudflare.md)
-- [DigitalOcean](reference-digitalocean.md)
+- [AWS Reference](reference-aws.md)
+- [Cloudflare Reference](reference-cloudflare.md)
+- [DigitalOcean Reference](reference-digitalocean.md)
 
 ### Scaffolding
 
-- [Scaffold](reference-scaffold.md)
+- [Scaffold Reference](reference-scaffold.md)
 
 ## Images
 

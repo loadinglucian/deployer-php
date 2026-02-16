@@ -2,33 +2,37 @@
 
 <!-- toc -->
 
-- [scaffold:scripts](#scaffold-scripts)
-- [scaffold:ai](#scaffold-ai)
+- [At a Glance](#at-a-glance)
+- [Details](#details)
+- [Safety and Guardrails](#safety-and-guardrails)
+- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
-Use scaffold commands to generate project-local templates that support deployment automation and AI-assisted operations.
+Use `scaffold:*` commands to generate project-local scripts and AI skill files.
 
-<a name="scaffold-scripts"></a>
+## At a Glance
 
-## scaffold:scripts
+| Command            | Use it when you need to...                             |
+| ------------------ | ------------------------------------------------------ |
+| `scaffold:scripts` | generate baseline deploy, cron, and supervisor scripts |
+| `scaffold:ai`      | generate agent skills with tiered permissions          |
 
-- **What it does**: Generates deployment, cron, and supervisor script templates under your project scaffolding path.
-- **When to use it**: Initial project setup or when standard scripts need to be regenerated.
-- **Prerequisites**: Run from the project working directory where scaffolding should be created.
-- **Effects on server/inventory/resources**: Writes local script template files only.
-- **Related commands**: `site:deploy`, `cron:create`, `supervisor:create`.
-- **Failure/guardrail behavior**: Stops on local filesystem write conflicts or invalid path assumptions.
+## Details
 
-<a name="scaffold-ai"></a>
+`scaffold:scripts` creates templates under your local project scaffolding path so you can version and customize them.
 
-## scaffold:ai
+`scaffold:ai` helps you bootstrap operationally safe agent behavior based on selected permission tiers.
 
-- **What it does**: Generates AI skill files for supported agent directories with tiered guardrails.
-- **When to use it**: Setting up AI-assisted diagnostics and operations workflows for a DeployerPHP project.
-- **Prerequisites**: Run from project root with supported agent directory conventions.
-- **Effects on server/inventory/resources**: Writes local AI skill configuration files only.
-- **Related commands**: `server:info`, `server:logs`, `server:run`.
-- **Failure/guardrail behavior**: Uses directory/tier validation and exits on unsafe or invalid scaffolding context.
+## Safety and Guardrails
 
-For guided workflow details and safety posture, see [Automation & AI Guide](/docs/automation).
+> [!IMPORTANT]
+> Treat scaffold output as a starting point. Review and adapt generated files before using them in production.
+
+> [!IMPORTANT]
+> For `scaffold:ai`, choose the lowest permission tier that still enables your troubleshooting workflow.
+
+## Related Guides
+
+- [Scaffolding](/docs/scaffolding)
+- [Automation & AI Guide](/docs/automation)

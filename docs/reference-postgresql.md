@@ -2,55 +2,39 @@
 
 <!-- toc -->
 
-- [postgresql:install](#postgresql-install)
-- [postgresql:start](#postgresql-start)
-- [postgresql:stop](#postgresql-stop)
-- [postgresql:restart](#postgresql-restart)
+- [At a Glance](#at-a-glance)
+- [Details](#details)
+- [Safety and Guardrails](#safety-and-guardrails)
+- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
-Use these commands to install and operate PostgreSQL on managed servers.
+Use `postgresql:*` commands to install and operate PostgreSQL on managed servers.
 
-<a name="postgresql-install"></a>
+## At a Glance
 
-## postgresql:install
+| Command              | Use it when you need to...                                |
+| -------------------- | --------------------------------------------------------- |
+| `postgresql:install` | install PostgreSQL and initialize application credentials |
+| `postgresql:start`   | start PostgreSQL                                          |
+| `postgresql:stop`    | stop PostgreSQL for maintenance                           |
+| `postgresql:restart` | restart PostgreSQL after operational changes              |
 
-- **What it does**: Installs PostgreSQL and initializes application-ready database credentials.
-- **When to use it**: Adding PostgreSQL to a server for transactional or relational workloads.
-- **Prerequisites**: Installed and reachable server.
-- **Effects on server/inventory/resources**: Installs remote database service and creates initial credentials.
-- **Related commands**: `postgresql:start`, `postgresql:restart`, `server:logs`.
-- **Failure/guardrail behavior**: Returns contextual installation errors and credential handling safeguards.
+## Details
 
-<a name="postgresql-start"></a>
+`postgresql:install` includes credential generation and delivery flow.
 
-## postgresql:start
+Lifecycle commands (`postgresql:start`, `postgresql:stop`, `postgresql:restart`) handle runtime control.
 
-- **What it does**: Starts PostgreSQL service.
-- **When to use it**: Recovering service availability.
-- **Prerequisites**: PostgreSQL installed and server reachable.
-- **Effects on server/inventory/resources**: Starts remote database service.
-- **Related commands**: `postgresql:stop`, `postgresql:restart`.
-- **Failure/guardrail behavior**: Reports startup failures directly.
+## Safety and Guardrails
 
-<a name="postgresql-stop"></a>
+> [!IMPORTANT]
+> Treat generated installation credentials as sensitive and store them promptly.
 
-## postgresql:stop
+> [!IMPORTANT]
+> Stopping PostgreSQL interrupts dependent application traffic.
 
-- **What it does**: Stops PostgreSQL service.
-- **When to use it**: Planned maintenance windows.
-- **Prerequisites**: PostgreSQL installed and server reachable.
-- **Effects on server/inventory/resources**: Stops remote database service.
-- **Related commands**: `postgresql:start`, `postgresql:restart`.
-- **Failure/guardrail behavior**: Reports stop failures directly.
+## Related Guides
 
-<a name="postgresql-restart"></a>
-
-## postgresql:restart
-
-- **What it does**: Restarts PostgreSQL service.
-- **When to use it**: Reloading service runtime after operational changes.
-- **Prerequisites**: PostgreSQL installed and server reachable.
-- **Effects on server/inventory/resources**: Restarts remote database service.
-- **Related commands**: `postgresql:start`, `postgresql:stop`, `server:logs`.
-- **Failure/guardrail behavior**: Aborts on restart failures with service context.
+- [Managing Databases](/docs/managing-databases)
+- [Managing Services](/docs/managing-services)

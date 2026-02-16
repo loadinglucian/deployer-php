@@ -2,55 +2,39 @@
 
 <!-- toc -->
 
-- [redis:install](#redis-install)
-- [redis:start](#redis-start)
-- [redis:stop](#redis-stop)
-- [redis:restart](#redis-restart)
+- [At a Glance](#at-a-glance)
+- [Details](#details)
+- [Safety and Guardrails](#safety-and-guardrails)
+- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
-Use these commands to install and operate Redis on managed servers.
+Use `redis:*` commands to install and operate Redis on managed servers.
 
-<a name="redis-install"></a>
+## At a Glance
 
-## redis:install
+| Command         | Use it when you need to...                 |
+| --------------- | ------------------------------------------ |
+| `redis:install` | install Redis and configure authentication |
+| `redis:start`   | start Redis                                |
+| `redis:stop`    | stop Redis for maintenance                 |
+| `redis:restart` | restart Redis after operational changes    |
 
-- **What it does**: Installs Redis and configures authentication for local-only secure access.
-- **When to use it**: Adding Redis for cache, queue, or ephemeral data workloads.
-- **Prerequisites**: Installed and reachable server.
-- **Effects on server/inventory/resources**: Installs remote service and generates authentication credentials.
-- **Related commands**: `redis:start`, `redis:restart`, `server:logs`.
-- **Failure/guardrail behavior**: Stops on installation/configuration failures and reports credential handling issues clearly.
+## Details
 
-<a name="redis-start"></a>
+`redis:install` configures secure local access and credential handling.
 
-## redis:start
+Lifecycle commands (`redis:start`, `redis:stop`, `redis:restart`) control runtime state after installation.
 
-- **What it does**: Starts Redis service.
-- **When to use it**: Recovering runtime availability.
-- **Prerequisites**: Redis installed and server reachable.
-- **Effects on server/inventory/resources**: Starts remote data service.
-- **Related commands**: `redis:stop`, `redis:restart`.
-- **Failure/guardrail behavior**: Reports startup failures directly.
+## Safety and Guardrails
 
-<a name="redis-stop"></a>
+> [!IMPORTANT]
+> Record Redis credentials at install time and rotate if exposure is suspected.
 
-## redis:stop
+> [!IMPORTANT]
+> Stopping Redis can disrupt caches, queues, and application workflows that depend on it.
 
-- **What it does**: Stops Redis service.
-- **When to use it**: Controlled maintenance operations.
-- **Prerequisites**: Redis installed and server reachable.
-- **Effects on server/inventory/resources**: Stops remote data service.
-- **Related commands**: `redis:start`, `redis:restart`.
-- **Failure/guardrail behavior**: Reports stop failures directly.
+## Related Guides
 
-<a name="redis-restart"></a>
-
-## redis:restart
-
-- **What it does**: Restarts Redis service.
-- **When to use it**: Service refresh after config/runtime changes.
-- **Prerequisites**: Redis installed and server reachable.
-- **Effects on server/inventory/resources**: Restarts remote data service.
-- **Related commands**: `redis:start`, `redis:stop`, `server:logs`.
-- **Failure/guardrail behavior**: Aborts on restart failures with diagnostic context.
+- [Managing Databases](/docs/managing-databases)
+- [Managing Services](/docs/managing-services)

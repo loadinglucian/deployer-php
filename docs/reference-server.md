@@ -2,103 +2,59 @@
 
 <!-- toc -->
 
-- [server:add](#server-add)
-- [server:install](#server-install)
-- [server:info](#server-info)
-- [server:firewall](#server-firewall)
-- [server:logs](#server-logs)
-- [server:run](#server-run)
-- [server:ssh](#server-ssh)
-- [server:delete](#server-delete)
+- [At a Glance](#at-a-glance)
+- [Details](#details)
+- [Safety and Guardrails](#safety-and-guardrails)
+- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
-Use these commands to manage server inventory, bootstrap runtime dependencies, inspect runtime state, and perform operational tasks over SSH.
+Use the `server:*` commands to add servers, inspect runtime state, and perform remote operations.
 
-<a name="server-add"></a>
+## At a Glance
 
-## server:add
+| Command           | Use it when you need to...                        |
+| ----------------- | ------------------------------------------------- |
+| `server:add`      | register a new server in inventory                |
+| `server:install`  | install the baseline runtime stack                |
+| `server:info`     | inspect current server and service state          |
+| `server:firewall` | update UFW rules safely                           |
+| `server:logs`     | stream server and service logs                    |
+| `server:run`      | execute one remote command                        |
+| `server:ssh`      | open an interactive remote session                |
+| `server:delete`   | remove a server from inventory or decommission it |
 
-- **What it does**: Adds a server connection to inventory after validating connectivity and host details.
-- **When to use it**: When onboarding a new VPS, cloud instance, or physical server.
-- **Prerequisites**: Reachable host, valid SSH credentials, and a private key path available locally.
-- **Effects on server/inventory/resources**: Writes a new server entry to local inventory.
-- **Related commands**: `server:install`, `server:info`, `server:delete`.
-- **Failure/guardrail behavior**: Fails early on invalid server details, SSH auth failures, or duplicate inventory names.
+## Details
 
-<a name="server-install"></a>
+### Onboarding and setup
 
-## server:install
+Use `server:add` first, then run `server:install`. This keeps inventory and host setup clearly separated.
 
-- **What it does**: Installs and configures the baseline runtime stack so the server can host PHP applications.
-- **When to use it**: Immediately after adding a server, and later when expanding installed runtime components.
-- **Prerequisites**: Server must already exist in inventory and be reachable over SSH.
-- **Effects on server/inventory/resources**: Changes remote server packages and system configuration; inventory remains unchanged.
-- **Related commands**: `server:add`, `server:info`, `nginx:start`, `php:restart`.
-- **Failure/guardrail behavior**: Aborts on unsupported distro/runtime checks and surfaces service-level installation failures with context.
+`server:install` is additive, so you can rerun it later to extend runtime components.
 
-<a name="server-info"></a>
+### Diagnostics and operations
 
-## server:info
+Use `server:info` before making changes, and pair it with `server:logs` during troubleshooting.
 
-- **What it does**: Displays server state, installed services, runtime versions, and site-level deployment context.
-- **When to use it**: During audits, troubleshooting, and post-install verification.
-- **Prerequisites**: Server must be present in inventory and reachable.
-- **Effects on server/inventory/resources**: Read-only operation.
-- **Related commands**: `server:logs`, `server:run`, `server:firewall`.
-- **Failure/guardrail behavior**: Stops with actionable errors when SSH or server information checks cannot complete.
+Use `server:run` for scripted, one-shot checks. Use `server:ssh` when you need interactive investigation.
 
-<a name="server-firewall"></a>
+### Decommissioning
 
-## server:firewall
+`server:delete` handles inventory cleanup and can also remove linked cloud resources when applicable.
 
-- **What it does**: Applies UFW firewall rules based on selected service ports.
-- **When to use it**: After installing services or when tightening server network exposure.
-- **Prerequisites**: UFW available on target server and administrative privileges over SSH.
-- **Effects on server/inventory/resources**: Updates remote firewall rules.
-- **Related commands**: `server:info`, `server:logs`.
-- **Failure/guardrail behavior**: Preserves SSH access guardrails and halts when firewall rule changes fail.
+## Safety and Guardrails
 
-<a name="server-logs"></a>
+> [!IMPORTANT]
+> `server:ssh` interactive mode requires the `pcntl` extension on your local PHP runtime.
 
-## server:logs
+> [!IMPORTANT]
+> Before applying `server:firewall` changes, confirm SSH access stays open. Lockouts are easy to trigger when tightening rules.
 
-- **What it does**: Streams selected server, service, site, cron, and supervisor logs.
-- **When to use it**: Root-cause analysis, post-deploy verification, and runtime monitoring.
-- **Prerequisites**: Server reachable via SSH and relevant log sources available.
-- **Effects on server/inventory/resources**: Read-only operation.
-- **Related commands**: `server:info`, `site:deploy`, `supervisor:sync`.
-- **Failure/guardrail behavior**: Returns clear errors when selected log sources are unavailable or remote reads fail.
+> [!IMPORTANT]
+> `server:delete` can be destructive for cloud-backed infrastructure. Confirm target server identity before you continue.
 
-<a name="server-run"></a>
+## Related Guides
 
-## server:run
-
-- **What it does**: Executes an arbitrary command on a selected server over SSH.
-- **When to use it**: One-off diagnostics or maintenance that do not require an interactive shell.
-- **Prerequisites**: Valid server inventory entry and command string to execute remotely.
-- **Effects on server/inventory/resources**: Depends on the command being run.
-- **Related commands**: `server:ssh`, `server:info`, `server:logs`.
-- **Failure/guardrail behavior**: Returns non-zero exits and preserves command stderr/stdout for troubleshooting.
-
-<a name="server-ssh"></a>
-
-## server:ssh
-
-- **What it does**: Opens an interactive SSH session to a selected server.
-- **When to use it**: Manual multi-step operations that are easier in a terminal session.
-- **Prerequisites**: Local `pcntl` support and working SSH credentials.
-- **Effects on server/inventory/resources**: No direct changes unless you run mutating commands in the remote shell.
-- **Related commands**: `site:ssh`, `server:run`.
-- **Failure/guardrail behavior**: Stops when interactive session prerequisites are missing or SSH negotiation fails.
-
-<a name="server-delete"></a>
-
-## server:delete
-
-- **What it does**: Removes a server from inventory and can also remove linked cloud resources when applicable.
-- **When to use it**: Decommissioning a server or cleaning up stale inventory entries.
-- **Prerequisites**: Target server must exist in inventory.
-- **Effects on server/inventory/resources**: Removes local inventory entry and optionally destroys provider-side resources.
-- **Related commands**: `server:add`, `aws:provision`, `do:provision`.
-- **Failure/guardrail behavior**: Requires explicit confirmation and warns when cloud deletion fails before finalizing inventory removal.
+- [Managing Servers](/docs/managing-servers)
+- [Managing Services](/docs/managing-services)
+- [Cloud Providers](/docs/cloud-providers)

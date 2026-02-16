@@ -2,55 +2,36 @@
 
 <!-- toc -->
 
-- [memcached:install](#memcached-install)
-- [memcached:start](#memcached-start)
-- [memcached:stop](#memcached-stop)
-- [memcached:restart](#memcached-restart)
+- [At a Glance](#at-a-glance)
+- [Details](#details)
+- [Safety and Guardrails](#safety-and-guardrails)
+- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
-Use these commands to install and operate Memcached on managed servers.
+Use `memcached:*` commands to install and operate Memcached on managed servers.
 
-<a name="memcached-install"></a>
+## At a Glance
 
-## memcached:install
+| Command             | Use it when you need to...                  |
+| ------------------- | ------------------------------------------- |
+| `memcached:install` | install Memcached                           |
+| `memcached:start`   | start Memcached                             |
+| `memcached:stop`    | stop Memcached for maintenance              |
+| `memcached:restart` | restart Memcached after operational changes |
 
-- **What it does**: Installs Memcached service for in-memory caching workloads.
-- **When to use it**: Adding cache capacity for applications that rely on Memcached.
-- **Prerequisites**: Installed and reachable server.
-- **Effects on server/inventory/resources**: Installs remote cache service.
-- **Related commands**: `memcached:start`, `memcached:restart`, `server:logs`.
-- **Failure/guardrail behavior**: Surfaces installation failures with service context.
+## Details
 
-<a name="memcached-start"></a>
+`memcached:install` sets up the service without a credential output flow.
 
-## memcached:start
+Lifecycle commands (`memcached:start`, `memcached:stop`, `memcached:restart`) control runtime state after installation.
 
-- **What it does**: Starts Memcached service.
-- **When to use it**: Recovering cache service availability.
-- **Prerequisites**: Memcached installed and server reachable.
-- **Effects on server/inventory/resources**: Starts remote cache service.
-- **Related commands**: `memcached:stop`, `memcached:restart`.
-- **Failure/guardrail behavior**: Reports startup failures directly.
+## Safety and Guardrails
 
-<a name="memcached-stop"></a>
+> [!IMPORTANT]
+> Stopping Memcached can degrade application performance and can surface stale-cache assumptions.
 
-## memcached:stop
+## Related Guides
 
-- **What it does**: Stops Memcached service.
-- **When to use it**: Planned maintenance and troubleshooting.
-- **Prerequisites**: Memcached installed and server reachable.
-- **Effects on server/inventory/resources**: Stops remote cache service.
-- **Related commands**: `memcached:start`, `memcached:restart`.
-- **Failure/guardrail behavior**: Reports stop failures directly.
-
-<a name="memcached-restart"></a>
-
-## memcached:restart
-
-- **What it does**: Restarts Memcached service.
-- **When to use it**: Runtime refreshes after operational changes.
-- **Prerequisites**: Memcached installed and server reachable.
-- **Effects on server/inventory/resources**: Restarts remote cache service.
-- **Related commands**: `memcached:start`, `memcached:stop`, `server:logs`.
-- **Failure/guardrail behavior**: Aborts with restart diagnostics on failure.
+- [Managing Databases](/docs/managing-databases)
+- [Managing Services](/docs/managing-services)

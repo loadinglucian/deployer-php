@@ -2,55 +2,39 @@
 
 <!-- toc -->
 
-- [mariadb:install](#mariadb-install)
-- [mariadb:start](#mariadb-start)
-- [mariadb:stop](#mariadb-stop)
-- [mariadb:restart](#mariadb-restart)
+- [At a Glance](#at-a-glance)
+- [Details](#details)
+- [Safety and Guardrails](#safety-and-guardrails)
+- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
-Use these commands to install and operate MariaDB on managed servers.
+Use `mariadb:*` commands to install and operate MariaDB on managed servers.
 
-<a name="mariadb-install"></a>
+## At a Glance
 
-## mariadb:install
+| Command           | Use it when you need to...                             |
+| ----------------- | ------------------------------------------------------ |
+| `mariadb:install` | install MariaDB and initialize application credentials |
+| `mariadb:start`   | start the MariaDB service                              |
+| `mariadb:stop`    | stop MariaDB for maintenance                           |
+| `mariadb:restart` | restart MariaDB after operational changes              |
 
-- **What it does**: Installs MariaDB and initializes an application-ready database/user setup.
-- **When to use it**: Adding MariaDB to a server for application persistence.
-- **Prerequisites**: Installed and reachable server.
-- **Effects on server/inventory/resources**: Installs remote database service and creates initial credentials.
-- **Related commands**: `mariadb:start`, `mariadb:restart`, `server:logs`.
-- **Failure/guardrail behavior**: Returns contextual installation errors and preserves credential safety behavior on output/storage failures.
+## Details
 
-<a name="mariadb-start"></a>
+`mariadb:install` includes credential generation and delivery flow.
 
-## mariadb:start
+Lifecycle commands (`mariadb:start`, `mariadb:stop`, `mariadb:restart`) are for runtime control after installation.
 
-- **What it does**: Starts MariaDB service.
-- **When to use it**: Recovering database service availability.
-- **Prerequisites**: MariaDB installed and server reachable.
-- **Effects on server/inventory/resources**: Starts remote database service.
-- **Related commands**: `mariadb:stop`, `mariadb:restart`.
-- **Failure/guardrail behavior**: Reports service startup failures.
+## Safety and Guardrails
 
-<a name="mariadb-stop"></a>
+> [!IMPORTANT]
+> Capture generated credentials during installation and store them in your secrets workflow.
 
-## mariadb:stop
+> [!IMPORTANT]
+> Stopping MariaDB impacts application reads and writes immediately.
 
-- **What it does**: Stops MariaDB service.
-- **When to use it**: Planned maintenance operations.
-- **Prerequisites**: MariaDB installed and server reachable.
-- **Effects on server/inventory/resources**: Stops remote database service.
-- **Related commands**: `mariadb:start`, `mariadb:restart`.
-- **Failure/guardrail behavior**: Returns service stop errors directly.
+## Related Guides
 
-<a name="mariadb-restart"></a>
-
-## mariadb:restart
-
-- **What it does**: Restarts MariaDB service.
-- **When to use it**: Applying service refresh after config/runtime changes.
-- **Prerequisites**: MariaDB installed and server reachable.
-- **Effects on server/inventory/resources**: Restarts remote database service.
-- **Related commands**: `mariadb:start`, `mariadb:stop`, `server:logs`.
-- **Failure/guardrail behavior**: Stops on restart failure with service context.
+- [Managing Databases](/docs/managing-databases)
+- [Managing Services](/docs/managing-services)

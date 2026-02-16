@@ -2,54 +2,44 @@
 
 <!-- toc -->
 
-- [cf:dns:list](#cf-dns-list)
-- [cf:dns:set](#cf-dns-set)
-- [cf:dns:delete](#cf-dns-delete)
-- [Alias Compatibility](#alias-compatibility)
+- [At a Glance](#at-a-glance)
+- [Details](#details)
+- [Safety and Guardrails](#safety-and-guardrails)
+- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
-Use these commands to manage DNS records in Cloudflare zones.
+Use `cf:*` commands to manage DNS records in Cloudflare zones.
 
-<a name="cf-dns-list"></a>
+## At a Glance
 
-## cf:dns:list
+| Command         | Use it when you need to...    |
+| --------------- | ----------------------------- |
+| `cf:dns:list`   | inspect DNS records in a zone |
+| `cf:dns:set`    | create or update a DNS record |
+| `cf:dns:delete` | delete a DNS record           |
 
-- **What it does**: Lists DNS records in a selected Cloudflare zone.
-- **When to use it**: Auditing current DNS state before updates.
-- **Prerequisites**: Valid Cloudflare API token with zone DNS access.
-- **Effects on server/inventory/resources**: Read-only operation.
-- **Related commands**: `cf:dns:set`, `cf:dns:delete`, `site:dns:check`.
-- **Failure/guardrail behavior**: Returns zone lookup and API auth/permission errors directly.
-
-<a name="cf-dns-set"></a>
-
-## cf:dns:set
-
-- **What it does**: Creates or updates a DNS record in Cloudflare.
-- **When to use it**: Creating new DNS targets or correcting existing records.
-- **Prerequisites**: API token with DNS edit rights in the target zone.
-- **Effects on server/inventory/resources**: Upserts provider DNS records.
-- **Related commands**: `cf:dns:list`, `cf:dns:delete`, `site:https`.
-- **Failure/guardrail behavior**: Aborts on provider-side validation errors.
-
-<a name="cf-dns-delete"></a>
-
-## cf:dns:delete
-
-- **What it does**: Deletes a DNS record from Cloudflare.
-- **When to use it**: DNS cleanup and decommissioning.
-- **Prerequisites**: API token with delete permissions and resolvable record target.
-- **Effects on server/inventory/resources**: Removes provider DNS records.
-- **Related commands**: `cf:dns:list`, `cf:dns:set`.
-- **Failure/guardrail behavior**: Requires explicit record targeting and surfaces deletion failures.
-
-<a name="alias-compatibility"></a>
-
-## Alias Compatibility
-
-Cloudflare commands also support alias names:
+Alias commands are also supported:
 
 - `cloudflare:dns:list`
 - `cloudflare:dns:set`
 - `cloudflare:dns:delete`
+
+## Details
+
+A practical sequence is list first, then apply create/update/delete changes once you confirm the target record set.
+
+Use Cloudflare DNS updates together with `site:dns:check` when preparing HTTPS enablement.
+
+## Safety and Guardrails
+
+> [!IMPORTANT]
+> Use API tokens scoped only to required zones and DNS permissions.
+
+> [!IMPORTANT]
+> DNS updates can route production traffic immediately. Double-check record names and targets before applying changes.
+
+## Related Guides
+
+- [Cloud Providers](/docs/cloud-providers)
+- [Managing Sites](/docs/managing-sites)
