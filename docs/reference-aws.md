@@ -39,7 +39,7 @@ Use `aws:dns:list` to inspect current records, then use `aws:dns:set` and `aws:d
 
 ## Safety and Guardrails
 
-> [!IMPORTANT]
+> [!INFO]
 > Confirm account, region, and hosted zone context before mutating DNS or provisioning resources.
 
 > [!IMPORTANT]

@@ -33,7 +33,7 @@ Use Cloudflare DNS updates together with `site:dns:check` when preparing HTTPS e
 
 ## Safety and Guardrails
 
-> [!IMPORTANT]
+> [!INFO]
 > Use API tokens scoped only to required zones and DNS permissions.
 
 > [!IMPORTANT]

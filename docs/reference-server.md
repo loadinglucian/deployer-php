@@ -44,11 +44,8 @@ Use `server:run` for scripted, one-shot checks. Use `server:ssh` when you need i
 
 ## Safety and Guardrails
 
-> [!IMPORTANT]
+> [!INFO]
 > `server:ssh` interactive mode requires the `pcntl` extension on your local PHP runtime.
-
-> [!IMPORTANT]
-> Before applying `server:firewall` changes, confirm SSH access stays open. Lockouts are easy to trigger when tightening rules.
 
 > [!IMPORTANT]
 > `server:delete` can be destructive for cloud-backed infrastructure. Confirm target server identity before you continue.

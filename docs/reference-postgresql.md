@@ -28,7 +28,7 @@ Lifecycle commands (`postgresql:start`, `postgresql:stop`, `postgresql:restart`)
 
 ## Safety and Guardrails
 
-> [!IMPORTANT]
+> [!INFO]
 > Treat generated installation credentials as sensitive and store them promptly.
 
 > [!IMPORTANT]

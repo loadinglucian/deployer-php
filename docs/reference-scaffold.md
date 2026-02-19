@@ -26,7 +26,7 @@ Use `scaffold:*` commands to generate project-local scripts and AI skill files.
 
 ## Safety and Guardrails
 
-> [!IMPORTANT]
+> [!INFO]
 > Treat scaffold output as a starting point. Review and adapt generated files before using them in production.
 
 > [!IMPORTANT]

@@ -41,7 +41,7 @@ Use key and DNS commands to keep account access and routing state aligned with y
 
 ## Safety and Guardrails
 
-> [!IMPORTANT]
+> [!INFO]
 > Validate project/account context before provisioning or deleting resources.
 
 > [!IMPORTANT]

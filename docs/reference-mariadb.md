@@ -28,7 +28,7 @@ Lifecycle commands (`mariadb:start`, `mariadb:stop`, `mariadb:restart`) are for 
 
 ## Safety and Guardrails
 
-> [!IMPORTANT]
+> [!INFO]
 > Capture generated credentials during installation and store them in your secrets workflow.
 
 > [!IMPORTANT]
