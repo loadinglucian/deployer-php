@@ -2,83 +2,84 @@ name: BATS VM Tests (Ubuntu 24.04)
 
 permissions:
   contents: read
+  actions: read
 
 on:
-  pull_request:
-    paths:
-      - "app/**"
-      - "!app/Console/Cloud/**"
-      - "!app/Services/Aws/**"
-      - "!app/Services/Do/**"
-      - "!app/Services/Cf/**"
-      - "!app/Services/AwsService.php"
-      - "!app/Services/DoService.php"
-      - "!app/Services/CfService.php"
-      - "!app/Traits/AwsTrait.php"
-      - "!app/Traits/AwsDnsTrait.php"
-      - "!app/Traits/DoTrait.php"
-      - "!app/Traits/DoDnsTrait.php"
-      - "!app/Traits/CfTrait.php"
-      - "bin/**"
-      - "playbooks/**"
-      - "scaffolds/**"
-      - "tests/bats/vm.bats"
-      - "tests/bats/lima/**"
-      - "tests/bats/lib/helpers.bash"
-      - "tests/bats/lib/inventory.bash"
-      - "tests/bats/lib/lima-core.bash"
-      - "tests/bats/lib/lima.bash"
-      - "tests/bats/lib/vm-matrix.bash"
-      - "bats.sh"
-      - "composer.json"
-      - "composer.lock"
-      - ".github/actions/setup-php-composer/**"
-      - ".github/workflows/bats-vm-ubuntu24.yml"
-  push:
-    branches:
-      - main
-    paths:
-      - "app/**"
-      - "!app/Console/Cloud/**"
-      - "!app/Services/Aws/**"
-      - "!app/Services/Do/**"
-      - "!app/Services/Cf/**"
-      - "!app/Services/AwsService.php"
-      - "!app/Services/DoService.php"
-      - "!app/Services/CfService.php"
-      - "!app/Traits/AwsTrait.php"
-      - "!app/Traits/AwsDnsTrait.php"
-      - "!app/Traits/DoTrait.php"
-      - "!app/Traits/DoDnsTrait.php"
-      - "!app/Traits/CfTrait.php"
-      - "bin/**"
-      - "playbooks/**"
-      - "scaffolds/**"
-      - "tests/bats/vm.bats"
-      - "tests/bats/lima/**"
-      - "tests/bats/lib/helpers.bash"
-      - "tests/bats/lib/inventory.bash"
-      - "tests/bats/lib/lima-core.bash"
-      - "tests/bats/lib/lima.bash"
-      - "tests/bats/lib/vm-matrix.bash"
-      - "bats.sh"
-      - "composer.json"
-      - "composer.lock"
-      - ".github/actions/setup-php-composer/**"
-      - ".github/workflows/bats-vm-ubuntu24.yml"
+  workflow_run:
+    workflows: ["Pest", "PHPStan", "Pint", "Rector", "CI Canary"]
+    types: [completed]
 
 jobs:
+  quality-gate:
+    name: wait-for-quality-gates
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      ready: ${{ steps.evaluate.outputs.ready }}
+
+    steps:
+      - name: Verify all quality workflows succeeded
+        id: evaluate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const requiredWorkflows = ["Pest", "PHPStan", "Pint", "Rector", "CI Canary"];
+            const headSha = context.payload.workflow_run.head_sha;
+            const eventName = context.payload.workflow_run.event;
+            const { owner, repo } = context.repo;
+
+            const runsResponse = await github.rest.actions.listWorkflowRunsForRepo({
+              owner,
+              repo,
+              event: eventName,
+              head_sha: headSha,
+              per_page: 100,
+            });
+
+            const latestRunByName = new Map();
+            for (const run of runsResponse.data.workflow_runs) {
+              if (!requiredWorkflows.includes(run.name)) {
+                continue;
+              }
+
+              const current = latestRunByName.get(run.name);
+              if (!current || run.id > current.id) {
+                latestRunByName.set(run.name, run);
+              }
+            }
+
+            const missing = requiredWorkflows.filter((name) => !latestRunByName.has(name));
+            const failed = requiredWorkflows
+              .map((name) => latestRunByName.get(name))
+              .filter(Boolean)
+              .filter((run) => run.conclusion !== "success")
+              .map((run) => `${run.name}=${run.conclusion ?? "unknown"}`);
+
+            const ready = missing.length === 0 && failed.length === 0;
+            core.setOutput("ready", ready ? "true" : "false");
+
+            if (!ready) {
+              core.notice(
+                `Quality gates not ready for ${headSha}: missing=[${missing.join(", ")}] failed=[${failed.join(", ")}]`,
+              );
+            }
+
   vm-tests-ubuntu24:
+    needs: quality-gate
     name: vm-tests (ubuntu24)
+    if: ${{ needs.quality-gate.outputs.ready == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     concurrency:
-      group: bats-vm-ubuntu24-${{ github.ref }}
+      group: bats-vm-ubuntu24-${{ github.event.workflow_run.head_sha }}
       cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup PHP and Composer
         uses: ./.github/actions/setup-php-composer

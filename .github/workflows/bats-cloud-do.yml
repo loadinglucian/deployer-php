@@ -2,69 +2,57 @@ name: BATS Cloud Tests (DO)
 
 permissions:
   contents: read
+  actions: read
 
 on:
-  pull_request:
-    paths:
-      - "app/**"
-      - "!app/Console/Cloud/Aws/**"
-      - "!app/Services/Aws/**"
-      - "!app/Services/AwsService.php"
-      - "!app/Traits/AwsTrait.php"
-      - "!app/Traits/AwsDnsTrait.php"
-      - "!app/Console/Cloud/Cf/**"
-      - "!app/Services/Cf/**"
-      - "!app/Services/CfService.php"
-      - "!app/Traits/CfTrait.php"
-      - "bin/**"
-      - "playbooks/**"
-      - "scaffolds/**"
-      - "tests/bats/cloud-do.bats"
-      - "tests/bats/lib/cloud-helpers.bash"
-      - "tests/bats/lib/cloud-janitor.sh"
-      - "tests/bats/lib/helpers.bash"
-      - "tests/bats/lib/inventory.bash"
-      - "bats.sh"
-      - "composer.json"
-      - "composer.lock"
-      - ".github/actions/setup-php-composer/**"
-      - ".github/workflows/bats-cloud-do.yml"
-  push:
-    branches:
-      - main
-    paths:
-      - "app/**"
-      - "!app/Console/Cloud/Aws/**"
-      - "!app/Services/Aws/**"
-      - "!app/Services/AwsService.php"
-      - "!app/Traits/AwsTrait.php"
-      - "!app/Traits/AwsDnsTrait.php"
-      - "!app/Console/Cloud/Cf/**"
-      - "!app/Services/Cf/**"
-      - "!app/Services/CfService.php"
-      - "!app/Traits/CfTrait.php"
-      - "bin/**"
-      - "playbooks/**"
-      - "scaffolds/**"
-      - "tests/bats/cloud-do.bats"
-      - "tests/bats/lib/cloud-helpers.bash"
-      - "tests/bats/lib/cloud-janitor.sh"
-      - "tests/bats/lib/helpers.bash"
-      - "tests/bats/lib/inventory.bash"
-      - "bats.sh"
-      - "composer.json"
-      - "composer.lock"
-      - ".github/actions/setup-php-composer/**"
-      - ".github/workflows/bats-cloud-do.yml"
+  workflow_run:
+    workflows: ["BATS VM Tests (Ubuntu 24.04)"]
+    types: [completed]
 
 jobs:
+  vm-gate:
+    name: verify-vm-success
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      ready: ${{ steps.evaluate.outputs.ready }}
+
+    steps:
+      - name: Verify VM job concluded with success
+        id: evaluate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const workflowRunId = context.payload.workflow_run.id;
+            const expectedJobName = "vm-tests (ubuntu24)";
+
+            const jobsResponse = await github.rest.actions.listJobsForWorkflowRun({
+              owner,
+              repo,
+              run_id: workflowRunId,
+              per_page: 100,
+            });
+
+            const vmJob = jobsResponse.data.jobs.find((job) => job.name === expectedJobName);
+            const ready = vmJob?.conclusion === "success";
+            core.setOutput("ready", ready ? "true" : "false");
+
+            if (!ready) {
+              core.notice(
+                `Skipping cloud run because '${expectedJobName}' was not successful (conclusion=${vmJob?.conclusion ?? "missing"})`,
+              );
+            }
+
   cloud-tests-do:
+    needs: vm-gate
     name: cloud-tests (do)
-    if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) }}
+    if: ${{ needs.vm-gate.outputs.ready == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     concurrency:
-      group: bats-cloud-do-${{ github.ref }}
+      group: bats-cloud-do-${{ github.event.workflow_run.head_sha }}
       cancel-in-progress: true
 
     env:
@@ -74,6 +62,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup PHP and Composer
         uses: ./.github/actions/setup-php-composer
