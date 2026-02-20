@@ -59,7 +59,7 @@ $> deployer server:add  \
   --private-key-path='~/.ssh/id_ed25519'
 ```
 
-For more information, see [Server Reference](/docs/reference-server).
+For more information, see [Server Reference](reference-server.md).
 
 ### Cloud Providers
 
@@ -70,7 +70,7 @@ Alternatively, you can provision a cloud instance and add it to the inventory au
 | `aws:provision` | Provision AWS EC2 instances and add to inventory     |
 | `do:provision`  | Provision DigitalOcean droplets and add to inventory |
 
-For more information, see [AWS Reference](/docs/reference-aws) and [DigitalOcean Reference](/docs/reference-digitalocean).
+For more information, see [AWS Reference](reference-aws.md) and [DigitalOcean Reference](reference-digitalocean.md).
 
 ### Installing the Server
 
@@ -121,7 +121,7 @@ The `server:install` command is additive, meaning it will always add new compone
 > [!INFO]
 > When you have multiple PHP versions installed, the `server:install` command will prompt you for the default PHP version you want to use for your server CLI.
 
-For more information, see [Nginx Reference](/docs/reference-nginx) and [PHP-FPM Reference](/docs/reference-php).
+For more information, see [Nginx Reference](reference-nginx.md) and [PHP-FPM Reference](reference-php.md).
 
 ### Installing Databases
 
@@ -134,7 +134,7 @@ You can install your preferred database or cache services by running one of the 
 | `redis:install`      | Install Redis key-value store      |
 | `memcached:install`  | Install Memcached caching server   |
 
-For more information, see [MariaDB Reference](/docs/reference-mariadb), [PostgreSQL Reference](/docs/reference-postgresql), [Redis Reference](/docs/reference-redis), and [Memcached Reference](/docs/reference-memcached).
+For more information, see [MariaDB Reference](reference-mariadb.md), [PostgreSQL Reference](reference-postgresql.md), [Redis Reference](reference-redis.md), and [Memcached Reference](reference-memcached.md).
 
 ## Step 2: Your Site
 
@@ -181,7 +181,7 @@ If you use any of the supported DNS providers, you can configure your DNS using 
 | `cf:dns:set`  | Create or update a Cloudflare DNS record   |
 | `do:dns:set`  | Create or update a DigitalOcean DNS record |
 
-For more information, see [AWS Reference](/docs/reference-aws), [Cloudflare Reference](/docs/reference-cloudflare), and [DigitalOcean Reference](/docs/reference-digitalocean).
+For more information, see [AWS Reference](reference-aws.md), [Cloudflare Reference](reference-cloudflare.md), and [DigitalOcean Reference](reference-digitalocean.md).
 
 ### Enable HTTPS
 
@@ -274,4 +274,4 @@ You can manually switch back to a previous release by updating the `current` sym
 
 ## Next Steps
 
-With your server installed and your application deployed and secured with HTTPS, you may want to set up some scheduled tasks and long-running processes. For more information, see [Cron Reference](/docs/reference-cron) and [Supervisor Reference](/docs/reference-supervisor).
+With your server installed and your application deployed and secured with HTTPS, you may want to set up some scheduled tasks and long-running processes. For more information, see [Cron Reference](reference-cron.md) and [Supervisor Reference](reference-supervisor.md).

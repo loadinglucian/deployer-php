@@ -53,6 +53,6 @@ Use the `site:shared:*` commands for persistent single-file assets such as envir
 
 ## Related Guides
 
-- [Managing Sites](/docs/managing-sites)
-- [Managing Servers](/docs/managing-servers)
-- [Cloud Providers](/docs/cloud-providers)
+- [Managing Sites](managing-sites.md)
+- [Managing Servers](managing-servers.md)
+- [Cloud Providers](cloud-providers.md)

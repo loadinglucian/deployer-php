@@ -29,9 +29,9 @@ This flow helps you define what an assistant can do, from read-only observation 
 > [!IMPORTANT]
 > Start with the lowest permission tier that still solves your debugging task, then increase scope only when needed.
 
-For broader operational context, see [Automation & AI Guide](/docs/automation).
+For broader operational context, see [Automation & AI Guide](automation.md).
 
 ## Related References
 
-- [Scaffold Reference](/docs/reference-scaffold)
-- [Server Reference](/docs/reference-server)
+- [Scaffold Reference](reference-scaffold.md)
+- [Server Reference](reference-server.md)

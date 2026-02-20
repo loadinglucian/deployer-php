@@ -90,4 +90,4 @@ The generated skills file provides your AI assistant with:
 
 This ensures your AI assistant can help troubleshoot issues on your servers without accidentally running commands that could affect production stability.
 
-For command-level behavior details, see [Scaffold Reference](/docs/reference-scaffold) and [Server Reference](/docs/reference-server).
+For command-level behavior details, see [Scaffold Reference](reference-scaffold.md) and [Server Reference](reference-server.md).

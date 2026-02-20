@@ -34,5 +34,5 @@ Use `scaffold:*` commands to generate project-local scripts and AI skill files.
 
 ## Related Guides
 
-- [Scaffolding](/docs/scaffolding)
-- [Automation & AI Guide](/docs/automation)
+- [Scaffolding](scaffolding.md)
+- [Automation & AI Guide](automation.md)

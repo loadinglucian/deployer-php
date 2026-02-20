@@ -47,6 +47,6 @@ For both cron and supervisor:
 
 ## Related References
 
-- [Cron Reference](/docs/reference-cron)
-- [Supervisor Reference](/docs/reference-supervisor)
-- [Scaffold Reference](/docs/reference-scaffold)
+- [Cron Reference](reference-cron.md)
+- [Supervisor Reference](reference-supervisor.md)
+- [Scaffold Reference](reference-scaffold.md)

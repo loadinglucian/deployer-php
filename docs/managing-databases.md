@@ -76,7 +76,7 @@ DB_PASSWORD=super-secret
 
 ## Related References
 
-- [MariaDB Reference](/docs/reference-mariadb)
-- [PostgreSQL Reference](/docs/reference-postgresql)
-- [Redis Reference](/docs/reference-redis)
-- [Memcached Reference](/docs/reference-memcached)
+- [MariaDB Reference](reference-mariadb.md)
+- [PostgreSQL Reference](reference-postgresql.md)
+- [Redis Reference](reference-redis.md)
+- [Memcached Reference](reference-memcached.md)

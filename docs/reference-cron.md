@@ -34,5 +34,5 @@ This split lets you stage changes safely before applying them to production.
 
 ## Related Guides
 
-- [Cron Jobs & Processes](/docs/cron-and-processes)
-- [Scaffolding](/docs/scaffolding)
+- [Cron Jobs & Processes](cron-and-processes.md)
+- [Scaffolding](scaffolding.md)

@@ -62,9 +62,9 @@ A reliable sequence is:
 
 ## Related References
 
-- [Nginx Reference](/docs/reference-nginx)
-- [PHP-FPM Reference](/docs/reference-php)
-- [MariaDB Reference](/docs/reference-mariadb)
-- [PostgreSQL Reference](/docs/reference-postgresql)
-- [Redis Reference](/docs/reference-redis)
-- [Memcached Reference](/docs/reference-memcached)
+- [Nginx Reference](reference-nginx.md)
+- [PHP-FPM Reference](reference-php.md)
+- [MariaDB Reference](reference-mariadb.md)
+- [PostgreSQL Reference](reference-postgresql.md)
+- [Redis Reference](reference-redis.md)
+- [Memcached Reference](reference-memcached.md)

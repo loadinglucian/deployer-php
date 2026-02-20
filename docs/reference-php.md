@@ -32,5 +32,5 @@ Use `php:start` and `php:stop` for explicit lifecycle control during maintenance
 
 ## Related Guides
 
-- [Managing Services](/docs/managing-services)
-- [Managing Sites](/docs/managing-sites)
+- [Managing Services](managing-services.md)
+- [Managing Sites](managing-sites.md)

@@ -95,7 +95,7 @@ If you only want to remove local inventory while preserving remote files, confir
 
 ## Related References
 
-- [Site Reference](/docs/reference-site)
-- [Server Reference](/docs/reference-server)
-- [Cron Reference](/docs/reference-cron)
-- [Supervisor Reference](/docs/reference-supervisor)
+- [Site Reference](reference-site.md)
+- [Server Reference](reference-server.md)
+- [Cron Reference](reference-cron.md)
+- [Supervisor Reference](reference-supervisor.md)

@@ -62,7 +62,7 @@ Commands are organized into namespaces that represent what each group manages:
 - **`scaffold:*`**: Generate cron, hook, supervisor, and AI skills config files
 - **`aws:*`**, **`cf:*`**, **`do:*`**: Cloud provider integrations
 
-For namespace-by-namespace behavior details, see the [Documentation Index](/docs/documentation) and its command reference sections.
+For namespace-by-namespace behavior details, see the [Documentation Index](documentation.md) and its command reference sections.
 
 ## The Inventory
 
@@ -125,4 +125,4 @@ $> deployer server:add  \
 
 ## Next Steps
 
-With the core concepts in place, the best next move is to run through your first real deployment workflow. For more information, see [Zero to Deploy](/docs/zero-to-deploy).
+With the core concepts in place, the best next move is to run through your first real deployment workflow. For more information, see [Zero to Deploy](zero-to-deploy.md).

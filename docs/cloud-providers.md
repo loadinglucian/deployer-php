@@ -262,7 +262,7 @@ Use this order when working with cloud resources:
 
 ## Related References
 
-- [AWS Reference](/docs/reference-aws)
-- [Cloudflare Reference](/docs/reference-cloudflare)
-- [DigitalOcean Reference](/docs/reference-digitalocean)
-- [Site Reference](/docs/reference-site)
+- [AWS Reference](reference-aws.md)
+- [Cloudflare Reference](reference-cloudflare.md)
+- [DigitalOcean Reference](reference-digitalocean.md)
+- [Site Reference](reference-site.md)

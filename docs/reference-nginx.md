@@ -32,5 +32,5 @@ If you are diagnosing traffic failures, inspect logs before and after service ac
 
 ## Related Guides
 
-- [Managing Services](/docs/managing-services)
-- [Managing Servers](/docs/managing-servers)
+- [Managing Services](managing-services.md)
+- [Managing Servers](managing-servers.md)

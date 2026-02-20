@@ -36,5 +36,5 @@ Lifecycle commands (`redis:start`, `redis:stop`, `redis:restart`) control runtim
 
 ## Related Guides
 
-- [Managing Databases](/docs/managing-databases)
-- [Managing Services](/docs/managing-services)
+- [Managing Databases](managing-databases.md)
+- [Managing Services](managing-services.md)

@@ -49,6 +49,6 @@ Use key and DNS commands to keep account access and routing state aligned with y
 
 ## Related Guides
 
-- [Cloud Providers](/docs/cloud-providers)
-- [Managing Servers](/docs/managing-servers)
-- [Managing Sites](/docs/managing-sites)
+- [Cloud Providers](cloud-providers.md)
+- [Managing Servers](managing-servers.md)
+- [Managing Sites](managing-sites.md)

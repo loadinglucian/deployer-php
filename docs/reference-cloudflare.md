@@ -41,5 +41,5 @@ Use Cloudflare DNS updates together with `site:dns:check` when preparing HTTPS e
 
 ## Related Guides
 
-- [Cloud Providers](/docs/cloud-providers)
-- [Managing Sites](/docs/managing-sites)
+- [Cloud Providers](cloud-providers.md)
+- [Managing Sites](managing-sites.md)

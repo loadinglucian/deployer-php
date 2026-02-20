@@ -52,6 +52,6 @@ Use `server:run` for scripted, one-shot checks. Use `server:ssh` when you need i
 
 ## Related Guides
 
-- [Managing Servers](/docs/managing-servers)
-- [Managing Services](/docs/managing-services)
-- [Cloud Providers](/docs/cloud-providers)
+- [Managing Servers](managing-servers.md)
+- [Managing Services](managing-services.md)
+- [Cloud Providers](cloud-providers.md)

@@ -33,5 +33,5 @@ Lifecycle commands (`memcached:start`, `memcached:stop`, `memcached:restart`) co
 
 ## Related Guides
 
-- [Managing Databases](/docs/managing-databases)
-- [Managing Services](/docs/managing-services)
+- [Managing Databases](managing-databases.md)
+- [Managing Services](managing-services.md)

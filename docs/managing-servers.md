@@ -110,7 +110,7 @@ When cloud deletion fails, resolve provider-side state explicitly instead of ass
 
 ## Related References
 
-- [Server Reference](/docs/reference-server)
-- [Nginx Reference](/docs/reference-nginx)
-- [PHP-FPM Reference](/docs/reference-php)
-- [Cloud Providers](/docs/cloud-providers)
+- [Server Reference](reference-server.md)
+- [Nginx Reference](reference-nginx.md)
+- [PHP-FPM Reference](reference-php.md)
+- [Cloud Providers](cloud-providers.md)
