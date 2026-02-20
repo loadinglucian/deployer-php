@@ -274,4 +274,4 @@ You can manually switch back to a previous release by updating the `current` sym
 
 ## Next Steps
 
-With your server installed and your application deployed and secured with HTTPS, you may want to set up some scheduled tasks and long-running processes. For more information, see [Cron Reference](reference-cron.md) and [Supervisor Reference](reference-supervisor.md).
+With your server installed and your application deployed and secured with HTTPS, you may want to set up some scheduled tasks and long-running processes. For more information, see [Crons & Supervisors](crons-and-supervisors.md).

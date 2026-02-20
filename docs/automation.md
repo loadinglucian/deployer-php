@@ -1,43 +1,49 @@
-# Automation & AI Guide
+# Automation & AI
 
 <!-- toc -->
 
 - [Command Replays](#command-replays)
 - [Quiet Mode](#quiet-mode)
-- [AI Automation](#ai-automation)
+- [AI Agents](#ai-agents)
     - [Permission Tiers](#permission-tiers)
 
 <!-- /toc -->
 
-While managing servers and deployments manually works well during development, you'll often want to automate these tasks for CI/CD pipelines, scheduled jobs, or AI-assisted workflows. This guide explains the automation model and how to use AI safely with DeployerPHP.
+While managing servers and deployments manually works really well, you may want to automate these tasks for your CI pipelines or AI-assisted workflows. This guide explains the automation model and how to use AI agents with DeployerPHP.
 
 <a name="command-replays"></a>
 
 ## Command Replays
 
-Every DeployerPHP command displays a non-interactive command replay at the end of execution. The replay reflects your interactive choices and can be reused as the starting point for scripts, CI jobs, and repeatable runbooks.
+Every DeployerPHP command provides a non-interactive command replay at the end of execution. This replay displays the exact command along with all your interactive prompt responses filled in.
 
-The intended workflow is simple:
+Commands are meant to be composable, allowing you to copy and paste these replies as building blocks for your own scripts, workflows, or CI pipelines.
 
-1. Run a command interactively once.
-2. Validate the behavior and outcome.
-3. Reuse the generated replay in automation contexts.
+```EXAMPLE nocopy
+.
+.
+.
+Non-interactive command replay:
+───────────────────────────────────────────────────────────────────────────
+$> deployer server:add  \
+  --name='web1' \
+  --host='123.456.789.123' \
+  --port='22' \
+  --username='root' \
+  --private-key-path='~/.ssh/id_ed25519'
+```
 
 <a name="quiet-mode"></a>
 
 ## Quiet Mode
 
-Quiet mode is intended for non-interactive automation runs where human-readable terminal output is unnecessary. In this mode, command output is minimized and errors still surface.
+Every command accepts the `--quiet` option to run in quiet mode. This mode is designed for non-interactive automation tasks where human-readable terminal output is not needed. In quiet mode, command output is minimized, but errors still appear.
 
-When using quiet, non-interactive execution:
+When using quiet mode for non-interactive execution, be careful to provide all required command inputs upfront and expect prompt-driven flows to be bypassed.
 
-- Provide all required command inputs up front.
-- Expect prompt-driven flows to be bypassed.
-- Treat replay output as the canonical source for repeatable command construction.
+<a name="ai-agents"></a>
 
-<a name="ai-automation"></a>
-
-## AI Automation
+## Using AI Agents
 
 If you use AI tools like Claude, Codex, Cursor, or OpenCode, you can create a skills file that guides agents on safely interacting with your DeployerPHP-managed servers. This is useful when debugging issues with your application in production. Agents can read logs or execute remote, non-destructive commands on your server to investigate and resolve problems.
 

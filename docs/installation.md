@@ -103,26 +103,6 @@ This is particularly useful when you:
 
 For example, you might maintain `deployer-staging.yml` and `deployer-production.yml` in the same project, then use `--inventory` to target the appropriate environment.
 
-## Command Replays
-
-Every DeployerPHP command provides a non-interactive command replay at the end of execution. This replay displays the exact command along with all your interactive prompt responses filled in.
-
-Commands are meant to be composable, allowing you to copy and paste these replies as building blocks for your own scripts, workflows, or CI pipelines.
-
-```EXAMPLE nocopy
-.
-.
-.
-Non-interactive command replay:
-───────────────────────────────────────────────────────────────────────────
-$> deployer server:add  \
-  --name='web1' \
-  --host='123.456.789.123' \
-  --port='22' \
-  --username='root' \
-  --private-key-path='~/.ssh/id_ed25519'
-```
-
 ## Next Steps
 
 With the core concepts in place, the best next move is to run through your first real deployment workflow. For more information, see [Zero to Deploy](zero-to-deploy.md).

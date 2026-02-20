@@ -40,5 +40,5 @@ Use `supervisor:start`, `supervisor:stop`, and `supervisor:restart` for daemon l
 
 ## Related Guides
 
-- [Cron Jobs & Processes](cron-and-processes.md)
+- [Crons & Supervisors](crons-and-supervisors.md)
 - [Managing Services](managing-services.md)
