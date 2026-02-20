@@ -76,7 +76,7 @@ Besides the inventory, commands also automatically reference the `.env` file in 
 
 Running any DeployerPHP command should display which environment or inventory files are being actively referenced right at the top:
 
-```DeployerPHP
+```EXAMPLE nocopy
 ▒ ≡ DeployerPHP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ▒
 ▒ Ver: ...
@@ -109,7 +109,7 @@ Every DeployerPHP command provides a non-interactive command replay at the end o
 
 Commands are meant to be composable, allowing you to copy and paste these replies as building blocks for your own scripts, workflows, or CI pipelines.
 
-```DeployerPHP nocopy
+```EXAMPLE nocopy
 .
 .
 .

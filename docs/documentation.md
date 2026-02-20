@@ -4,6 +4,7 @@
 
 - [Guides](#guides)
 - [References](#references)
+- [Cloud Providers](#cloud-providers)
 - [Images](#images)
 
 <!-- /toc -->
@@ -52,15 +53,17 @@ DeployerPHP documentation is split into guides and references. Use guides for wo
 - [Redis Reference](reference-redis.md)
 - [Memcached Reference](reference-memcached.md)
 
-### Cloud Providers
+### Scaffolding
+
+- [Scaffold Reference](reference-scaffold.md)
+
+<a name="cloud-providers"></a>
+
+## Cloud Providers
 
 - [AWS Reference](reference-aws.md)
 - [Cloudflare Reference](reference-cloudflare.md)
 - [DigitalOcean Reference](reference-digitalocean.md)
-
-### Scaffolding
-
-- [Scaffold Reference](reference-scaffold.md)
 
 ## Images
 

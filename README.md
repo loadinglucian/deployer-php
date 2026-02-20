@@ -44,13 +44,11 @@ This is DeployerPHP, a super comprehensive set of CLI tools for provisioning, in
 Here's a quick run-through to start deploying immediately:
 
 ```shell
-# 1. Install as a dev dependency
+# 1. Install DeployerPHP
 composer require --dev loadinglucian/deployer-php
-
-# 2. Add an alias for convenience
 alias deployer="./vendor/bin/deployer"
 
-# 3. Add your server to the inventory
+# 2. Add your server to the inventory
 deployer server:add
 
 # Alternatively, provision a cloud instance and add it
