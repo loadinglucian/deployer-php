@@ -35,4 +35,4 @@ This split lets you stage changes safely before applying them to production.
 ## Related Guides
 
 - [Crons & Supervisors](crons-and-supervisors.md)
-- [Scaffolding](scaffolding.md)
+- [Scaffold Reference](reference-scaffold.md)
