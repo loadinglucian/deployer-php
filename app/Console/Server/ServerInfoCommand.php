@@ -24,6 +24,11 @@ class ServerInfoCommand extends BaseCommand
     use ServersTrait;
     use ServicesTrait;
 
+    private const LOAD_WARNING_RATIO = 1.0;
+    private const LOAD_CRITICAL_RATIO = 1.5;
+    private const MEMORY_WARNING_PERCENT = 85;
+    private const MEMORY_CRITICAL_PERCENT = 92;
+
     // ----
     // Configuration
     // ----
@@ -99,6 +104,8 @@ class ServerInfoCommand extends BaseCommand
         // Display hardware information if available
         if (isset($info['hardware']) && is_array($info['hardware'])) {
             $hardwareItems = [];
+            $cpuCoreCount = $this->parseIntValue($info['hardware']['cpu_cores'] ?? null);
+            $ramTotalMb = $this->parseIntValue($info['hardware']['ram_mb'] ?? null);
 
             if (isset($info['hardware']['cpu_cores'])) {
                 /** @var int|string $cpuCores */
@@ -107,19 +114,82 @@ class ServerInfoCommand extends BaseCommand
                 $hardwareItems['CPU'] = $coresText;
             }
 
-            if (isset($info['hardware']['ram_mb'])) {
-                /** @var int|string $ramMb */
-                $ramMb = $info['hardware']['ram_mb'];
-                $ramGb = round((int) $ramMb / 1024, 1);
-                $ramText = $ramGb >= 1 ? "{$ramGb} GB" : "{$ramMb} MB";
+            if (null !== $ramTotalMb) {
+                $ramGb = round($ramTotalMb / 1024, 1);
+                $ramText = $ramGb >= 1 ? "{$ramGb} GB" : "{$ramTotalMb} MB";
                 $hardwareItems['RAM'] = $ramText;
+            }
+
+            $load1m = $this->parseFloatValue($info['hardware']['load_1m'] ?? null);
+            $load5m = $this->parseFloatValue($info['hardware']['load_5m'] ?? null);
+            $load15m = $this->parseFloatValue($info['hardware']['load_15m'] ?? null);
+
+            if (null !== $load1m && null !== $load5m && null !== $load15m) {
+                $loadText = sprintf('%.2f / %.2f / %.2f', $load1m, $load5m, $load15m);
+                $loadRatio = null;
+
+                if (null !== $cpuCoreCount && $cpuCoreCount > 0) {
+                    $loadRatio = $load1m / $cpuCoreCount;
+                    $loadText .= sprintf(' (1m/core: %.2f)', $loadRatio);
+                }
+
+                if (null !== $loadRatio) {
+                    if ($loadRatio >= self::LOAD_CRITICAL_RATIO) {
+                        $loadText = "<fg=red>{$loadText}</>";
+                    } elseif ($loadRatio >= self::LOAD_WARNING_RATIO) {
+                        $loadText = "<fg=yellow>{$loadText}</>";
+                    }
+                }
+
+                $hardwareItems['Load'] = $loadText;
+            }
+
+            $memoryUsedMb = $this->parseIntValue($info['hardware']['memory_used_mb'] ?? null);
+            $memoryUsedPercent = $this->parseIntValue($info['hardware']['memory_used_percent'] ?? null);
+            if (null !== $memoryUsedMb && null !== $ramTotalMb && $ramTotalMb > 0 && $memoryUsedMb >= 0) {
+                if (null === $memoryUsedPercent) {
+                    $memoryUsedPercent = (int) round(($memoryUsedMb * 100) / $ramTotalMb);
+                }
+                $memoryUsedPercent = max(0, min(100, $memoryUsedPercent));
+
+                $memoryUsedText = sprintf(
+                    '%s / %s (%d%%)',
+                    $this->formatMegabytesHuman($memoryUsedMb),
+                    $this->formatMegabytesHuman($ramTotalMb),
+                    $memoryUsedPercent
+                );
+
+                if ($memoryUsedPercent >= self::MEMORY_CRITICAL_PERCENT) {
+                    $memoryUsedText = "<fg=red>{$memoryUsedText}</>";
+                } elseif ($memoryUsedPercent >= self::MEMORY_WARNING_PERCENT) {
+                    $memoryUsedText = "<fg=yellow>{$memoryUsedText}</>";
+                }
+
+                $hardwareItems['Memory Used'] = $memoryUsedText;
             }
 
             if (isset($info['hardware']['disk_type'])) {
                 /** @var string $diskType */
                 $diskType = $info['hardware']['disk_type'];
                 $diskText = strtoupper($diskType);
-                $hardwareItems['Disk'] = $diskText;
+                $hardwareItems['Disk Type'] = $diskText;
+            }
+
+            $diskTotalBytes = $this->parseIntValue($info['hardware']['disk_total_bytes'] ?? null);
+            $diskUsedBytes = $this->parseIntValue($info['hardware']['disk_used_bytes'] ?? null);
+            $diskFreeBytes = $this->parseIntValue($info['hardware']['disk_free_bytes'] ?? null);
+            $diskFreePercent = $this->parseIntValue($info['hardware']['disk_free_percent'] ?? null);
+
+            if (null !== $diskTotalBytes && null !== $diskUsedBytes && null !== $diskFreeBytes
+                && $diskTotalBytes > 0 && $diskUsedBytes >= 0 && $diskFreeBytes >= 0) {
+                $hardwareItems['Disk Capacity'] = $this->formatBytesHuman($diskTotalBytes);
+                $hardwareItems['Disk Used'] = $this->formatBytesHuman($diskUsedBytes);
+
+                $diskFreeText = $this->formatBytesHuman($diskFreeBytes);
+                if (null !== $diskFreePercent && $diskFreePercent >= 0 && $diskFreePercent <= 100) {
+                    $diskFreeText .= " ({$diskFreePercent}% free)";
+                }
+                $hardwareItems['Disk Free'] = $diskFreeText;
             }
 
             if (count($hardwareItems) > 0) {
@@ -312,5 +382,79 @@ class ServerInfoCommand extends BaseCommand
         }
 
         $this->out('───');
+    }
+
+    /**
+     * Parse a scalar value to int when numeric.
+     */
+    private function parseIntValue(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if ((is_string($value) || is_float($value)) && is_numeric((string) $value)) {
+            return (int) $value;
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse a scalar value to float when numeric.
+     */
+    private function parseFloatValue(mixed $value): ?float
+    {
+        if (is_float($value)) {
+            return $value;
+        }
+
+        if ((is_int($value) || is_string($value)) && is_numeric((string) $value)) {
+            return (float) $value;
+        }
+
+        return null;
+    }
+
+    /**
+     * Format bytes as a human-readable string with one decimal place.
+     */
+    private function formatBytesHuman(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return "{$bytes} B";
+        }
+
+        $units = ['KB', 'MB', 'GB', 'TB', 'PB'];
+        $value = (float) $bytes;
+        $unitIndex = -1;
+
+        while ($value >= 1024 && $unitIndex < count($units) - 1) {
+            $value /= 1024;
+            $unitIndex++;
+        }
+
+        return sprintf('%.1f %s', $value, $units[$unitIndex]);
+    }
+
+    /**
+     * Format megabytes as a human-readable string.
+     */
+    private function formatMegabytesHuman(int $megabytes): string
+    {
+        if ($megabytes < 1024) {
+            return "{$megabytes} MB";
+        }
+
+        $units = ['GB', 'TB', 'PB'];
+        $value = (float) $megabytes / 1024;
+        $unitIndex = 0;
+
+        while ($value >= 1024 && $unitIndex < count($units) - 1) {
+            $value /= 1024;
+            $unitIndex++;
+        }
+
+        return sprintf('%.1f %s', $value, $units[$unitIndex]);
     }
 }

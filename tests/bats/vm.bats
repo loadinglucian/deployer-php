@@ -286,6 +286,13 @@ assert_kv_auth_via_credentials() {
 
 	[ "$status" -eq 0 ]
 	assert_output_contains "Distro"
+	assert_output_contains "Disk Type"
+	assert_output_contains "Disk Capacity"
+	assert_output_contains "Disk Used"
+	assert_output_contains "Disk Free"
+	assert_output_contains "% free"
+	assert_output_contains "Load"
+	assert_output_contains "Memory Used"
 	assert_command_replay "server:info"
 }
 

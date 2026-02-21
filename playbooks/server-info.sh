@@ -12,7 +12,17 @@
 #   hardware:
 #     cpu_cores: 4
 #     ram_mb: 8192
+#     load_1m: 0.25
+#     load_5m: 0.30
+#     load_15m: 0.35
+#     memory_used_mb: 1024
+#     memory_available_mb: 7168
+#     memory_used_percent: 12
 #     disk_type: ssd
+#     disk_total_bytes: 42949672960
+#     disk_used_bytes: 21474836480
+#     disk_free_bytes: 21474836480
+#     disk_free_percent: 50
 #   php:
 #     default: "8.4"
 #     versions:
@@ -122,6 +132,14 @@ detect_cpu_cores() {
 # Detect total system RAM in MB
 
 detect_ram_mb() {
+	local mem_total_kb
+
+	mem_total_kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2> /dev/null)
+	if [[ $mem_total_kb =~ ^[0-9]+$ ]] && [[ $mem_total_kb -gt 0 ]]; then
+		echo $((mem_total_kb / 1024))
+		return
+	fi
+
 	free -m 2> /dev/null | awk 'NR==2 {print $2}' || echo "512"
 }
 
@@ -148,6 +166,99 @@ detect_disk_type() {
 	else
 		echo "hdd"
 	fi
+}
+
+#
+# Detect root filesystem disk metrics in bytes.
+# Returns tab-separated values: total used free free_percent
+
+detect_root_disk_metrics() {
+	local disk_metrics total used free free_percent
+
+	disk_metrics=$(df -B1 -P / 2> /dev/null | awk 'NR==2 {print $2 "\t" $3 "\t" $4}')
+	if [[ -z $disk_metrics ]]; then
+		echo "0	0	0	0"
+		return
+	fi
+
+	IFS=$'\t' read -r total used free <<< "$disk_metrics"
+
+	if ! [[ $total =~ ^[0-9]+$ ]] || ! [[ $used =~ ^[0-9]+$ ]] || ! [[ $free =~ ^[0-9]+$ ]]; then
+		echo "0	0	0	0"
+		return
+	fi
+
+	if [[ $total -le 0 ]]; then
+		free_percent=0
+	else
+		free_percent=$((free * 100 / total))
+	fi
+
+	echo "${total}	${used}	${free}	${free_percent}"
+}
+
+#
+# Detect system load averages.
+# Returns tab-separated values: 1m 5m 15m
+
+detect_load_averages() {
+	local load_1m load_5m load_15m
+
+	if [[ -r /proc/loadavg ]]; then
+		read -r load_1m load_5m load_15m _ < /proc/loadavg
+	fi
+
+	if [[ -z $load_1m || -z $load_5m || -z $load_15m ]]; then
+		echo "0.00	0.00	0.00"
+		return
+	fi
+
+	printf '%s\t%s\t%s\n' "$load_1m" "$load_5m" "$load_15m"
+}
+
+#
+# Detect memory usage metrics in MB.
+# Returns tab-separated values: used available used_percent
+
+detect_memory_metrics() {
+	local mem_total_kb mem_available_kb
+	local total_mb available_mb used_mb used_percent
+
+	mem_total_kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2> /dev/null)
+	mem_available_kb=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo 2> /dev/null)
+
+	if [[ $mem_total_kb =~ ^[0-9]+$ ]] && [[ $mem_available_kb =~ ^[0-9]+$ ]] && [[ $mem_total_kb -gt 0 ]]; then
+		total_mb=$((mem_total_kb / 1024))
+		available_mb=$((mem_available_kb / 1024))
+	else
+		total_mb=$(free -m 2> /dev/null | awk 'NR==2 {print $2}')
+		available_mb=$(free -m 2> /dev/null | awk 'NR==2 {print $7}')
+	fi
+
+	if ! [[ $total_mb =~ ^[0-9]+$ ]]; then
+		total_mb=0
+	fi
+
+	if ! [[ $available_mb =~ ^[0-9]+$ ]]; then
+		available_mb=0
+	fi
+
+	if [[ $available_mb -gt $total_mb ]]; then
+		available_mb=$total_mb
+	fi
+
+	used_mb=$((total_mb - available_mb))
+	if [[ $used_mb -lt 0 ]]; then
+		used_mb=0
+	fi
+
+	if [[ $total_mb -le 0 ]]; then
+		used_percent=0
+	else
+		used_percent=$((used_mb * 100 / total_mb))
+	fi
+
+	echo "${used_mb}	${available_mb}	${used_percent}"
 }
 
 #
@@ -443,6 +554,9 @@ get_sites_config() {
 main() {
 	local distro version permissions
 	local cpu_cores ram_mb disk_type
+	local load_1m load_5m load_15m
+	local memory_used_mb memory_available_mb memory_used_percent
+	local disk_total_bytes disk_used_bytes disk_free_bytes disk_free_percent
 	local php_versions php_default
 
 	#
@@ -457,7 +571,10 @@ main() {
 	echo "→ Detecting hardware..."
 	cpu_cores=$(detect_cpu_cores)
 	ram_mb=$(detect_ram_mb)
+	IFS=$'\t' read -r load_1m load_5m load_15m <<< "$(detect_load_averages)"
+	IFS=$'\t' read -r memory_used_mb memory_available_mb memory_used_percent <<< "$(detect_memory_metrics)"
 	disk_type=$(detect_disk_type)
+	IFS=$'\t' read -r disk_total_bytes disk_used_bytes disk_free_bytes disk_free_percent <<< "$(detect_root_disk_metrics)"
 
 	echo "→ Detecting PHP versions..."
 	php_versions=$(detect_php_versions)
@@ -519,7 +636,17 @@ main() {
 		hardware:
 		  cpu_cores: $cpu_cores
 		  ram_mb: $ram_mb
+		  load_1m: ${load_1m:-0.00}
+		  load_5m: ${load_5m:-0.00}
+		  load_15m: ${load_15m:-0.00}
+		  memory_used_mb: ${memory_used_mb:-0}
+		  memory_available_mb: ${memory_available_mb:-0}
+		  memory_used_percent: ${memory_used_percent:-0}
 		  disk_type: $disk_type
+		  disk_total_bytes: ${disk_total_bytes:-0}
+		  disk_used_bytes: ${disk_used_bytes:-0}
+		  disk_free_bytes: ${disk_free_bytes:-0}
+		  disk_free_percent: ${disk_free_percent:-0}
 		php:
 		  default: ${php_default:-}
 		  versions:
