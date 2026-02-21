@@ -20,7 +20,7 @@ Both follow the same inventory-driven pattern you've already seen with servers a
 Before diving into the commands, it helps to understand the two-step pattern that both cron and supervisor share:
 
 1. **Define locally** — Use `cron:create` or `supervisor:create` to add definitions to your inventory. At this point, nothing happens on the server.
-2. **Sync remotely** — Run `cron:sync` or `supervisor:sync` to push your inventory definitions to the server. This is the moment your changes go live.
+2. **Sync remotely** — Run the `cron:sync` or `supervisor:sync` commands to push your inventory definitions to the server. This is the moment your changes go live.
 
 This separation is intentional. It lets you stage multiple changes (add a job, remove another, tweak a third) and apply them all at once with a single sync. If something looks wrong in your inventory before syncing, you can fix it without worrying about a half-applied state on the server.
 
@@ -31,7 +31,7 @@ This separation is intentional. It lets you stage multiple changes (add a job, r
 
 ## Cron Jobs
 
-Let's walk through adding a scheduled task to your site. Before you can create a cron job, you'll need a script for it to run. If you haven't already, run `scaffold:scripts` in your project directory to generate starter scripts:
+Let's walk through adding a scheduled task to your site. Before you can create a cron job, you'll need a script for it to run. If you haven't already, run the `scaffold:scripts` command in your project directory to generate starter scripts:
 
 ```shell
 deployer scaffold:scripts
@@ -67,10 +67,10 @@ When you no longer need a scheduled task, remove it with `cron:delete`:
 deployer cron:delete
 ```
 
-The command will prompt you to select which cron job to remove from your inventory. After deleting, run `cron:sync` again to update the server's crontab.
+The command will prompt you to select which cron job to remove from your inventory. After deleting, run the `cron:sync` command again to update the server's crontab.
 
 > [!IMPORTANT]
-> Deleting a cron definition only removes it from your local inventory. The server's crontab won't change until you run `cron:sync`.
+> Deleting a cron definition only removes it from your local inventory. The server's crontab won't change until you run the `cron:sync` command.
 
 For command details, see [Cron Reference](reference-cron.md).
 
@@ -116,7 +116,7 @@ Remove a process definition with `supervisor:delete`:
 deployer supervisor:delete
 ```
 
-Select the process to remove, then run `supervisor:sync` to update the server.
+Select the process to remove, then run the `supervisor:sync` command to update the server.
 
 For command details, see [Supervisor Reference](reference-supervisor.md).
 
@@ -139,4 +139,4 @@ These commands affect the daemon directly, which means they impact every process
 
 ## Next Steps
 
-With scheduled tasks running and workers humming along, you may want to explore how to manage your servers and sites on an ongoing basis. For more information, see [Managing Servers](managing-servers.md) and [Managing Sites](managing-sites.md).
+With scheduled tasks running and workers humming along, you'll want to know what to do when something goes wrong. The [Logs & Debugging](logs-and-debugging.md) guide walks you through a triage workflow for diagnosing issues using server dashboards, log viewing, and remote commands. For ongoing operational tasks, see [Managing Servers](managing-servers.md) and [Managing Sites](managing-sites.md).

@@ -26,7 +26,7 @@ Use `supervisor:*` commands to define and operate long-running site processes.
 
 Use `supervisor:create` and `supervisor:delete` to manage inventory definitions.
 
-Run `supervisor:sync` after definition changes to apply them remotely.
+Run the `supervisor:sync` command after definition changes to apply them remotely.
 
 Use `supervisor:start`, `supervisor:stop`, and `supervisor:restart` for daemon lifecycle control.
 

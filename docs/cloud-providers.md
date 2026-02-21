@@ -141,7 +141,7 @@ deployer aws:key:delete
 deployer aws:provision
 ```
 
-After provisioning, run `deployer server:install` to prepare runtime services.
+After provisioning, run the `server:install` command to prepare runtime services.
 
 ### Managing DNS Records
 
@@ -222,7 +222,7 @@ deployer do:key:delete
 deployer do:provision
 ```
 
-After provisioning, run `deployer server:install` to prepare runtime services.
+After provisioning, run the `server:install` command to prepare runtime services.
 
 ### Managing DNS Records
 

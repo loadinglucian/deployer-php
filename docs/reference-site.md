@@ -43,7 +43,7 @@ Use the `site:shared:*` commands for persistent single-file assets such as envir
 ## Safety and Guardrails
 
 > [!IMPORTANT]
-> Run `site:dns:check` before `site:https` so certificate issuance is attempted only after DNS is truly ready.
+> Run the `site:dns:check` command before `site:https` so certificate issuance is attempted only after DNS is truly ready.
 
 > [!INFO]
 > `site:rollback` is intentionally informational. The recommended operational model is forward-only fixes and redeploys.

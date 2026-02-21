@@ -50,7 +50,7 @@ If you use AI tools like Claude, Codex, Cursor, or OpenCode, you can create a sk
 > [!IMPORTANT]
 > **Use at your own risk!** Granting AI agents access to production servers can be risky. Always review generated skills and monitor AI-initiated actions. You are solely responsible for any changes, data loss, or issues arising from AI-assisted debugging.
 
-Run `scaffold:ai` from your project directory to generate agent skills.
+Run the `scaffold:ai` command from your project directory to generate agent skills.
 
 DeployerPHP will select the AI agent directory using this flow:
 

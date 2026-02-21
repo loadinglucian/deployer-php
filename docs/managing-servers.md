@@ -26,6 +26,8 @@ deployer server:info
 Use this output as your first triage checkpoint:
 
 - Confirm OS/runtime state before changing anything.
+- Check load averages and memory-used pressure before diagnosing slow commands or timeouts.
+- Check root disk capacity, absolute usage, and free space before investigating write/deploy failures.
 - Verify installed service versions before deploys.
 - Check site-level context when debugging one application.
 - Review firewall state and allowed ports before network changes.
@@ -33,7 +35,7 @@ Use this output as your first triage checkpoint:
 `server:info` is designed as a single dashboard, so you do not need to SSH in and run multiple commands to get the first diagnostic picture.
 
 > [!INFO]
-> If a server command fails unexpectedly, run `server:info` and `server:logs` first. You usually find the root cause faster than retrying mutating commands.
+> If a server command fails unexpectedly, run the `server:info` and `server:logs` commands first. You usually find the root cause faster than retrying mutating commands.
 
 <a name="running-commands-on-servers"></a>
 
@@ -89,7 +91,7 @@ deployer server:logs
 
 During incident response, pair logs with `server:info` so you can connect failures to the server's current runtime state.
 
-You can select multiple sources in one session, which helps correlate incidents across system logs, service logs, and site-level activity.
+You can select multiple sources in one session, which helps correlate incidents across system logs, service logs, and site-level activity. For a complete walkthrough of the triage workflow, see [Logs & Debugging](logs-and-debugging.md).
 
 <a name="removing-a-server"></a>
 

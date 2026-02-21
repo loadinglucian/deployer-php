@@ -30,7 +30,7 @@ This split lets you stage changes safely before applying them to production.
 ## Safety and Guardrails
 
 > [!IMPORTANT]
-> After creating or deleting cron definitions, run `cron:sync` to make remote state match inventory.
+> After creating or deleting cron definitions, run the `cron:sync` command to make remote state match inventory.
 
 ## Related Guides
 

@@ -46,7 +46,7 @@ Shared files are typically things like `.env` and user-managed artifacts. Keep t
 
 ## DNS and HTTPS
 
-Use `site:dns:check` to verify resolver state before certificate issuance, then run `site:https`.
+Use `site:dns:check` to verify resolver state before certificate issuance, then run the `site:https` command.
 
 A healthy sequence is:
 
@@ -64,7 +64,7 @@ If you use provider-integrated DNS commands, run DNS checks after updates so you
 
 Use `site:ssh` for interactive, site-local investigation. For broader telemetry, use `server:logs` and filter to site-level sources.
 
-This split keeps shell-level debugging and log-level monitoring cleanly separated.
+This split keeps shell-level debugging and log-level monitoring cleanly separated. For a full triage workflow covering dashboards, logs, remote commands, and interactive SSH, see [Logs & Debugging](logs-and-debugging.md).
 
 <a name="rollbacks-and-forward-only-deployments"></a>
 
