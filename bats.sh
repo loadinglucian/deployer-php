@@ -348,6 +348,47 @@ clean_all_vms() {
 	done
 }
 
+cmd_cleanup_vm() {
+	local distro="${1:-}"
+
+	if [[ -n "$distro" ]]; then
+		if [[ -z "${DISTRO_PORTS[$distro]:-}" ]]; then
+			echo -e "${RED}Unknown distro: ${distro}${NC}"
+			echo "Available distros: ${DISTROS[*]}"
+			exit 1
+		fi
+		clean_vm "$distro"
+		echo -e "${GREEN}VM ${distro} cleaned${NC}"
+	else
+		clean_all_vms
+		echo -e "${GREEN}All VMs cleaned${NC}"
+	fi
+}
+
+cmd_cleanup_cloud() {
+	local janitor_script="${BATS_DIR}/lib/cloud-janitor.sh"
+
+	if [[ ! -x "$janitor_script" ]]; then
+		echo -e "${RED}Cloud janitor script is missing or not executable: ${janitor_script}${NC}"
+		exit 1
+	fi
+
+	echo -e "${YELLOW}Running cloud cleanup sweep...${NC}"
+	"$janitor_script" \
+		--mode=sweep \
+		--providers="aws,do,cf" \
+		--min-age-minutes=30
+	local exit_code=$?
+
+	if [[ $exit_code -eq 0 ]]; then
+		echo -e "${GREEN}Cloud cleanup completed${NC}"
+	else
+		echo -e "${RED}Cloud cleanup failed${NC}"
+	fi
+
+	return $exit_code
+}
+
 #
 # Test Execution
 # ----
@@ -358,9 +399,11 @@ API_ONLY_TESTS=("cloud-aws" "cloud-do")
 # Test descriptions for interactive menu
 declare -A TEST_DESCRIPTIONS=(
 	["cloud"]="Cloud provider API tests"
+	["cloud-cleanup"]="Cloud resource cleanup sweep"
 	["cloud-aws"]="AWS provisioning tests"
 	["cloud-do"]="DigitalOcean provisioning tests"
 	["vm"]="Server management tests"
+	["vm-cleanup"]="VM state cleanup (no restart)"
 )
 
 is_api_only_test() {
@@ -387,12 +430,12 @@ select_test() {
 	echo "" > /dev/tty
 
 	# Categories sorted alphabetically
-	local categories=("cloud" "vm")
+	local categories=("cloud" "cloud-cleanup" "vm" "vm-cleanup")
 	local i=1
 
 	for cat in "${categories[@]}"; do
 		local desc="${TEST_DESCRIPTIONS[$cat]:-$cat tests}"
-		echo -e "  ${i}) ${cat}$(printf '%*s' $((8 - ${#cat})) '') ${desc}" > /dev/tty
+		printf "  %d) %-13s %s\n" "$i" "$cat" "$desc" > /dev/tty
 		((i++))
 	done
 
@@ -559,8 +602,11 @@ run_tests_for_distro() {
 }
 
 select_distro() {
+	local prompt="${1:-Select distro to test against:}"
+	local all_description="${2:-Run on all distros sequentially}"
+
 	echo "" > /dev/tty
-	echo -e "${BLUE}Select distro to test against:${NC}" > /dev/tty
+	echo -e "${BLUE}${prompt}${NC}" > /dev/tty
 	echo "" > /dev/tty
 
 	# Sort distros alphabetically
@@ -574,7 +620,7 @@ select_distro() {
 
 	for opt in "${options[@]}"; do
 		if [[ "$opt" == "all" ]]; then
-			echo -e "  ${i}) ${opt}$(printf '%*s' $((12 - ${#opt})) '') Run on all distros sequentially" > /dev/tty
+			echo -e "  ${i}) ${opt}$(printf '%*s' $((12 - ${#opt})) '') ${all_description}" > /dev/tty
 		else
 			echo -e "  ${i}) ${opt}" > /dev/tty
 		fi
@@ -628,9 +674,23 @@ run_tests() {
 				run_cloud_tests
 				return $?
 				;;
+			cloud-cleanup)
+				cmd_cleanup_cloud
+				return $?
+				;;
 			vm)
 				# Fall through to VM test handling below
 				test_filter="vm"
+				;;
+			vm-cleanup)
+				local cleanup_distro
+				cleanup_distro=$(select_distro "Select distro to clean:" "Clean all distros")
+				if [[ "$cleanup_distro" == "all" ]]; then
+					cmd_cleanup_vm
+				else
+					cmd_cleanup_vm "$cleanup_distro"
+				fi
+				return $?
 				;;
 		esac
 	fi
@@ -638,6 +698,22 @@ run_tests() {
 	# Direct CLI: cloud tests with provider selection
 	if [[ "$test_filter" == "cloud" ]]; then
 		run_cloud_tests
+		return $?
+	fi
+
+	# Direct CLI: cleanup operations
+	if [[ "$test_filter" == "cloud-cleanup" ]]; then
+		cmd_cleanup_cloud
+		return $?
+	fi
+	if [[ "$test_filter" == "vm-cleanup" ]]; then
+		local cleanup_distro
+		cleanup_distro=$(select_distro "Select distro to clean:" "Clean all distros")
+		if [[ "$cleanup_distro" == "all" ]]; then
+			cmd_cleanup_vm
+		else
+			cmd_cleanup_vm "$cleanup_distro"
+		fi
 		return $?
 	fi
 
@@ -725,23 +801,31 @@ show_usage() {
 	echo "Commands:"
 	echo "  run [category]    Run tests (shows interactive menu if no category)"
 	echo "  ci <type> <target> Run tests non-interactively (requires CI=true)"
+	echo "  cleanup-cloud     Run cloud cleanup sweep via janitor"
+	echo "  cleanup-vm [distro] Clean VM state without restarting"
 	echo "  start [distro]    Start VMs (all if no distro specified)"
 	echo "  stop [distro]     Stop VMs (all if no distro specified)"
 	echo "  reset [distro]    Factory reset VMs (all if no distro specified)"
-	echo "  clean [distro]    Clean VM state without restarting"
 	echo "  ssh <distro>      SSH into a test VM"
 	echo ""
 	echo "Interactive menu flow:"
 	echo "  Select test category:"
-	echo "    1) cloud    -> Select provider: all, aws, do"
-	echo "    2) vm       -> Select distro: all, ubuntu24"
+	echo "    1) cloud          -> Select provider: all, aws, do"
+	echo "    2) cloud-cleanup  -> Run cloud cleanup sweep"
+	echo "    3) vm             -> Select distro: all, ubuntu24"
+	echo "    4) vm-cleanup     -> Select distro to clean"
 	echo ""
 	echo "Examples:"
 	echo "  $0 run            # Interactive: category menu -> submenu"
 	echo "  $0 run cloud      # Cloud tests (prompts for provider)"
+	echo "  $0 run cloud-cleanup # Interactive cloud cleanup"
 	echo "  $0 run vm         # VM tests (prompts for distro)"
+	echo "  $0 run vm-cleanup # Interactive VM cleanup"
 	echo "  $0 run cloud-aws  # Run AWS API tests directly (no VM)"
 	echo "  $0 run cloud-do   # Run DigitalOcean API tests directly (no VM)"
+	echo "  $0 cleanup-cloud  # Sweep cloud test resources (aws,do,cf)"
+	echo "  $0 cleanup-vm     # Clean all VM states"
+	echo "  $0 cleanup-vm ubuntu24 # Clean one VM state"
 	echo "  $0 start          # Start all VMs"
 	echo "  $0 start ubuntu24 # Start only ubuntu24 VM"
 	echo "  $0 stop ubuntu24  # Stop only ubuntu24 VM"
@@ -832,22 +916,13 @@ case "${1:-run}" in
 		fi
 		reset_lima "$distro"
 		;;
-	clean)
+	cleanup-vm)
 		check_dependencies true
 		validate_vm_matrix
-		distro="${2:-}"
-		if [[ -n "$distro" ]]; then
-			if [[ -z "${DISTRO_PORTS[$distro]:-}" ]]; then
-				echo -e "${RED}Unknown distro: ${distro}${NC}"
-				echo "Available distros: ${DISTROS[*]}"
-				exit 1
-			fi
-			clean_vm "$distro"
-			echo -e "${GREEN}VM ${distro} cleaned${NC}"
-		else
-			clean_all_vms
-			echo -e "${GREEN}All VMs cleaned${NC}"
-		fi
+		cmd_cleanup_vm "${2:-}"
+		;;
+	cleanup-cloud)
+		cmd_cleanup_cloud
 		;;
 	ssh)
 		check_dependencies true
