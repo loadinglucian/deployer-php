@@ -920,6 +920,59 @@ assert_kv_auth_via_credentials() {
 	cmp -s "${skill_path}" "${PROJECT_ROOT}/scaffolds/ai/deployerphp-debugger/SKILL.md"
 }
 
+@test "scaffold:ai auto-detects multiple agent directories and scaffolds both" {
+	local destination="${BATS_TEST_TMPDIR}/scaffold-ai-detected-multi"
+	local agents_skill_path="${destination}/.agents/skills/deployerphp-debugger/SKILL.md"
+	local claude_skill_path="${destination}/.claude/skills/deployerphp-debugger/SKILL.md"
+	mkdir -p "${destination}/.agents" "${destination}/.claude"
+
+	run_deployer scaffold:ai \
+		--tier="debugger" \
+		--destination="$destination"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Finished scaffolding ai"
+	assert_command_replay "scaffold:ai"
+	assert_output_contains "--agent='.agents,.claude'"
+	assert_output_contains "--tier='debugger'"
+	assert_output_contains "--destination='${destination}'"
+
+	[ -f "${agents_skill_path}" ]
+	[ -f "${claude_skill_path}" ]
+	cmp -s "${agents_skill_path}" "${PROJECT_ROOT}/scaffolds/ai/deployerphp-debugger/SKILL.md"
+	cmp -s "${claude_skill_path}" "${PROJECT_ROOT}/scaffolds/ai/deployerphp-debugger/SKILL.md"
+}
+
+@test "scaffold:ai supports explicit multi-agent csv option" {
+	local destination="${BATS_TEST_TMPDIR}/scaffold-ai-cli-multi"
+	local agents_skill_path="${destination}/.agents/skills/deployerphp-debugger/SKILL.md"
+	local claude_skill_path="${destination}/.claude/skills/deployerphp-debugger/SKILL.md"
+	mkdir -p "$destination"
+
+	run_deployer scaffold:ai \
+		--agent=".agents,.claude" \
+		--tier="debugger" \
+		--destination="$destination"
+
+	debug_output
+
+	[ "$status" -eq 0 ]
+	assert_success_output
+	assert_output_contains "Finished scaffolding ai"
+	assert_command_replay "scaffold:ai"
+	assert_output_contains "--agent='.agents,.claude'"
+	assert_output_contains "--tier='debugger'"
+	assert_output_contains "--destination='${destination}'"
+
+	[ -f "${agents_skill_path}" ]
+	[ -f "${claude_skill_path}" ]
+	cmp -s "${agents_skill_path}" "${PROJECT_ROOT}/scaffolds/ai/deployerphp-debugger/SKILL.md"
+	cmp -s "${claude_skill_path}" "${PROJECT_ROOT}/scaffolds/ai/deployerphp-debugger/SKILL.md"
+}
+
 @test "scaffold:scripts creates script templates from scaffolds" {
 	local destination="${BATS_TEST_TMPDIR}/scaffold-scripts"
 	local target_dir="${destination}/.deployer/scripts"

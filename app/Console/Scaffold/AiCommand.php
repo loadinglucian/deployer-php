@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DeployerPHP\Console\Scaffold;
 
 use DeployerPHP\Contracts\BaseCommand;
+use DeployerPHP\Exceptions\ValidationException;
 use DeployerPHP\Traits\ScaffoldsTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -54,7 +55,7 @@ class AiCommand extends BaseCommand
     {
         parent::configure();
         $this->configureScaffoldOptions();
-        $this->addOption('agent', null, InputOption::VALUE_REQUIRED, 'AI agent directory (.agents or .claude)');
+        $this->addOption('agent', null, InputOption::VALUE_REQUIRED, 'AI agent directory/directories (.agents,.claude)');
         $this->addOption('tier', null, InputOption::VALUE_REQUIRED, 'Skill tier (observer, debugger, admin)');
     }
 
@@ -78,12 +79,12 @@ class AiCommand extends BaseCommand
     /**
      * Resolve agent and tier selection context.
      *
-     * @return array{agent: string, tier: string}|null
+     * @return array{agents: list<string>, tier: string}|null
      */
     protected function resolveScaffoldContext(string $destinationDir, string $type): ?array
     {
-        $agent = $this->determineAgent($destinationDir);
-        if (null === $agent) {
+        $agents = $this->determineAgents($destinationDir);
+        if (null === $agents) {
             return null;
         }
 
@@ -92,20 +93,37 @@ class AiCommand extends BaseCommand
             return null;
         }
 
-        return ['agent' => $agent, 'tier' => $tier];
+        return ['agents' => $agents, 'tier' => $tier];
     }
 
     /**
      * Build target path for AI agent skills directory.
      *
-     * @param array{agent: string, tier: string} $context
+     * @param array{agents: list<string>, tier: string} $context
      */
     protected function buildTargetPath(string $destinationDir, string $type, array $context): string
     {
-        $agentDir = self::AGENT_DIRS[$context['agent']];
-        $skillDir = sprintf('deployerphp-%s', $context['tier']);
+        /** @var string $agent */
+        $agent = $context['agents'][0];
 
-        return $this->fs->joinPaths($destinationDir, $agentDir, 'skills', $skillDir);
+        return $this->buildAgentTargetPath($destinationDir, $agent, $context['tier']);
+    }
+
+    /**
+     * Build target paths for AI agent skills directories.
+     *
+     * @param array{agents: list<string>, tier: string} $context
+     * @return list<string>
+     */
+    protected function buildTargetPaths(string $destinationDir, string $type, array $context): array
+    {
+        $paths = [];
+
+        foreach ($context['agents'] as $agent) {
+            $paths[] = $this->buildAgentTargetPath($destinationDir, $agent, $context['tier']);
+        }
+
+        return $paths;
     }
 
     /**
@@ -123,15 +141,15 @@ class AiCommand extends BaseCommand
     }
 
     /**
-     * Include agent and tier in replay options.
+     * Include agent(s) and tier in replay options.
      *
-     * @param array{agent: string, tier: string} $context
+     * @param array{agents: list<string>, tier: string} $context
      * @return array<string, mixed>
      */
     protected function buildReplayOptions(string $destinationDir, array $context): array
     {
         return [
-            'agent' => $context['agent'],
+            'agent' => implode(',', $context['agents']),
             'tier' => $context['tier'],
             'destination' => $destinationDir,
         ];
@@ -142,55 +160,33 @@ class AiCommand extends BaseCommand
     // ----
 
     /**
-     * Determine which AI agent to target.
+     * Determine which AI agent directories to target.
+     *
+     * @return list<string>|null
      */
-    private function determineAgent(string $destinationDir): ?string
+    private function determineAgents(string $destinationDir): ?array
     {
         // Check for --agent option first
         /** @var string|null $agentOption */
         $agentOption = $this->io->getOptionValue('agent');
         if (null !== $agentOption) {
-            $error = $this->validateAgentInput($agentOption);
+            $error = $this->validateAgentsInput($agentOption);
             if (null !== $error) {
                 $this->nay($error);
 
                 return null;
             }
 
-            return $agentOption;
+            return $this->normalizeAgentsInput($agentOption);
         }
 
-        // Detect existing AI directories
+        // Auto-detect existing AI directories and scaffold all detected dirs
         $existing = $this->detectExistingAgentDirs($destinationDir);
-
-        if (1 === count($existing)) {
-            // One found - use it
-            return $existing[0];
+        if ([] !== $existing) {
+            return $existing;
         }
 
-        if (count($existing) > 1) {
-            // Multiple found - ask which to use
-            $options = [];
-            foreach (self::AGENT_ORDER as $agent) {
-                if (! in_array($agent, $existing, true)) {
-                    continue;
-                }
-
-                $options[$agent] = sprintf(
-                    '%s (%s exists)',
-                    self::AGENT_LABELS[$agent],
-                    self::AGENT_DIRS[$agent]
-                );
-            }
-
-            /** @var string */
-            return $this->io->promptSelect(
-                label: 'Multiple AI agent directories found. Which one should we use?',
-                options: $options
-            );
-        }
-
-        // None found - ask which to create
+        // None found - prompt with multiselect
         $options = [];
         foreach (self::AGENT_ORDER as $agent) {
             $options[$agent] = sprintf(
@@ -200,11 +196,45 @@ class AiCommand extends BaseCommand
             );
         }
 
-        /** @var string */
-        return $this->io->promptSelect(
-            label: 'No AI agent directory found. Which one should we create? .agents supports Codex, Cursor, OpenCode',
-            options: $options
-        );
+        try {
+            /** @var array<int, string>|string $selected */
+            $selected = $this->io->getValidatedOptionOrPrompt(
+                'agent',
+                fn ($validate) => $this->io->promptMultiselect(
+                    label: 'No AI agent directory found. Select directories to scaffold: (.agents supports Codex, Cursor, OpenCode)',
+                    options: $options,
+                    default: ['.agents'],
+                    required: true,
+                    hint: 'Use space to toggle, enter to confirm',
+                    validate: $validate
+                ),
+                fn ($value) => $this->validateAgentsInput($value)
+            );
+        } catch (ValidationException $e) {
+            $this->nay($e->getMessage());
+
+            return null;
+        }
+
+        $error = $this->validateAgentsInput($selected);
+        if (null !== $error) {
+            $this->nay($error);
+
+            return null;
+        }
+
+        return $this->normalizeAgentsInput($selected);
+    }
+
+    /**
+     * Build destination path for a single AI agent directory.
+     */
+    private function buildAgentTargetPath(string $destinationDir, string $agent, string $tier): string
+    {
+        $agentDir = self::AGENT_DIRS[$agent];
+        $skillDir = sprintf('deployerphp-%s', $tier);
+
+        return $this->fs->joinPaths($destinationDir, $agentDir, 'skills', $skillDir);
     }
 
     /**
@@ -215,7 +245,8 @@ class AiCommand extends BaseCommand
     private function detectExistingAgentDirs(string $destinationDir): array
     {
         $existing = [];
-        foreach (self::AGENT_DIRS as $agent => $dir) {
+        foreach (self::AGENT_ORDER as $agent) {
+            $dir = self::AGENT_DIRS[$agent];
             $path = $this->fs->joinPaths($destinationDir, $dir);
             if ($this->fs->isDirectory($path)) {
                 $existing[] = $agent;
@@ -223,6 +254,68 @@ class AiCommand extends BaseCommand
         }
 
         return $existing;
+    }
+
+    /**
+     * Normalize agent selection from CLI string or prompt array.
+     *
+     * @return list<string>
+     */
+    private function normalizeAgentsInput(mixed $value): array
+    {
+        if (is_string($value)) {
+            $agents = array_values(array_filter(
+                array_map(trim(...), explode(',', $value)),
+                static fn (string $agent): bool => '' !== $agent
+            ));
+
+            return $this->sortAgentsByOrder(array_values(array_unique($agents)));
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $agents = [];
+        foreach ($value as $agent) {
+            if (! is_string($agent)) {
+                continue;
+            }
+
+            $agent = trim($agent);
+            if ('' === $agent) {
+                continue;
+            }
+
+            $agents[] = $agent;
+        }
+
+        return $this->sortAgentsByOrder(array_values(array_unique($agents)));
+    }
+
+    /**
+     * Keep agent selection in canonical order.
+     *
+     * @param list<string> $agents
+     * @return list<string>
+     */
+    private function sortAgentsByOrder(array $agents): array
+    {
+        $sorted = [];
+        foreach (self::AGENT_ORDER as $agent) {
+            if (in_array($agent, $agents, true)) {
+                $sorted[] = $agent;
+            }
+        }
+
+        // Preserve unknown values at the end so validation can report them.
+        foreach ($agents as $agent) {
+            if (! in_array($agent, $sorted, true)) {
+                $sorted[] = $agent;
+            }
+        }
+
+        return $sorted;
     }
 
     /**
@@ -262,16 +355,26 @@ class AiCommand extends BaseCommand
      *
      * @return string|null Error message if invalid, null if valid
      */
-    private function validateAgentInput(mixed $value): ?string
+    private function validateAgentsInput(mixed $value): ?string
     {
-        if (! is_string($value)) {
-            return 'Agent must be a string';
+        if (null === $value) {
+            return 'At least one agent directory must be selected';
         }
 
-        if (! array_key_exists($value, self::AGENT_DIRS)) {
+        if (! is_string($value) && ! is_array($value)) {
+            return 'Agent must be a comma-separated string or array';
+        }
+
+        $agents = $this->normalizeAgentsInput($value);
+        if ([] === $agents) {
+            return 'At least one agent directory must be selected';
+        }
+
+        $invalidAgents = array_values(array_diff($agents, array_keys(self::AGENT_DIRS)));
+        if ([] !== $invalidAgents) {
             $valid = implode(', ', array_keys(self::AGENT_DIRS));
 
-            return "Invalid agent '{$value}'. Valid options: {$valid}";
+            return "Invalid agent(s): " . implode(', ', $invalidAgents) . ". Valid options: {$valid}";
         }
 
         return null;

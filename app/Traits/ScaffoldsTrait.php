@@ -70,12 +70,25 @@ trait ScaffoldsTrait
             return Command::FAILURE;
         }
 
-        // Step 3: Build target path using context
-        $targetDir = $this->buildTargetPath($destinationDir, $type, $context);
+        // Step 3: Build target path(s) using context
+        $targetDirs = $this->buildTargetPaths($destinationDir, $type, $context);
+
+        if ([] === $targetDirs) {
+            $this->nay('No scaffold target directories resolved');
+
+            return Command::FAILURE;
+        }
 
         // Step 4: Copy templates
         try {
-            $status = $this->copyTemplates($type, $targetDir, $context);
+            if (1 === count($targetDirs)) {
+                $status = $this->copyTemplates($type, $targetDirs[0], $context);
+            } else {
+                $status = [];
+                foreach ($targetDirs as $targetDir) {
+                    $status[$targetDir] = $this->copyTemplates($type, $targetDir, $context);
+                }
+            }
         } catch (\RuntimeException $e) {
             $this->nay($e->getMessage());
 
@@ -116,6 +129,18 @@ trait ScaffoldsTrait
     protected function buildTargetPath(string $destinationDir, string $type, array $context): string
     {
         return $this->fs->joinPaths($destinationDir, '.deployer', $type);
+    }
+
+    /**
+     * Build target directory paths.
+     * Override this for commands that scaffold to multiple destinations.
+     *
+     * @param array<string, mixed> $context
+     * @return list<string>
+     */
+    protected function buildTargetPaths(string $destinationDir, string $type, array $context): array
+    {
+        return [$this->buildTargetPath($destinationDir, $type, $context)];
     }
 
     /**
