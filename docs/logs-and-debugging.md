@@ -117,4 +117,4 @@ This is useful for quick diagnostics such as disk pressure (`df -h`), memory sta
 
 ## Next Steps
 
-With these debugging tools in your workflow, you're equipped to triage most production issues quickly. For ongoing operational tasks beyond debugging, see [Managing Servers](managing-servers.md) and [Managing Sites](managing-sites.md). For full command details, see the [Server Reference](reference-server.md) and [Site Reference](reference-site.md).
+With these debugging tools under your belt, you should be able to triage most issues quickly. An even quicker way is to let an AI agent do it for you. For more information, see [AI Automation](ai-automation.md).

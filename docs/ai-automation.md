@@ -1,99 +1,90 @@
-# Automation & AI
+# AI Automation
 
 <!-- toc -->
 
-- [Command Replays](#command-replays)
-- [Quiet Mode](#quiet-mode)
-- [AI Agents](#ai-agents)
-    - [Permission Tiers](#permission-tiers)
+- [Scaffolding the SKILL](#scaffolding-the-skill)
+- [Permission Tiers](#permission-tiers)
+    - [Observer](#observer)
+    - [Debugger](#debugger)
+    - [Admin](#admin)
+- [CI and Script Automation](#ci-and-script-automation)
+- [Next Steps](#next-steps)
 
 <!-- /toc -->
 
-While managing servers and deployments manually works really well, you may want to automate these tasks for your CI pipelines or AI-assisted workflows. This guide explains the automation model and how to use AI agents with DeployerPHP.
+You can automate and significantly speed up the debugging process by letting an AI agent use the triage tools instead of using them manually. DeployerPHP can generate a SKILL file that gives your AI agent structured, permission-controlled access to your infrastructure, so it can read logs, inspect server state, and diagnose issues the same way you would.
 
-<a name="command-replays"></a>
-
-## Command Replays
-
-Every DeployerPHP command provides a non-interactive command replay at the end of execution. This replay displays the exact command along with all your interactive prompt responses filled in.
-
-Commands are meant to be composable, allowing you to copy and paste these replies as building blocks for your own scripts, workflows, or CI pipelines.
-
-```EXAMPLE nocopy
-.
-.
-.
-Non-interactive command replay:
-───────────────────────────────────────────────────────────────────────────
-$> deployer server:add  \
-  --name='web1' \
-  --host='123.456.789.123' \
-  --port='22' \
-  --username='root' \
-  --private-key-path='~/.ssh/id_ed25519'
-```
-
-<a name="quiet-mode"></a>
-
-## Quiet Mode
-
-Every command accepts the `--quiet` option to run in quiet mode. This mode is designed for non-interactive automation tasks where human-readable terminal output is not needed. In quiet mode, command output is minimized, but errors still appear.
-
-When using quiet mode for non-interactive execution, be careful to provide all required command inputs upfront and expect prompt-driven flows to be bypassed.
-
-<a name="ai-agents"></a>
-
-## Using AI Agents
-
-If you use AI tools like Claude, Codex, Cursor, or OpenCode, you can create a skills file that guides agents on safely interacting with your DeployerPHP-managed servers. This is useful when debugging issues with your application in production. Agents can read logs or execute remote, non-destructive commands on your server to investigate and resolve problems.
+This guide covers generating that agent SKILL, choosing the right permission tier for your workflow, and wiring up non-interactive commands for CI and script automation.
 
 > [!IMPORTANT]
-> **Use at your own risk!** Granting AI agents access to production servers can be risky. Always review generated skills and monitor AI-initiated actions. You are solely responsible for any changes, data loss, or issues arising from AI-assisted debugging.
+> Always review any AI SKILL carefully before using it and make sure you understand the risks of allowing an LLM to control which information is read from and what commands are executed on your servers.
 
-Run the `scaffold:ai` command from your project directory to generate agent skills.
+<a name="scaffolding-the-skill"></a>
 
-DeployerPHP will select the AI agent directory using this flow:
+## Scaffolding the SKILL
 
-1. If exactly one supported directory exists (`.agents` or `.claude`), it is selected automatically.
-2. If multiple agent directories exist, you'll be prompted to choose which one to use.
-3. If no agent directories exist, you'll be prompted to choose which one to create.
+Run the `scaffold:ai` command from your project directory:
 
-The supported directories are:
+```shell
+deployer scaffold:ai
+```
 
-- **`.agents`**: Shared skills directory for Codex, Cursor, and OpenCode (`.agents/skills/`)
-- **`.claude`**: Claude skills directory (`.claude/skills/`)
+The command detects which AI agent directories already exist in your project. If one or more are found, it scaffolds into all of them automatically. If none exist, it prompts you with a multi-select so you can choose one or both. The supported directories are:
 
-> [!INFO]
-> The selection flow above is based on whether agent directories already exist in your project.
+- **`.agents/`** - For Codex, Cursor, and OpenCode
+- **`.claude/`** - For Claude Code
+
+DeployerPHP will then prompt you for a permission tier and generate the SKILL inside a `skills/` subdirectory. Existing files are skipped by default — you'll need to explicitly request an overwrite to regenerate. You can always rerun the command and use the non-interactive command replay to target specific directories.
+
+This SKILL gives your AI agent all the context it needs to work with your DeployerPHP setup: knowledge of your inventory structure, your deployment layout, and a scoped set of commands matched to the permission tier you choose.
 
 <a name="permission-tiers"></a>
 
-### Permission Tiers
+## Permission Tiers
 
-When scaffolding AI skills, you'll select a permission tier that determines what your AI assistant can do on your servers. Each tier builds on the previous one, adding more capabilities:
+When generating your skills file, you'll choose a permission tier. Each tier defines what your AI agent can do on your servers:
 
-| Tier     | Access Level                  | Best For                              |
-| -------- | ----------------------------- | ------------------------------------- |
-| Observer | Read-only                     | Viewing logs and server information   |
-| Debugger | Inspect + safe shell commands | Investigating issues with more agency |
-| Admin    | Full infrastructure access    | Agents can manage everything          |
+<a name="observer"></a>
 
-**Observer** is the most restrictive tier. Your AI assistant can run read-only DeployerPHP commands like `server:info` and `server:logs` to view server state and logs, but it cannot run shell commands via `server:run` or make any changes. This is ideal for getting help understanding what's happening on your server without any risk of accidental modifications.
+### Observer
 
-**Debugger** is the default tier and strikes a balance between utility and safety. In addition to observer capabilities, your assistant can run safe, non-destructive shell commands like `ls`, `cat`, `grep`, and `df`. This lets it actively investigate issues by exploring the filesystem and checking resource usage, but it cannot restart services, modify files, or run deployments.
+The Observer tier gives your AI agent read-only access. It can run the `server:info` command to get a full picture of server health and the `server:logs` command to pull targeted logs.
 
-**Admin** grants full access to DeployerPHP commands. Your assistant can deploy code, manage services, configure sites, and perform any operation you could do manually. Only use this tier with AI agents you fully trust, and always review the generated skills before enabling them.
+The log scope covers service logs like nginx, PHP-FPM, databases, supervisor, and cron, per-site access and error logs, and aggregate views across all sites or workers. The `server:run` command isn't available at this tier, so there's no arbitrary shell execution.
 
 > [!INFO]
-> Start with the Debugger tier. It provides enough access for most troubleshooting scenarios while keeping guardrails in place. You can always scaffold a higher tier later if needed.
+> The Observer tier is ideal for monitoring and log tracing scenarios where you want full visibility but with guardrails against the possibility of the AI agent running commands on your servers.
 
-The generated skills file provides your AI assistant with:
+<a name="debugger"></a>
 
-- **Inventory context**: Understanding of your `.deployer/inventory.yml` structure
-- **Deployment layout**: Knowledge of the release directory structure
-- **Safe debugging commands**: Commands for viewing logs, checking status, and reading files
-- **Guardrails**: Explicit restrictions preventing destructive operations like deployments, service restarts, or configuration changes
+### Debugger
 
-This ensures your AI assistant can help troubleshoot issues on your servers without accidentally running commands that could affect production stability.
+The Debugger tier builds on Observer and adds the ability to run safe, non-destructive shell commands via the `server:run` command. Your assistant can inspect release structure and symlinks, check service health, measure capacity metrics, tail application logs, and query PHP runtime configuration.
 
-For command-level behavior details, see [Scaffold Reference](reference-scaffold.md) and [Server Reference](reference-server.md).
+Two categories are off-limits: state-changing commands (deploy, install, restart, delete, and similar) and interactive terminal programs like `less`, `top`, `vim`, or nested `ssh`.
+
+> [!INFO]
+> The Debug tier enables AI agents to run complex investigation workflows for testing root-cause hypotheses while maintaining guardrails against unwanted side effects like data modification or downtime.
+
+<a name="admin"></a>
+
+### Admin
+
+The Admin tier covers the full range of DeployerPHP command domains: server management, site lifecycle, cron, and supervisor. It also includes service installs and lifecycle management plus cloud provider integrations for provisioning, DNS, and SSH key management.
+
+> [!IMPORTANT]
+> While guiderails to prevent potentially unwanted side effects are provided, this tier is regarded as the most risky to operate within. Make sure you understand the risks of allowing an LLM this much access to your servers.
+
+<a name="ci-and-script-automation"></a>
+
+## CI and Script Automation
+
+Every DeployerPHP command prints a non-interactive replay at the end of execution. This replay shows the exact command with all your prompt responses filled in, so you can copy it directly into scripts or CI pipelines.
+
+For automation where human-readable output isn't needed, commands also support a quiet mode that minimizes output while still surfacing errors.
+
+<a name="next-steps"></a>
+
+## Next Steps
+
+With AI automation configured, your agent can triage production issues using the same tools you use. For ongoing server and site management tasks, see [Managing Servers](managing-servers.md) and [Managing Sites](managing-sites.md).

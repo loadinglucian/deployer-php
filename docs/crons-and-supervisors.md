@@ -139,4 +139,4 @@ These commands affect the daemon directly, which means they impact every process
 
 ## Next Steps
 
-With scheduled tasks running and workers humming along, you'll want to know what to do when something goes wrong. The [Logs & Debugging](logs-and-debugging.md) guide walks you through a triage workflow for diagnosing issues using server dashboards, log viewing, and remote commands. For ongoing operational tasks, see [Managing Servers](managing-servers.md) and [Managing Sites](managing-sites.md).
+With scheduled tasks running and workers humming along, next you'll probably want to know what to do if something goes wrong. For more information, see [Logs & Debugging](logs-and-debugging.md).

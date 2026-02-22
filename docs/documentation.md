@@ -20,7 +20,7 @@ DeployerPHP documentation is split into guides and references. Use guides for wo
 - [Zero to Deploy](zero-to-deploy.md)
 - [Crons & Supervisors](crons-and-supervisors.md)
 - [Logs & Debugging](logs-and-debugging.md)
-- [Automation & AI](automation.md)
+- [AI Automation](ai-automation.md)
 - [Managing Servers](managing-servers.md)
 - [Managing Sites](managing-sites.md)
 - [Managing Services](managing-services.md)
