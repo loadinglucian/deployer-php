@@ -15,13 +15,13 @@ runs:
   using: 'composite'
   steps:
     - name: Setup PHP
-      uses: shivammathur/setup-php@v2
+      uses: shivammathur/setup-php@44454db4f0199b8b9685a5d763dc37cbf79108e1 # v2
       with:
         php-version: ${{ inputs.php-version }}
         extensions: json, mbstring, yaml${{ inputs.coverage == 'true' && ', xdebug' || '' }}
         coverage: ${{ inputs.coverage == 'true' && 'xdebug' || 'none' }}
 
     - name: Install Composer dependencies (cached)
-      uses: ramsey/composer-install@v3
+      uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # 3.1.1
       with:
         composer-options: --no-interaction --no-progress --prefer-dist --no-ansi --no-scripts

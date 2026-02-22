@@ -1,0 +1,586 @@
+name: CI
+
+permissions:
+  contents: read
+  actions: read
+
+on:
+  pull_request:
+    paths:
+      - ".github/**/*.yml"
+      - "app/**"
+      - "bin/**"
+      - "playbooks/**"
+      - "scaffolds/**"
+      - "tests/**"
+      - "**/*.php"
+      - "**/*.sh"
+      - "composer.json"
+      - "composer.lock"
+      - "phpstan.neon"
+      - "phpunit.xml"
+      - "pint.json"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/**/*.yml"
+      - "app/**"
+      - "bin/**"
+      - "playbooks/**"
+      - "scaffolds/**"
+      - "tests/**"
+      - "**/*.php"
+      - "**/*.sh"
+      - "composer.json"
+      - "composer.lock"
+      - "phpstan.neon"
+      - "phpunit.xml"
+      - "pint.json"
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Cleanup mode"
+        required: true
+        default: sweep
+        type: choice
+        options:
+          - sweep
+          - targeted
+      suffixes:
+        description: "Suffix list (required for targeted mode, comma-separated)"
+        required: false
+        type: string
+      providers:
+        description: "Providers (csv: aws,do,cf)"
+        required: false
+        default: "aws,do,cf"
+        type: string
+      min_age_minutes:
+        description: "Sweep protection window in minutes"
+        required: false
+        default: "30"
+        type: string
+      dry_run:
+        description: "Print actions without deleting"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  trust-context:
+    name: trust-context
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      is_pr: ${{ steps.classify.outputs.is_pr }}
+      is_push_main: ${{ steps.classify.outputs.is_push_main }}
+      is_same_repo_pr: ${{ steps.classify.outputs.is_same_repo_pr }}
+      is_fork_pr: ${{ steps.classify.outputs.is_fork_pr }}
+      run_quality: ${{ steps.classify.outputs.run_quality }}
+      run_secret_jobs: ${{ steps.classify.outputs.run_secret_jobs }}
+      run_sweep: ${{ steps.classify.outputs.run_sweep }}
+      run_manual_janitor: ${{ steps.classify.outputs.run_manual_janitor }}
+      cache_scope: ${{ steps.classify.outputs.cache_scope }}
+
+    steps:
+      - name: Classify trust context
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REPOSITORY: ${{ github.repository }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || '' }}
+        run: |
+          is_pr=false
+          is_push_main=false
+          is_same_repo_pr=false
+          is_fork_pr=false
+          run_quality=false
+          run_secret_jobs=false
+          run_sweep=false
+          run_manual_janitor=false
+          cache_scope=other
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            is_pr=true
+            run_quality=true
+            if [[ "$PR_HEAD_REPO" == "$REPOSITORY" ]]; then
+              is_same_repo_pr=true
+              run_secret_jobs=true
+              cache_scope=same-repo-pr
+            else
+              is_fork_pr=true
+              cache_scope=fork-pr
+            fi
+          elif [[ "$EVENT_NAME" == "push" && "$REF" == "refs/heads/main" ]]; then
+            is_push_main=true
+            run_quality=true
+            run_secret_jobs=true
+            cache_scope=main-push
+          elif [[ "$EVENT_NAME" == "schedule" ]]; then
+            run_sweep=true
+            cache_scope=schedule
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            run_manual_janitor=true
+            cache_scope=manual
+          fi
+
+          {
+            echo "is_pr=$is_pr"
+            echo "is_push_main=$is_push_main"
+            echo "is_same_repo_pr=$is_same_repo_pr"
+            echo "is_fork_pr=$is_fork_pr"
+            echo "run_quality=$run_quality"
+            echo "run_secret_jobs=$run_secret_jobs"
+            echo "run_sweep=$run_sweep"
+            echo "run_manual_janitor=$run_manual_janitor"
+            echo "cache_scope=$cache_scope"
+          } >> "$GITHUB_OUTPUT"
+
+  ci-canary:
+    needs: trust-context
+    if: ${{ needs.trust-context.outputs.run_quality == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    concurrency:
+      group: ci-canary-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Verify Pint fails on CICanary class
+        run: |
+          if vendor/bin/pint --test tests/CICanary.php; then
+            echo "ERROR: Pint should have failed on CICanary"
+            exit 1
+          fi
+
+      - name: Verify Rector fails on CICanary class
+        run: |
+          mkdir -p /tmp/rector
+          if vendor/bin/rector --dry-run tests/CICanary.php --config rector-canary.php; then
+            echo "ERROR: Rector should have failed on CICanary"
+            exit 1
+          fi
+
+      - name: Verify PHPStan fails on CICanary class
+        run: |
+          if vendor/bin/phpstan analyse tests/CICanary.php --level=10; then
+            echo "ERROR: PHPStan should have failed on CICanary"
+            exit 1
+          fi
+
+  pint:
+    needs: trust-context
+    if: ${{ needs.trust-context.outputs.run_quality == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    concurrency:
+      group: pint-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Run code style check
+        run: vendor/bin/pint --test --parallel
+
+  phpstan:
+    needs: trust-context
+    if: ${{ needs.trust-context.outputs.run_quality == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    concurrency:
+      group: phpstan-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Run static analysis
+        run: vendor/bin/phpstan analyse --error-format=github
+
+  rector:
+    needs: trust-context
+    if: ${{ needs.trust-context.outputs.run_quality == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    concurrency:
+      group: rector-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - run: mkdir -p /tmp/rector
+
+      - name: Cache Rector tmp dir
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: /tmp/rector
+          key: ${{ runner.os }}-rector-${{ needs.trust-context.outputs.cache_scope }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-rector-${{ needs.trust-context.outputs.cache_scope }}-
+
+      - name: Run modern refactoring code checks
+        run: vendor/bin/rector --dry-run
+
+  pest:
+    needs: trust-context
+    if: ${{ needs.trust-context.outputs.run_secret_jobs == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    concurrency:
+      group: pest-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+        with:
+          coverage: "true"
+
+      - name: Run tests with coverage
+        run: vendor/bin/pest --parallel --coverage --coverage-text
+
+  vm-tests-ubuntu24:
+    name: vm-tests (ubuntu24)
+    needs: [trust-context, ci-canary, pint, phpstan, rector, pest]
+    if: ${{ needs.trust-context.outputs.run_secret_jobs == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    concurrency:
+      group: bats-vm-ubuntu24-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Install BATS and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq
+
+      - name: Setup Lima
+        uses: lima-vm/lima-actions/setup@55627e31b78637bf254a8b2a14da8ea7d12564e5 # v1
+
+      - name: Setup test fixtures
+        run: |
+          mkdir -p tests/bats/fixtures/keys tests/bats/fixtures/inventory
+          ssh-keygen -t ed25519 -f tests/bats/fixtures/keys/id_test -N "" -C "deployer-bats-test"
+
+      - name: Setup environment file
+        run: |
+          cat <<'EOF' > .env
+          ${{ secrets.DOTENV_FILE }}
+          EOF
+
+      - name: Run VM tests for ubuntu24
+        env:
+          CI: "true"
+          BATS_DISTRO: ubuntu24
+        run: ./bats.sh ci vm ubuntu24
+
+  cloud-tests-do:
+    name: cloud-tests (do)
+    needs: [trust-context, vm-tests-ubuntu24]
+    if: ${{ needs.trust-context.outputs.run_secret_jobs == 'true' && needs.vm-tests-ubuntu24.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    concurrency:
+      group: bats-cloud-do-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      cancel-in-progress: true
+
+    env:
+      CI: "true"
+      BATS_RUN_SUFFIX: ${{ github.run_id }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Install BATS and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq curl
+          aws --version
+
+      - name: Setup environment file
+        run: |
+          cat <<'EOF' > .env
+          ${{ secrets.DOTENV_FILE }}
+          EOF
+
+      - name: Setup SSH key for cloud provisioning
+        run: |
+          mkdir -p ~/.ssh tests/bats/fixtures/keys
+          echo "${{ secrets.SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
+          cp ~/.ssh/id_ed25519.pub tests/bats/fixtures/keys/id_test.pub
+
+      - name: Run DO tests
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
+          ./bats.sh ci cloud do
+
+      - name: Cleanup cloud resources (backstop)
+        if: always()
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
+          tests/bats/lib/cloud-janitor.sh \
+            --mode=targeted \
+            --suffix="${BATS_RUN_SUFFIX}" \
+            --providers="do"
+
+  cloud-tests-aws:
+    name: cloud-tests (aws)
+    needs: [trust-context, vm-tests-ubuntu24]
+    if: ${{ needs.trust-context.outputs.run_secret_jobs == 'true' && needs.vm-tests-ubuntu24.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    concurrency:
+      group: bats-cloud-aws-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      cancel-in-progress: true
+
+    env:
+      CI: "true"
+      BATS_RUN_SUFFIX: ${{ github.run_id }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Install BATS and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq curl
+          aws --version
+
+      - name: Setup environment file
+        run: |
+          cat <<'EOF' > .env
+          ${{ secrets.DOTENV_FILE }}
+          EOF
+
+      - name: Setup SSH key for cloud provisioning
+        run: |
+          mkdir -p ~/.ssh tests/bats/fixtures/keys
+          echo "${{ secrets.SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
+          cp ~/.ssh/id_ed25519.pub tests/bats/fixtures/keys/id_test.pub
+
+      - name: Run AWS tests
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
+          ./bats.sh ci cloud aws
+
+      - name: Cleanup cloud resources (backstop)
+        if: always()
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
+          tests/bats/lib/cloud-janitor.sh \
+            --mode=targeted \
+            --suffix="${BATS_RUN_SUFFIX}" \
+            --providers="aws"
+
+  janitor-targeted:
+    name: janitor-targeted
+    needs: [trust-context, cloud-tests-do, cloud-tests-aws]
+    if: >-
+      ${{
+        always() &&
+        needs.trust-context.outputs.run_secret_jobs == 'true' &&
+        (needs['cloud-tests-do'].result != 'skipped' || needs['cloud-tests-aws'].result != 'skipped')
+      }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    concurrency:
+      group: bats-cloud-janitor-targeted-${{ github.run_id }}
+      cancel-in-progress: false
+
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Install janitor dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+          aws --version
+
+      - name: Setup environment file
+        run: |
+          cat <<'ENVEOF' > .env
+          ${{ secrets.DOTENV_FILE }}
+          ENVEOF
+
+      - name: Janitor cleanup after cloud jobs
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
+          tests/bats/lib/cloud-janitor.sh \
+            --mode=targeted \
+            --suffix="${{ github.run_id }}" \
+            --providers="aws,do,cf"
+
+  janitor-sweep:
+    needs: trust-context
+    if: ${{ needs.trust-context.outputs.run_sweep == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    concurrency:
+      group: bats-cloud-janitor
+      cancel-in-progress: false
+
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Install janitor dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+          aws --version
+
+      - name: Setup environment file
+        run: |
+          cat <<'ENVEOF' > .env
+          ${{ secrets.DOTENV_FILE }}
+          ENVEOF
+
+      - name: Janitor scheduled sweep
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
+          tests/bats/lib/cloud-janitor.sh \
+            --mode=sweep \
+            --providers="aws,do,cf" \
+            --min-age-minutes=30
+
+  janitor-manual:
+    needs: trust-context
+    if: ${{ needs.trust-context.outputs.run_manual_janitor == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    concurrency:
+      group: bats-cloud-janitor
+      cancel-in-progress: false
+
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      MODE: ${{ inputs.mode }}
+      PROVIDERS: ${{ inputs.providers }}
+      MIN_AGE_MINUTES: ${{ inputs.min_age_minutes }}
+      SUFFIXES: ${{ inputs.suffixes }}
+      DRY_RUN: ${{ inputs.dry_run }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Install janitor dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+          aws --version
+
+      - name: Setup environment file
+        run: |
+          cat <<'ENVEOF' > .env
+          ${{ secrets.DOTENV_FILE }}
+          ENVEOF
+
+      - name: Janitor manual run
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .env
+          set +a
+
+          ARGS=(
+            "--mode=${MODE}"
+            "--providers=${PROVIDERS}"
+            "--min-age-minutes=${MIN_AGE_MINUTES}"
+          )
+
+          if [[ -n "$SUFFIXES" ]]; then
+            ARGS+=("--suffixes=${SUFFIXES}")
+          fi
+
+          if [[ "$DRY_RUN" == "true" ]]; then
+            ARGS+=("--dry-run")
+          fi
+
+          tests/bats/lib/cloud-janitor.sh "${ARGS[@]}"
