@@ -6,7 +6,7 @@ permissions:
 
 on:
   pull_request:
-    paths:
+    paths: &ci_paths
       - ".github/**/*.yml"
       - "app/**"
       - "bin/**"
@@ -23,20 +23,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - ".github/**/*.yml"
-      - "app/**"
-      - "bin/**"
-      - "playbooks/**"
-      - "scaffolds/**"
-      - "tests/**"
-      - "**/*.php"
-      - "**/*.sh"
-      - "composer.json"
-      - "composer.lock"
-      - "phpstan.neon"
-      - "phpunit.xml"
-      - "pint.json"
+    paths: *ci_paths
   schedule:
     - cron: "0 * * * *"
   workflow_dispatch:
@@ -75,15 +62,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
-      is_pr: ${{ steps.classify.outputs.is_pr }}
-      is_push_main: ${{ steps.classify.outputs.is_push_main }}
-      is_same_repo_pr: ${{ steps.classify.outputs.is_same_repo_pr }}
-      is_fork_pr: ${{ steps.classify.outputs.is_fork_pr }}
       run_quality: ${{ steps.classify.outputs.run_quality }}
       run_secret_jobs: ${{ steps.classify.outputs.run_secret_jobs }}
       run_sweep: ${{ steps.classify.outputs.run_sweep }}
       run_manual_janitor: ${{ steps.classify.outputs.run_manual_janitor }}
       cache_scope: ${{ steps.classify.outputs.cache_scope }}
+      checkout_ref: ${{ steps.classify.outputs.checkout_ref }}
 
     steps:
       - name: Classify trust context
@@ -93,30 +77,25 @@ jobs:
           REF: ${{ github.ref }}
           REPOSITORY: ${{ github.repository }}
           PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
         run: |
-          is_pr=false
-          is_push_main=false
-          is_same_repo_pr=false
-          is_fork_pr=false
           run_quality=false
           run_secret_jobs=false
           run_sweep=false
           run_manual_janitor=false
           cache_scope=other
+          checkout_ref="$GITHUB_SHA"
 
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            is_pr=true
             run_quality=true
+            checkout_ref="$PR_HEAD_SHA"
             if [[ "$PR_HEAD_REPO" == "$REPOSITORY" ]]; then
-              is_same_repo_pr=true
               run_secret_jobs=true
               cache_scope=same-repo-pr
             else
-              is_fork_pr=true
               cache_scope=fork-pr
             fi
           elif [[ "$EVENT_NAME" == "push" && "$REF" == "refs/heads/main" ]]; then
-            is_push_main=true
             run_quality=true
             run_secret_jobs=true
             cache_scope=main-push
@@ -129,15 +108,12 @@ jobs:
           fi
 
           {
-            echo "is_pr=$is_pr"
-            echo "is_push_main=$is_push_main"
-            echo "is_same_repo_pr=$is_same_repo_pr"
-            echo "is_fork_pr=$is_fork_pr"
             echo "run_quality=$run_quality"
             echo "run_secret_jobs=$run_secret_jobs"
             echo "run_sweep=$run_sweep"
             echo "run_manual_janitor=$run_manual_janitor"
             echo "cache_scope=$cache_scope"
+            echo "checkout_ref=$checkout_ref"
           } >> "$GITHUB_OUTPUT"
 
   ci-canary:
@@ -273,14 +249,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     concurrency:
-      group: bats-vm-ubuntu24-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      group: bats-vm-ubuntu24-${{ needs.trust-context.outputs.checkout_ref }}
       cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ needs.trust-context.outputs.checkout_ref }}
 
       - name: Setup PHP and Composer
         uses: ./.github/actions/setup-php-composer
@@ -317,7 +293,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     concurrency:
-      group: bats-cloud-do-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      group: bats-cloud-do-${{ needs.trust-context.outputs.checkout_ref }}
       cancel-in-progress: true
 
     env:
@@ -328,7 +304,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ needs.trust-context.outputs.checkout_ref }}
 
       - name: Setup PHP and Composer
         uses: ./.github/actions/setup-php-composer
@@ -380,7 +356,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     concurrency:
-      group: bats-cloud-aws-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      group: bats-cloud-aws-${{ needs.trust-context.outputs.checkout_ref }}
       cancel-in-progress: true
 
     env:
@@ -391,7 +367,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ needs.trust-context.outputs.checkout_ref }}
 
       - name: Setup PHP and Composer
         uses: ./.github/actions/setup-php-composer
