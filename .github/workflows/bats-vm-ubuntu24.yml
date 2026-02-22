@@ -6,69 +6,13 @@ permissions:
 
 on:
   workflow_run:
-    workflows: ["Pest", "PHPStan", "Pint", "Rector", "CI Canary"]
+    workflows: ["Quality Gates"]
     types: [completed]
 
 jobs:
-  quality-gate:
-    name: wait-for-quality-gates
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    outputs:
-      ready: ${{ steps.evaluate.outputs.ready }}
-
-    steps:
-      - name: Verify all quality workflows succeeded
-        id: evaluate
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const requiredWorkflows = ["Pest", "PHPStan", "Pint", "Rector", "CI Canary"];
-            const headSha = context.payload.workflow_run.head_sha;
-            const eventName = context.payload.workflow_run.event;
-            const { owner, repo } = context.repo;
-
-            const runsResponse = await github.rest.actions.listWorkflowRunsForRepo({
-              owner,
-              repo,
-              event: eventName,
-              head_sha: headSha,
-              per_page: 100,
-            });
-
-            const latestRunByName = new Map();
-            for (const run of runsResponse.data.workflow_runs) {
-              if (!requiredWorkflows.includes(run.name)) {
-                continue;
-              }
-
-              const current = latestRunByName.get(run.name);
-              if (!current || run.id > current.id) {
-                latestRunByName.set(run.name, run);
-              }
-            }
-
-            const missing = requiredWorkflows.filter((name) => !latestRunByName.has(name));
-            const failed = requiredWorkflows
-              .map((name) => latestRunByName.get(name))
-              .filter(Boolean)
-              .filter((run) => run.conclusion !== "success")
-              .map((run) => `${run.name}=${run.conclusion ?? "unknown"}`);
-
-            const ready = missing.length === 0 && failed.length === 0;
-            core.setOutput("ready", ready ? "true" : "false");
-
-            if (!ready) {
-              core.notice(
-                `Quality gates not ready for ${headSha}: missing=[${missing.join(", ")}] failed=[${failed.join(", ")}]`,
-              );
-            }
-
   vm-tests-ubuntu24:
-    needs: quality-gate
     name: vm-tests (ubuntu24)
-    if: ${{ needs.quality-gate.outputs.ready == 'true' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     concurrency:

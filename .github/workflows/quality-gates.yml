@@ -1,0 +1,149 @@
+name: Quality Gates
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - ".github/**/*.yml"
+      - "app/**"
+      - "bin/**"
+      - "playbooks/**"
+      - "scaffolds/**"
+      - "tests/**"
+      - "**/*.php"
+      - "**/*.sh"
+      - "composer.json"
+      - "composer.lock"
+      - "phpstan.neon"
+      - "phpunit.xml"
+      - "pint.json"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/**/*.yml"
+      - "app/**"
+      - "bin/**"
+      - "playbooks/**"
+      - "scaffolds/**"
+      - "tests/**"
+      - "**/*.php"
+      - "**/*.sh"
+      - "composer.json"
+      - "composer.lock"
+      - "phpstan.neon"
+      - "phpunit.xml"
+      - "pint.json"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci-canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Verify Pint fails on CICanary class
+        run: |
+          if vendor/bin/pint --test tests/CICanary.php; then
+            echo "ERROR: Pint should have failed on CICanary"
+            exit 1
+          fi
+
+      - name: Verify Rector fails on CICanary class
+        run: |
+          mkdir -p /tmp/rector
+          if vendor/bin/rector --dry-run tests/CICanary.php --config rector-canary.php; then
+            echo "ERROR: Rector should have failed on CICanary"
+            exit 1
+          fi
+
+      - name: Verify PHPStan fails on CICanary class
+        run: |
+          if vendor/bin/phpstan analyse tests/CICanary.php --level=10; then
+            echo "ERROR: PHPStan should have failed on CICanary"
+            exit 1
+          fi
+
+  pint:
+    needs: ci-canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Run code style check
+        run: vendor/bin/pint --test --parallel
+
+  phpstan:
+    needs: pint
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - name: Run static analysis
+        run: vendor/bin/phpstan analyse --error-format=github
+
+  rector:
+    needs: phpstan
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+
+      - run: mkdir -p /tmp/rector
+
+      - name: Cache Rector tmp dir
+        uses: actions/cache@v4
+        with:
+          path: /tmp/rector
+          key: ${{ runner.os }}-rector-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-rector-
+
+      - name: Run modern refactoring code checks
+        run: vendor/bin/rector --dry-run
+
+  pest:
+    needs: rector
+    if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP and Composer
+        uses: ./.github/actions/setup-php-composer
+        with:
+          coverage: "true"
+
+      - name: Run tests with coverage
+        run: vendor/bin/pest --parallel --coverage --coverage-text
