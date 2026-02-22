@@ -34,7 +34,7 @@ Use `server:add` first, then run the `server:install` command. This keeps invent
 
 ### Diagnostics and operations
 
-Use `server:info` before making changes, and pair it with `server:logs` during troubleshooting. The dashboard highlights load and memory pressure inline when the server is under stress.
+Use `server:info` before making changes, and pair it with `server:logs` during troubleshooting. The dashboard highlights load and memory pressure inline when the server is stressed.
 
 Use `server:run` for scripted, one-shot checks. Use `server:ssh` when you need interactive investigation.
 

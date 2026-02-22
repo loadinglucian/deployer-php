@@ -99,7 +99,19 @@ deployer site:ssh
 The only difference is that `server:ssh` lands you in the configured SSH user's default login directory, while `site:ssh` drops you directly into the site's directory at `/home/deployer/sites/{domain}`, saving you the navigation step when you already know which site you're investigating.
 
 > [!IMPORTANT]
-> Both SSH commands require the PHP's `pcntl` extension.
+> Both SSH commands require the PHP `pcntl` extension.
+
+<a name="remote-commands"></a>
+
+## Remote Commands
+
+When you need a single remote check without opening an interactive shell, use the `server:run` command:
+
+```shell
+deployer server:run
+```
+
+This is useful for quick diagnostics such as disk pressure (`df -h`), memory state (`free -m`), service status (`systemctl status nginx`), or network checks (`ss -tulpn`), while keeping your investigation repeatable.
 
 <a name="next-steps"></a>
 
