@@ -76,7 +76,6 @@ jobs:
           fi
 
   pint:
-    needs: ci-canary
     runs-on: ubuntu-latest
     timeout-minutes: 3
 
@@ -91,7 +90,6 @@ jobs:
         run: vendor/bin/pint --test --parallel
 
   phpstan:
-    needs: pint
     runs-on: ubuntu-latest
     timeout-minutes: 3
 
@@ -106,7 +104,6 @@ jobs:
         run: vendor/bin/phpstan analyse --error-format=github
 
   rector:
-    needs: phpstan
     runs-on: ubuntu-latest
     timeout-minutes: 3
 
@@ -131,7 +128,6 @@ jobs:
         run: vendor/bin/rector --dry-run
 
   pest:
-    needs: rector
     if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
