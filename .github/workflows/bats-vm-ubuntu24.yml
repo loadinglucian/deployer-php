@@ -5,6 +5,10 @@ permissions:
   actions: read
 
 on:
+  # TEMP bridge for validating Quality Gates migration before merge.
+  pull_request:
+    branches:
+      - main
   workflow_run:
     workflows: ["Quality Gates"]
     types: [completed]
@@ -12,18 +16,30 @@ on:
 jobs:
   vm-tests-ubuntu24:
     name: vm-tests (ubuntu24)
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    if: >-
+      ${{
+        (
+          github.event_name == 'workflow_run' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_repository.full_name == github.repository
+        ) ||
+        (
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.ref == 'ci/consolidate-quality-gates' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        )
+      }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     concurrency:
-      group: bats-vm-ubuntu24-${{ github.event.workflow_run.head_sha }}
+      group: bats-vm-ubuntu24-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event.pull_request.head.sha }}
       cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event.pull_request.head.sha }}
 
       - name: Setup PHP and Composer
         uses: ./.github/actions/setup-php-composer
