@@ -22,7 +22,7 @@ use Symfony\Component\Console\Input\InputOption;
  * @property FilesystemService $fs
  * @property IoService $io
  *
- * @method void displayDeets(array<string, string> $details)
+ * @method void displayDeets(array<int|string, mixed> $details, bool $ul = false)
  * @method void nay(string $message)
  * @method void yay(string $message)
  * @method void commandReplay(array<string, mixed> $options)
