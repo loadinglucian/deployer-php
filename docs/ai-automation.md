@@ -64,7 +64,7 @@ The Debugger tier builds on Observer and adds the ability to run safe, non-destr
 Two categories are off-limits: state-changing commands (deploy, install, restart, delete, and similar) and interactive terminal programs like `less`, `top`, `vim`, or nested `ssh`.
 
 > [!INFO]
-> The Debug tier enables AI agents to run complex investigation workflows for testing root-cause hypotheses while maintaining guardrails against unwanted side effects like data modification or downtime.
+> The Debugger tier enables AI agents to run complex investigation workflows for testing root-cause hypotheses while maintaining guardrails against unwanted side effects like data modification or downtime.
 
 <a name="admin"></a>
 
@@ -73,7 +73,7 @@ Two categories are off-limits: state-changing commands (deploy, install, restart
 The Admin tier covers the full range of DeployerPHP command domains: server management, site lifecycle, cron, and supervisor. It also includes service installs and lifecycle management plus cloud provider integrations for provisioning, DNS, and SSH key management.
 
 > [!IMPORTANT]
-> While guiderails to prevent potentially unwanted side effects are provided, this tier is regarded as the most risky to operate within. Make sure you understand the risks of allowing an LLM this much access to your servers.
+> While guardrails to prevent potentially unwanted side effects are provided, this tier is regarded as the most risky to operate within. Make sure you understand the risks of allowing an LLM this much access to your servers.
 
 <a name="ci-and-script-automation"></a>
 
