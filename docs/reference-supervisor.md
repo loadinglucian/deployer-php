@@ -5,7 +5,6 @@
 - [At a Glance](#at-a-glance)
 - [Details](#details)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
@@ -37,8 +36,3 @@ Use `supervisor:start`, `supervisor:stop`, and `supervisor:restart` for daemon l
 
 > [!IMPORTANT]
 > Restarting or stopping supervisord affects all managed programs on the target server.
-
-## Related Guides
-
-- [Crons & Supervisors](crons-and-supervisors.md)
-- [Managing Services](managing-services.md)

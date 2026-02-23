@@ -2,14 +2,31 @@
 
 <!-- toc -->
 
+- [Configuration](#configuration)
 - [At a Glance](#at-a-glance)
-- [Details](#details)
+- [SSH Key Management](#ssh-key-management)
+- [Provisioning](#provisioning)
+- [DNS Management](#dns-management)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
+- [Related](#related)
 
 <!-- /toc -->
 
 Use `do:*` commands to provision Droplets, manage SSH keys, and manage DNS records.
+
+<a name="configuration"></a>
+
+## Configuration
+
+Set your token in the environment:
+
+```dotenv
+DIGITALOCEAN_TOKEN=...
+```
+
+Create the token at [cloud.digitalocean.com/account/api/tokens](https://cloud.digitalocean.com/account/api/tokens) with read/write access.
+
+<a name="at-a-glance"></a>
 
 ## At a Glance
 
@@ -33,22 +50,62 @@ Alias commands are also supported:
 - `digitalocean:dns:set`
 - `digitalocean:dns:delete`
 
-## Details
+<a name="ssh-key-management"></a>
 
-`do:provision` is the main infrastructure entrypoint and is usually followed by `server:install`.
+## SSH Key Management
 
-Use key and DNS commands to keep account access and routing state aligned with your deployment topology.
+Use the `do:key:*` commands to keep account SSH keys aligned with your access policy before provisioning. You can list existing keys, upload a local public key, or remove a key you no longer need.
+
+```shell
+deployer do:key:list
+deployer do:key:add
+deployer do:key:delete
+```
+
+<a name="provisioning"></a>
+
+## Provisioning
+
+`do:provision` creates a Droplet and writes inventory entries so you can continue with `server:install` and site workflows immediately.
+
+```shell
+deployer do:provision
+```
+
+After provisioning, run the `server:install` command to prepare runtime services.
+
+<a name="dns-management"></a>
+
+## DNS Management
+
+Use `do:dns:list` to inspect current records for a domain, then use `do:dns:set` and `do:dns:delete` for deliberate changes.
+
+```shell
+deployer do:dns:list
+deployer do:dns:set
+deployer do:dns:delete
+```
+
+<a name="safety-and-guardrails"></a>
 
 ## Safety and Guardrails
 
 > [!INFO]
-> Validate project/account context before provisioning or deleting resources.
+> Validate project and account context before provisioning or deleting resources.
 
 > [!IMPORTANT]
-> Provisioning and deletion affect cost and data retention. Confirm cleanup status after decommissioning.
+> Provisioning and deletion can affect cost and data retention. Always confirm cleanup status after decommissioning.
 
-## Related Guides
+When working with DigitalOcean resources, follow this order:
 
-- [Cloud Providers](cloud-providers.md)
-- [Managing Servers](managing-servers.md)
-- [Managing Sites](managing-sites.md)
+1. Validate credentials and scope.
+2. Confirm account and project context.
+3. Apply infrastructure and DNS changes.
+4. Verify outcome with `site:dns:check` and service checks.
+5. Confirm cleanup for any destructive operations.
+
+<a name="related"></a>
+
+## Related
+
+- [Operations](operations.md)

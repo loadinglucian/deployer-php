@@ -7,14 +7,13 @@
     - [Observer](#observer)
     - [Debugger](#debugger)
     - [Admin](#admin)
-- [CI and Script Automation](#ci-and-script-automation)
 - [Next Steps](#next-steps)
 
 <!-- /toc -->
 
 You can automate and significantly speed up the debugging process by letting an AI agent use the triage tools instead of using them manually. DeployerPHP can generate a SKILL file that gives your AI agent structured, permission-controlled access to your infrastructure, so it can read logs, inspect server state, and diagnose issues the same way you would.
 
-This guide covers generating that agent SKILL, choosing the right permission tier for your workflow, and wiring up non-interactive commands for CI and script automation.
+This guide covers generating that agent SKILL and choosing the right permission tier for your workflow.
 
 > [!IMPORTANT]
 > Always review any AI SKILL carefully before using it and make sure you understand the risks of allowing an LLM to control which information is read from and what commands are executed on your servers.
@@ -75,16 +74,8 @@ The Admin tier covers the full range of DeployerPHP command domains: server mana
 > [!IMPORTANT]
 > While guardrails to prevent potentially unwanted side effects are provided, this tier is regarded as the most risky to operate within. Make sure you understand the risks of allowing an LLM this much access to your servers.
 
-<a name="ci-and-script-automation"></a>
-
-## CI and Script Automation
-
-Every DeployerPHP command prints a non-interactive replay at the end of execution. This replay shows the exact command with all your prompt responses filled in, so you can copy it directly into scripts or CI pipelines.
-
-For automation where human-readable output isn't needed, commands also support a quiet mode that minimizes output while still surfacing errors.
-
 <a name="next-steps"></a>
 
 ## Next Steps
 
-With AI automation configured, your agent can triage production issues using the same tools you use. For ongoing server and site management tasks, see [Managing Servers](managing-servers.md) and [Managing Sites](managing-sites.md).
+With AI automation configured, your agent can triage server and deployment issues using the same tools you use. Additionally, there are a few other server and site operations you should familiarize yourself with. For more information, see [Operations](operations.md).

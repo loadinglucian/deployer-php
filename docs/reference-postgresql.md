@@ -5,7 +5,6 @@
 - [At a Glance](#at-a-glance)
 - [Details](#details)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
@@ -33,8 +32,3 @@ Lifecycle commands (`postgresql:start`, `postgresql:stop`, `postgresql:restart`)
 
 > [!IMPORTANT]
 > Stopping PostgreSQL interrupts dependent application traffic.
-
-## Related Guides
-
-- [Managing Databases](managing-databases.md)
-- [Managing Services](managing-services.md)

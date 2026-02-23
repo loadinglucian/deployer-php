@@ -5,7 +5,6 @@
 - [At a Glance](#at-a-glance)
 - [Details](#details)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
@@ -29,8 +28,3 @@ Use `php:start` and `php:stop` for explicit lifecycle control during maintenance
 
 > [!IMPORTANT]
 > Stopping PHP-FPM interrupts PHP request handling for affected sites.
-
-## Related Guides
-
-- [Managing Services](managing-services.md)
-- [Managing Sites](managing-sites.md)

@@ -5,7 +5,6 @@
 - [At a Glance](#at-a-glance)
 - [Details](#details)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
@@ -30,8 +29,3 @@ Lifecycle commands (`memcached:start`, `memcached:stop`, `memcached:restart`) co
 
 > [!IMPORTANT]
 > Stopping Memcached can degrade application performance and can surface stale-cache assumptions.
-
-## Related Guides
-
-- [Managing Databases](managing-databases.md)
-- [Managing Services](managing-services.md)

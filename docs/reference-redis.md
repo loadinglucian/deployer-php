@@ -5,7 +5,6 @@
 - [At a Glance](#at-a-glance)
 - [Details](#details)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
@@ -33,8 +32,3 @@ Lifecycle commands (`redis:start`, `redis:stop`, `redis:restart`) control runtim
 
 > [!IMPORTANT]
 > Stopping Redis can disrupt caches, queues, and application workflows that depend on it.
-
-## Related Guides
-
-- [Managing Databases](managing-databases.md)
-- [Managing Services](managing-services.md)

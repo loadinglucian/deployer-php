@@ -5,7 +5,6 @@
 - [At a Glance](#at-a-glance)
 - [Details](#details)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
@@ -31,8 +30,3 @@ This split lets you stage changes safely before applying them to production.
 
 > [!IMPORTANT]
 > After creating or deleting cron definitions, run the `cron:sync` command to make remote state match inventory.
-
-## Related Guides
-
-- [Crons & Supervisors](crons-and-supervisors.md)
-- [Scaffold Reference](reference-scaffold.md)

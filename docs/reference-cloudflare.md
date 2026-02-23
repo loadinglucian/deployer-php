@@ -2,14 +2,29 @@
 
 <!-- toc -->
 
+- [Configuration](#configuration)
 - [At a Glance](#at-a-glance)
-- [Details](#details)
+- [DNS Management](#dns-management)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
+- [Related](#related)
 
 <!-- /toc -->
 
 Use `cf:*` commands to manage DNS records in Cloudflare zones.
+
+<a name="configuration"></a>
+
+## Configuration
+
+Set your API token in the environment:
+
+```dotenv
+CLOUDFLARE_API_TOKEN=...
+```
+
+Create a token at [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) with `Zone:DNS:Edit` for the zones you manage.
+
+<a name="at-a-glance"></a>
 
 ## At a Glance
 
@@ -25,11 +40,21 @@ Alias commands are also supported:
 - `cloudflare:dns:set`
 - `cloudflare:dns:delete`
 
-## Details
+<a name="dns-management"></a>
+
+## DNS Management
 
 A practical sequence is list first, then apply create/update/delete changes once you confirm the target record set.
 
+```shell
+deployer cf:dns:list
+deployer cf:dns:set
+deployer cf:dns:delete
+```
+
 Use Cloudflare DNS updates together with `site:dns:check` when preparing HTTPS enablement.
+
+<a name="safety-and-guardrails"></a>
 
 ## Safety and Guardrails
 
@@ -39,7 +64,8 @@ Use Cloudflare DNS updates together with `site:dns:check` when preparing HTTPS e
 > [!IMPORTANT]
 > DNS updates can route production traffic immediately. Double-check record names and targets before applying changes.
 
-## Related Guides
+<a name="related"></a>
 
-- [Cloud Providers](cloud-providers.md)
-- [Managing Sites](managing-sites.md)
+## Related
+
+- [Operations](operations.md)

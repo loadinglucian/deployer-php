@@ -5,7 +5,6 @@
 - [At a Glance](#at-a-glance)
 - [Details](#details)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
@@ -29,8 +28,3 @@ If you are diagnosing traffic failures, inspect logs before and after service ac
 
 > [!IMPORTANT]
 > Stopping Nginx makes web traffic unavailable for sites on the target server.
-
-## Related Guides
-
-- [Managing Services](managing-services.md)
-- [Managing Servers](managing-servers.md)

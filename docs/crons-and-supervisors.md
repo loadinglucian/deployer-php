@@ -72,8 +72,6 @@ The command will prompt you to select which cron job to remove from your invento
 > [!IMPORTANT]
 > Deleting a cron definition only removes it from your local inventory. The server's crontab won't change until you run the `cron:sync` command.
 
-For command details, see [Cron Reference](reference-cron.md).
-
 <a name="supervisor-processes"></a>
 
 ## Supervisor Processes
@@ -117,8 +115,6 @@ deployer supervisor:delete
 ```
 
 Select the process to remove, then run the `supervisor:sync` command to update the server.
-
-For command details, see [Supervisor Reference](reference-supervisor.md).
 
 <a name="daemon-control"></a>
 

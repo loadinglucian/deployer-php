@@ -48,18 +48,10 @@ The command will ask for your server details, including the host/IP, SSH port, u
 ▒ ✓ Server added to inventory
 ▒ • Run server:info to view server information
 ▒ • Or run server:install to install your new server
-
-Non-interactive command replay:
-───────────────────────────────────────────────────────────────────────────
-$> deployer server:add  \
-  --name='web1' \
-  --host='123.456.789.123' \
-  --port='22' \
-  --username='root' \
-  --private-key-path='~/.ssh/id_ed25519'
+.
+.
+.
 ```
-
-For more information, see [Server Reference](reference-server.md).
 
 ### Cloud Providers
 
@@ -69,8 +61,6 @@ Alternatively, you can provision a cloud instance and add it to the inventory au
 | --------------- | ---------------------------------------------------- |
 | `aws:provision` | Provision AWS EC2 instances and add to inventory     |
 | `do:provision`  | Provision DigitalOcean droplets and add to inventory |
-
-For more information, see [AWS Reference](reference-aws.md) and [DigitalOcean Reference](reference-digitalocean.md).
 
 ### Installing the Server
 
@@ -121,8 +111,6 @@ The `server:install` command is additive, meaning it will always add new compone
 > [!INFO]
 > When you have multiple PHP versions installed, the `server:install` command will prompt you for the default PHP version you want to use for your server CLI.
 
-For more information, see [Nginx Reference](reference-nginx.md) and [PHP-FPM Reference](reference-php.md).
-
 ### Installing Databases
 
 You can install your preferred database or cache services by running one of the dedicated installation commands:
@@ -134,7 +122,7 @@ You can install your preferred database or cache services by running one of the 
 | `redis:install`      | Install Redis key-value store      |
 | `memcached:install`  | Install Memcached caching server   |
 
-For more information, see [MariaDB Reference](reference-mariadb.md), [PostgreSQL Reference](reference-postgresql.md), [Redis Reference](reference-redis.md), and [Memcached Reference](reference-memcached.md).
+When you install a database server that supports credentials, DeployerPHP will automatically generate these credentials for you and either display them on screen or save them in a local file of your choosing.
 
 ## Step 2: Your Site
 
@@ -180,8 +168,6 @@ If you use any of the supported DNS providers, you can configure your DNS using 
 | `aws:dns:set` | Create or update an AWS Route53 record     |
 | `cf:dns:set`  | Create or update a Cloudflare DNS record   |
 | `do:dns:set`  | Create or update a DigitalOcean DNS record |
-
-For more information, see [AWS Reference](reference-aws.md), [Cloudflare Reference](reference-cloudflare.md), and [DigitalOcean Reference](reference-digitalocean.md).
 
 ### Enable HTTPS
 

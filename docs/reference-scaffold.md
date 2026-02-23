@@ -5,7 +5,6 @@
 - [At a Glance](#at-a-glance)
 - [Details](#details)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
@@ -31,7 +30,3 @@ Use `scaffold:*` commands to generate project-local scripts and AI skill files.
 
 > [!IMPORTANT]
 > For `scaffold:ai`, choose the lowest permission tier that still enables your troubleshooting workflow.
-
-## Related Guides
-
-- [AI Automation](ai-automation.md)

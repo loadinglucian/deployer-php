@@ -5,7 +5,6 @@
 - [At a Glance](#at-a-glance)
 - [Details](#details)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
@@ -49,9 +48,3 @@ Use `server:run` for scripted, one-shot checks. Use `server:ssh` when you need i
 
 > [!IMPORTANT]
 > `server:delete` can be destructive for cloud-backed infrastructure. Confirm target server identity before you continue.
-
-## Related Guides
-
-- [Managing Servers](managing-servers.md)
-- [Managing Services](managing-services.md)
-- [Cloud Providers](cloud-providers.md)

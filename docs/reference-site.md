@@ -5,7 +5,6 @@
 - [At a Glance](#at-a-glance)
 - [Details](#details)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related Guides](#related-guides)
 
 <!-- /toc -->
 
@@ -50,9 +49,3 @@ Use the `site:shared:*` commands for persistent single-file assets such as envir
 
 > [!IMPORTANT]
 > `site:delete` is destructive. Confirm backups and target scope before you proceed.
-
-## Related Guides
-
-- [Managing Sites](managing-sites.md)
-- [Managing Servers](managing-servers.md)
-- [Cloud Providers](cloud-providers.md)
