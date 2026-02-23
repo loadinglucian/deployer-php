@@ -10,6 +10,8 @@
 
 Use `redis:*` commands to install and operate Redis on managed servers.
 
+<a name="at-a-glance"></a>
+
 ## At a Glance
 
 | Command         | Use it when you need to...                 |
@@ -19,11 +21,15 @@ Use `redis:*` commands to install and operate Redis on managed servers.
 | `redis:stop`    | stop Redis for maintenance                 |
 | `redis:restart` | restart Redis after operational changes    |
 
+<a name="details"></a>
+
 ## Details
 
 `redis:install` configures secure local access and credential handling.
 
 Lifecycle commands (`redis:start`, `redis:stop`, `redis:restart`) control runtime state after installation.
+
+<a name="safety-and-guardrails"></a>
 
 ## Safety and Guardrails
 

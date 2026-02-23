@@ -19,8 +19,8 @@ Both follow the same inventory-driven pattern you've already seen with servers a
 
 Before diving into the commands, it helps to understand the two-step pattern that both cron and supervisor share:
 
-1. **Define locally** — Use `cron:create` or `supervisor:create` to add definitions to your inventory. At this point, nothing happens on the server.
-2. **Sync remotely** — Run the `cron:sync` or `supervisor:sync` commands to push your inventory definitions to the server. This is the moment your changes go live.
+1. **Define locally**: Use `cron:create` or `supervisor:create` to add definitions to your inventory. At this point, nothing happens on the server.
+2. **Sync remotely**: Run the `cron:sync` or `supervisor:sync` commands to push your inventory definitions to the server. This is the moment your changes go live.
 
 This separation is intentional. It lets you stage multiple changes (add a job, remove another, tweak a third) and apply them all at once with a single sync. If something looks wrong in your inventory before syncing, you can fix it without worrying about a half-applied state on the server.
 
@@ -122,9 +122,9 @@ Select the process to remove, then run the `supervisor:sync` command to update t
 
 Beyond managing process definitions, you can control the supervisord daemon itself using lifecycle commands:
 
-- **`supervisor:start`** — Start the supervisord service
-- **`supervisor:stop`** — Stop the supervisord service and all managed processes
-- **`supervisor:restart`** — Restart supervisord and all managed processes
+- **`supervisor:start`**: Start the supervisord service
+- **`supervisor:stop`**: Stop the supervisord service and all managed processes
+- **`supervisor:restart`**: Restart supervisord and all managed processes
 
 These commands affect the daemon directly, which means they impact every process supervisord manages on that server, not only the ones for a specific site.
 

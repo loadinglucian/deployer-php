@@ -10,6 +10,8 @@
 
 Use the `site:*` commands to create, deploy, secure, inspect, and remove sites attached to your servers.
 
+<a name="at-a-glance"></a>
+
 ## At a Glance
 
 | Command            | Use it when you need to...                            |
@@ -25,6 +27,8 @@ Use the `site:*` commands to create, deploy, secure, inspect, and remove sites a
 | `site:rollback`    | review forward-only deployment guidance               |
 | `site:delete`      | remove a site from server and inventory               |
 
+<a name="details"></a>
+
 ## Details
 
 ### Provision, deploy, secure
@@ -39,13 +43,12 @@ Use the `site:shared:*` commands for persistent single-file assets such as envir
 
 `site:dns:check` validates resolver results and only checks `www` when the site is configured to use `www`.
 
-## Safety and Guardrails
+<a name="safety-and-guardrails"></a>
 
-> [!IMPORTANT]
-> Run the `site:dns:check` command before `site:https` so certificate issuance is attempted only after DNS is truly ready.
+## Safety and Guardrails
 
 > [!INFO]
 > `site:rollback` is intentionally informational. The recommended operational model is forward-only fixes and redeploys.
 
 > [!IMPORTANT]
-> `site:delete` is destructive. Confirm backups and target scope before you proceed.
+> Run `site:dns:check` before `site:https` so certificate issuance is attempted only after DNS is ready. Also note that `site:delete` is destructive, so confirm backups and target scope before you proceed.

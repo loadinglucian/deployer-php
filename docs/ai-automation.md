@@ -33,7 +33,7 @@ The command detects which AI agent directories already exist in your project. If
 - **`.agents/`** - For Codex, Cursor, and OpenCode
 - **`.claude/`** - For Claude Code
 
-DeployerPHP will then prompt you for a permission tier and generate the SKILL inside a `skills/` subdirectory. Existing files are skipped by default — you'll need to explicitly request an overwrite to regenerate. You can always rerun the command and use the non-interactive command replay to target specific directories.
+DeployerPHP will then prompt you for a permission tier and generate the SKILL inside a `skills/` subdirectory. Existing files are skipped by default, so you'll need to explicitly request an overwrite to regenerate. You can always rerun the command and use the non-interactive command replay to target specific directories.
 
 This SKILL gives your AI agent all the context it needs to work with your DeployerPHP setup: knowledge of your inventory structure, your deployment layout, and a scoped set of commands matched to the permission tier you choose.
 

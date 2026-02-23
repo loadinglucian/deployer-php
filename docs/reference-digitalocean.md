@@ -8,7 +8,6 @@
 - [Provisioning](#provisioning)
 - [DNS Management](#dns-management)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related](#related)
 
 <!-- /toc -->
 
@@ -103,9 +102,3 @@ When working with DigitalOcean resources, follow this order:
 3. Apply infrastructure and DNS changes.
 4. Verify outcome with `site:dns:check` and service checks.
 5. Confirm cleanup for any destructive operations.
-
-<a name="related"></a>
-
-## Related
-
-- [Operations](operations.md)

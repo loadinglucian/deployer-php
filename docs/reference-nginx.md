@@ -10,6 +10,8 @@
 
 Use `nginx:*` commands to control the web server runtime on managed hosts.
 
+<a name="at-a-glance"></a>
+
 ## At a Glance
 
 | Command         | Use it when you need to...                    |
@@ -18,11 +20,15 @@ Use `nginx:*` commands to control the web server runtime on managed hosts.
 | `nginx:stop`    | stop Nginx for controlled maintenance         |
 | `nginx:restart` | reload Nginx state after changes or incidents |
 
+<a name="details"></a>
+
 ## Details
 
 These commands are service lifecycle controls. Prefer `nginx:restart` for most recovery and post-change workflows.
 
 If you are diagnosing traffic failures, inspect logs before and after service actions.
+
+<a name="safety-and-guardrails"></a>
 
 ## Safety and Guardrails
 

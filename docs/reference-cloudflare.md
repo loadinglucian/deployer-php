@@ -6,7 +6,6 @@
 - [At a Glance](#at-a-glance)
 - [DNS Management](#dns-management)
 - [Safety and Guardrails](#safety-and-guardrails)
-- [Related](#related)
 
 <!-- /toc -->
 
@@ -63,9 +62,3 @@ Use Cloudflare DNS updates together with `site:dns:check` when preparing HTTPS e
 
 > [!IMPORTANT]
 > DNS updates can route production traffic immediately. Double-check record names and targets before applying changes.
-
-<a name="related"></a>
-
-## Related
-
-- [Operations](operations.md)

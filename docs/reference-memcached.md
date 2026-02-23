@@ -10,6 +10,8 @@
 
 Use `memcached:*` commands to install and operate Memcached on managed servers.
 
+<a name="at-a-glance"></a>
+
 ## At a Glance
 
 | Command             | Use it when you need to...                  |
@@ -19,11 +21,15 @@ Use `memcached:*` commands to install and operate Memcached on managed servers.
 | `memcached:stop`    | stop Memcached for maintenance              |
 | `memcached:restart` | restart Memcached after operational changes |
 
+<a name="details"></a>
+
 ## Details
 
 `memcached:install` sets up the service without a credential output flow.
 
 Lifecycle commands (`memcached:start`, `memcached:stop`, `memcached:restart`) control runtime state after installation.
+
+<a name="safety-and-guardrails"></a>
 
 ## Safety and Guardrails
 

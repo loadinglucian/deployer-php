@@ -52,7 +52,7 @@ The command highlights `Load` and `Memory Used` in yellow when pressure is eleva
 
 When reading the trend, compare the 1m and 15m values. A 1m value rising above 15m means pressure is building. A 1m value falling below 15m means it's easing off.
 
-**Memory Used** appears as `1.0 GB / 8.0 GB (12%)`. The percentage reflects currently available memory, not just free memory, so reclaimable page cache counts in your favor. This gives a realistic picture of actual pressure rather than a misleadingly high one. Memory at or above `85%` turns yellow; at or above `92%` turns red.
+**Memory Used** appears as `1.0 GB / 8.0 GB (12%)`. The percentage reflects currently available memory, not only free memory, so reclaimable page cache counts in your favor. This gives a realistic picture of actual pressure rather than a misleadingly high one. Memory at or above `85%` turns yellow; at or above `92%` turns red.
 
 <a name="viewing-logs"></a>
 

@@ -14,9 +14,11 @@
 
 This guide is your starting point for understanding DeployerPHP. It walks you through the main operational concepts so you can move forward with the right mental model.
 
+<a name="install-deployerphp"></a>
+
 ## Install DeployerPHP
 
-Install DeployerPHP just like any other Composer package:
+Install DeployerPHP like any other Composer package:
 
 ```shell
 # Install as a dev dependency
@@ -32,6 +34,8 @@ alias dep="deployer"
 > [!INFO]
 > Add the alias to your shell profile (`~/.bashrc`, `~/.zshrc`) to make it permanent.
 
+<a name="requirements"></a>
+
 ## Requirements
 
 DeployerPHP has some pretty basic requirements:
@@ -40,6 +44,8 @@ DeployerPHP has some pretty basic requirements:
 - The `pcntl` PHP extension (if you want to use the `server:ssh` command)
 
 Your target servers should run Ubuntu LTS >= 24.04 (no interim releases like 25.04).
+
+<a name="the-commands"></a>
 
 ## The Commands
 
@@ -64,11 +70,15 @@ Commands are organized into namespaces that represent what each group manages:
 
 For namespace-by-namespace behavior details, see the [Documentation Index](documentation.md) and its command reference sections.
 
+<a name="the-inventory"></a>
+
 ## The Inventory
 
 DeployerPHP tracks your servers and sites in an inventory file, which it initializes in your current working directory as `.deployer/inventory.yml`. This inventory file stores the details of servers you add and sites you create, so you don't have to re-enter connection details, domain names or IPs each time you run a command.
 
 Commands automatically reference the inventory, making it easy to manage multiple servers or sites. This file does not contain any sensitive information, so it is safe to commit to version control.
+
+<a name="configuration-paths"></a>
 
 ## Configuration Paths
 
@@ -120,7 +130,9 @@ $> deployer server:add  \
   --private-key-path='~/.ssh/id_ed25519'
 ```
 
-You can copy this block directly into scripts or CI pipelines. You can also run any command with just some options filled in and answer the rest interactively — the replay always reflects exactly what you chose, making it easy to learn the full CLI syntax by doing.
+You can copy this block directly into scripts or CI pipelines. You can also run any command with only some options filled in and answer the rest interactively, and the replay always reflects exactly what you chose, making it easy to learn the full CLI syntax by doing.
+
+<a name="next-steps"></a>
 
 ## Next Steps
 

@@ -10,6 +10,8 @@
 
 Use `cron:*` commands to manage scheduled jobs from inventory and apply them to servers.
 
+<a name="at-a-glance"></a>
+
 ## At a Glance
 
 | Command       | Use it when you need to...                     |
@@ -18,6 +20,8 @@ Use `cron:*` commands to manage scheduled jobs from inventory and apply them to 
 | `cron:sync`   | apply inventory cron definitions to the server |
 | `cron:delete` | remove a scheduled job definition from a site  |
 
+<a name="details"></a>
+
 ## Details
 
 `cron:create` and `cron:delete` update local inventory state.
@@ -25,6 +29,8 @@ Use `cron:*` commands to manage scheduled jobs from inventory and apply them to 
 `cron:sync` is the command that updates remote crontab state.
 
 This split lets you stage changes safely before applying them to production.
+
+<a name="safety-and-guardrails"></a>
 
 ## Safety and Guardrails
 

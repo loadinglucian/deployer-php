@@ -10,6 +10,8 @@
 
 Use `postgresql:*` commands to install and operate PostgreSQL on managed servers.
 
+<a name="at-a-glance"></a>
+
 ## At a Glance
 
 | Command              | Use it when you need to...                                |
@@ -19,11 +21,15 @@ Use `postgresql:*` commands to install and operate PostgreSQL on managed servers
 | `postgresql:stop`    | stop PostgreSQL for maintenance                           |
 | `postgresql:restart` | restart PostgreSQL after operational changes              |
 
+<a name="details"></a>
+
 ## Details
 
 `postgresql:install` includes credential generation and delivery flow.
 
 Lifecycle commands (`postgresql:start`, `postgresql:stop`, `postgresql:restart`) handle runtime control.
+
+<a name="safety-and-guardrails"></a>
 
 ## Safety and Guardrails
 

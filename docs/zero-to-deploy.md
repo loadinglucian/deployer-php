@@ -106,7 +106,7 @@ This installs and configures your server runtime environment with:
 
 You can run the `server:install` command at any time to install additional PHP versions or different extensions.
 
-The `server:install` command is additive, meaning it will always add new components without uninstalling anything. Any previous versions or extensions you installed will remain unchanged, so simply choose what you want to install now.
+The `server:install` command is additive, meaning it will always add new components without uninstalling anything. Any previous versions or extensions you installed will remain unchanged, so choose what you want to install now.
 
 > [!INFO]
 > When you have multiple PHP versions installed, the `server:install` command will prompt you for the default PHP version you want to use for your server CLI.
@@ -256,7 +256,7 @@ You can manually switch back to a previous release by updating the `current` sym
 >
 > - Rollbacks mask problems rather than fixing them. The underlying issue remains.
 > - Forward-only fixes create an auditable history of what changed and why.
-> - Modern CI/CD makes deploying a fix just as fast as rolling back.
+> - Modern CI/CD makes deploying a fix as fast as rolling back.
 
 ## Next Steps
 
