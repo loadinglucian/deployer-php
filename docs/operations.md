@@ -8,7 +8,6 @@
 - [Firewall Management](#firewall-management)
 - [Server Deletion](#server-deletion)
 - [Site Deletion](#site-deletion)
-- [Related References](#related-references)
 
 <!-- /toc -->
 
@@ -67,7 +66,7 @@ The command detects open ports and presents them as a multiselect prompt. The SS
 
 ## Server Deletion
 
-Run the `server:delete` command to remove a server and it's sites from inventory:
+Run the `server:delete` command to remove a server and its sites from inventory:
 
 ```shell
 deployer server:delete
@@ -82,7 +81,7 @@ The command can also delete cloud-provisioned resources such as individual insta
 
 ## Site Deletion
 
-Run the `site:delete` to remove a site from inventory:
+Run the `site:delete` command to remove a site from inventory:
 
 ```shell
 deployer site:delete
