@@ -1,11 +1,10 @@
-# Command Reference: Cloudflare
+# Cloudflare Reference
 
 <!-- toc -->
 
 - [Configuration](#configuration)
 - [At a Glance](#at-a-glance)
 - [DNS Management](#dns-management)
-- [Safety and Guardrails](#safety-and-guardrails)
 
 <!-- /toc -->
 
@@ -45,6 +44,10 @@ Alias commands are also supported:
 
 A practical sequence is list first, then apply create/update/delete changes once you confirm the target record set.
 
+When creating or updating records, `cf:dns:set` prompts for Cloudflare proxy status (the "orange cloud"). Enabling the proxy hides your origin IP and activates CDN and DDoS protection. Proxy support is available for A, AAAA, and CNAME record types.
+
+`cf:dns:delete` uses a two-tier confirmation: you type the record name first, then confirm with a yes/no prompt.
+
 ```shell
 deployer cf:dns:list
 deployer cf:dns:set
@@ -52,13 +55,3 @@ deployer cf:dns:delete
 ```
 
 Use Cloudflare DNS updates together with `site:dns:check` when preparing HTTPS enablement.
-
-<a name="safety-and-guardrails"></a>
-
-## Safety and Guardrails
-
-> [!NOTE]
-> Use API tokens scoped only to required zones and DNS permissions.
-
-> [!IMPORTANT]
-> DNS updates can route production traffic immediately. Double-check record names and targets before applying changes.

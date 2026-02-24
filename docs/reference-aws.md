@@ -1,4 +1,4 @@
-# Command Reference: AWS
+# AWS Reference
 
 <!-- toc -->
 
@@ -8,7 +8,6 @@
 - [SSH Key Management](#ssh-key-management)
 - [Provisioning](#provisioning)
 - [DNS Management](#dns-management)
-- [Safety and Guardrails](#safety-and-guardrails)
 
 <!-- /toc -->
 
@@ -145,6 +144,10 @@ deployer aws:key:delete
 
 `aws:provision` creates an EC2 instance, allocates an Elastic IP, configures a security group, and writes inventory entries so you can continue with `server:install` and site workflows immediately.
 
+A shared "deployer" security group is created once per VPC and reused across provisions, so subsequent servers in the same VPC share the same firewall baseline.
+
+If provisioning fails after the instance is created, DeployerPHP automatically rolls back the instance and Elastic IP so you don't accumulate orphaned resources.
+
 ```shell
 deployer aws:provision
 ```
@@ -157,26 +160,10 @@ After provisioning, run the `server:install` command to prepare runtime services
 
 Use `aws:dns:list` to inspect current records in a Route53 hosted zone, then use `aws:dns:set` and `aws:dns:delete` for deliberate changes.
 
+Note that `aws:dns:delete` cannot remove Route53 alias records. You'll need to manage alias records through the AWS Console.
+
 ```shell
 deployer aws:dns:list
 deployer aws:dns:set
 deployer aws:dns:delete
 ```
-
-<a name="safety-and-guardrails"></a>
-
-## Safety and Guardrails
-
-> [!NOTE]
-> Confirm account, region, and hosted zone context before mutating DNS or provisioning resources.
-
-> [!IMPORTANT]
-> Provisioning and deletion can affect cost and data retention. Always validate cleanup status after destructive actions.
-
-When working with AWS resources, follow this order:
-
-1. Validate credentials and scope.
-2. Confirm account and region context.
-3. Apply infrastructure and DNS changes.
-4. Verify outcome with `site:dns:check` and service checks.
-5. Confirm cleanup for any destructive operations.

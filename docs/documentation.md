@@ -21,7 +21,6 @@ DeployerPHP documentation is split into guides and references. Use guides for wo
 - [Crons & Supervisors](crons-and-supervisors.md)
 - [Logs & Debugging](logs-and-debugging.md)
 - [AI Automation](ai-automation.md)
-- [Operations](operations.md)
 
 <a name="references"></a>
 
@@ -29,47 +28,28 @@ DeployerPHP documentation is split into guides and references. Use guides for wo
 
 ### Server & Site Operations
 
-- [Server Reference](reference-server.md)
-- [Site Reference](reference-site.md)
+- [Servers & Sites](reference-server-and-sites.md)
 
 ### Scheduling & Process Control
 
-- [Cron Reference](reference-cron.md)
-- [Supervisor Reference](reference-supervisor.md)
+- [Crons & Supervisors](reference-crons-and-supervisors.md)
 
 ### Web Runtime Services
 
-- [Nginx Reference](reference-nginx.md)
-- [PHP-FPM Reference](reference-php.md)
+- [Nginx & PHP-FPM](reference-nginx-and-php.md)
 
 ### Data Services
 
-- [MariaDB Reference](reference-mariadb.md)
-- [PostgreSQL Reference](reference-postgresql.md)
-- [Redis Reference](reference-redis.md)
-- [Memcached Reference](reference-memcached.md)
+- [Databases](reference-databases.md)
 
 ### Scaffolding
 
-- [Scaffold Reference](reference-scaffold.md)
+- [Scaffolds](reference-scaffolds.md)
 
 <a name="cloud-providers"></a>
 
 ## Cloud Providers
 
-- [AWS Reference](reference-aws.md)
-- [Cloudflare Reference](reference-cloudflare.md)
-- [DigitalOcean Reference](reference-digitalocean.md)
-
-## Images
-
-When embedding docs images, use `docs/images/` paths. If a dark variant exists
-with the `-dark` suffix (for example `deployerphp-dark.webp`), render both
-images and toggle using `dark:hidden` / `hidden dark:block` classes.
-
-```html
-<p>
-    <img src="./light.webp" alt="" class="dark:hidden" />
-    <img src="./dark.webp" alt="" class="hidden dark:block" />
-</p>
-```
+- [AWS](reference-aws.md)
+- [Cloudflare](reference-cloudflare.md)
+- [DigitalOcean](reference-digitalocean.md)

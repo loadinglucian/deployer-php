@@ -16,7 +16,9 @@
 
 # Meet DeployerPHP
 
-This is DeployerPHP, a super comprehensive set of CLI tools for provisioning, installing, and deploying servers and sites using PHP. It serves as an open-source alternative to services such as Ploi, RunCloud or Laravel Forge.
+This is DeployerPHP, a complete set of CLI tools for provisioning, installing, and deploying servers and sites using PHP. It serves as an open-source alternative to services such as Ploi, RunCloud or Laravel Forge.
+
+Here it is in action:
 
 <p align="center">
     <img src="https://raw.githubusercontent.com/loadinglucian/deployer-php/main/docs/images/deployerphp.webp#gh-light-mode-only" width="auto" alt="DeployerPHP in action" class="dark:hidden">
@@ -41,43 +43,41 @@ This is DeployerPHP, a super comprehensive set of CLI tools for provisioning, in
 
 ## Crash Course
 
-Here's a quick run-through to start deploying immediately:
+Here's a quick but complete run-through to start deploying immediately. Run each of these commands in sequence to go from zero to deploy:
 
 ```shell
-# 1. Install DeployerPHP
+# Install DeployerPHP
 composer require --dev loadinglucian/deployer-php
 alias deployer="./vendor/bin/deployer"
 
-# 2. Add your server to the inventory
+# Add your server to the inventory
 deployer server:add
 
 # Alternatively, provision a cloud instance and add it
 # to the inventory automatically with a single command
-deployer aws:provision
-deployer do:provision
+# $> deployer aws:provision
+# $> deployer do:provision
 
-# 4. Install Nginx, PHP, Bun and generate a deploy key
+# Install Nginx, PHP, Bun and generate a deploy key
 deployer server:install
 
-# 5. Install your preferred database services
-deployer mariadb:install
-deployer postgresql:install
-deployer redis:install
-deployer memcached:install
+# Optionally, install your preferred database services
+# $> deployer mariadb:install
+# $> deployer postgresql:install
+# $> deployer redis:install
+# $> deployer memcached:install
 
-# 6. Create a site
+# Create a site
 deployer site:create
 
-# 7. Generate deployment scripts (run from your project directory)
-deployer scaffold:scripts
+# Optionally scaffold deployment scripts and upload shared files
+# $> deployer scaffold:scripts
+# $> deployer site:shared:push
 
-# 8. Upload your .env file to the server
-deployer site:shared:push
-
-# 9. Deploy your application
+# Deploy your application
 deployer site:deploy
 
-# 10. Enable HTTPS
+# Enable HTTPS
 deployer site:https
 ```
 

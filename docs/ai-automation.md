@@ -78,4 +78,4 @@ The Admin tier covers the full range of DeployerPHP command domains: server mana
 
 ## Next Steps
 
-With AI automation configured, your agent can triage server and deployment issues using the same tools you use. Additionally, there are a few other server and site operations you should familiarize yourself with. For more information, see [Operations](operations.md).
+With AI automation configured, your agent can triage server and deployment issues using the same tools you use. For a complete list of available commands, see the command and cloud provider references.

@@ -1,4 +1,4 @@
-# Command Reference: DigitalOcean
+# DigitalOcean Reference
 
 <!-- toc -->
 
@@ -7,7 +7,6 @@
 - [SSH Key Management](#ssh-key-management)
 - [Provisioning](#provisioning)
 - [DNS Management](#dns-management)
-- [Safety and Guardrails](#safety-and-guardrails)
 
 <!-- /toc -->
 
@@ -65,7 +64,9 @@ deployer do:key:delete
 
 ## Provisioning
 
-`do:provision` creates a Droplet and writes inventory entries so you can continue with `server:install` and site workflows immediately.
+`do:provision` creates a Droplet and writes inventory entries so you can continue with `server:install` and site workflows immediately. You can also configure optional settings during provisioning, including VPC selection, monitoring (enabled by default, free), IPv6 (enabled by default, free), and automatic backups.
+
+If provisioning fails after the Droplet is created, DeployerPHP automatically rolls back the Droplet so you don't accumulate orphaned resources.
 
 ```shell
 deployer do:provision
@@ -79,26 +80,10 @@ After provisioning, run the `server:install` command to prepare runtime services
 
 Use `do:dns:list` to inspect current records for a domain, then use `do:dns:set` and `do:dns:delete` for deliberate changes.
 
+`do:dns:delete` uses a two-tier confirmation: you type the record name first, then confirm with a yes/no prompt.
+
 ```shell
 deployer do:dns:list
 deployer do:dns:set
 deployer do:dns:delete
 ```
-
-<a name="safety-and-guardrails"></a>
-
-## Safety and Guardrails
-
-> [!NOTE]
-> Validate project and account context before provisioning or deleting resources.
-
-> [!IMPORTANT]
-> Provisioning and deletion can affect cost and data retention. Always confirm cleanup status after decommissioning.
-
-When working with DigitalOcean resources, follow this order:
-
-1. Validate credentials and scope.
-2. Confirm account and project context.
-3. Apply infrastructure and DNS changes.
-4. Verify outcome with `site:dns:check` and service checks.
-5. Confirm cleanup for any destructive operations.
