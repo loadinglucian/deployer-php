@@ -108,7 +108,7 @@ You can run the `server:install` command at any time to install additional PHP v
 
 The `server:install` command is additive, meaning it will always add new components without uninstalling anything. Any previous versions or extensions you installed will remain unchanged, so choose what you want to install now.
 
-> [!INFO]
+> [!NOTE]
 > When you have multiple PHP versions installed, the `server:install` command will prompt you for the default PHP version you want to use for your server CLI.
 
 ### Installing Databases
@@ -179,7 +179,7 @@ deployer site:https
 
 This installs Certbot, obtains a Let's Encrypt certificate, configures Nginx for HTTPS, and sets up automatic certificate renewal.
 
-> [!INFO]
+> [!NOTE]
 > Your domain's DNS must point to your server before running this command.
 
 ### Shared Files
@@ -194,7 +194,7 @@ deployer site:shared:push
 
 The command will prompt you for the server, site, local file path, and remote file path within the shared directory. Use `site:shared:pull` to download a shared file to your local machine.
 
-> [!INFO]
+> [!NOTE]
 > The `site:shared:*` commands only support single files. You can create any shared directory structures your application needs in the deploy script. For more information, see the next section.
 
 ### Scaffolding Scripts
@@ -212,7 +212,7 @@ This creates `deploy.sh`, `cron.sh`, and `supervisor.sh` in your project's `.dep
 
 Each script has access to several environment variables (see the scaffolded scripts for a complete reference) and runs in the release directory as the dedicated `deployer` user. Adding `set -e` at the top ensures that the deployment stops if any command fails, preventing a broken release from going live.
 
-> [!INFO]
+> [!NOTE]
 > The deploy script is the ideal place to create shared directories your application needs. For example, if your application stores user uploads, create the directory with `mkdir -p "$DEPLOYER_SHARED_PATH/uploads"` and symlink it into the release.
 
 ## Step 3: Deploy

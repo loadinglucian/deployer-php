@@ -49,7 +49,7 @@ Use `server:run` for scripted, one-shot checks. Use `server:ssh` when you need i
 
 ## Safety and Guardrails
 
-> [!INFO]
+> [!NOTE]
 > `server:ssh` interactive mode requires the `pcntl` extension on your local PHP runtime.
 
 > [!IMPORTANT]

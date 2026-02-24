@@ -89,7 +89,7 @@ deployer do:dns:delete
 
 ## Safety and Guardrails
 
-> [!INFO]
+> [!NOTE]
 > Validate project and account context before provisioning or deleting resources.
 
 > [!IMPORTANT]

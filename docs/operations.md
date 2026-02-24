@@ -35,7 +35,7 @@ Every service namespace in DeployerPHP follows the same control convention:
 
 Each namespace provides `*:start`, `*:stop`, and `*:restart` commands. The behavior is consistent across all of them: start brings a service online, stop takes it offline for maintenance, and restart cycles the process.
 
-> [!INFO]
+> [!NOTE]
 > Stopping or restarting Supervisor affects every managed program on the server, not only the ones for a specific site. For more information, see [Crons & Supervisors](crons-and-supervisors.md#daemon-control)
 
 <a name="when-to-restart"></a>

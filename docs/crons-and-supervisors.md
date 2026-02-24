@@ -24,7 +24,7 @@ Before diving into the commands, it helps to understand the two-step pattern tha
 
 This separation is intentional. It lets you stage multiple changes (add a job, remove another, tweak a third) and apply them all at once with a single sync. If something looks wrong in your inventory before syncing, you can fix it without worrying about a half-applied state on the server.
 
-> [!INFO]
+> [!NOTE]
 > You can review your inventory at any time to verify definitions before syncing.
 
 <a name="cron-jobs"></a>

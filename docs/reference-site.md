@@ -47,7 +47,7 @@ Use the `site:shared:*` commands for persistent single-file assets such as envir
 
 ## Safety and Guardrails
 
-> [!INFO]
+> [!NOTE]
 > `site:rollback` is intentionally informational. The recommended operational model is forward-only fixes and redeploys.
 
 > [!IMPORTANT]

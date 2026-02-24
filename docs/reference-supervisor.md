@@ -37,7 +37,7 @@ Use `supervisor:start`, `supervisor:stop`, and `supervisor:restart` for daemon l
 
 ## Safety and Guardrails
 
-> [!INFO]
+> [!NOTE]
 > Definition changes are not live until `supervisor:sync` runs.
 
 > [!IMPORTANT]

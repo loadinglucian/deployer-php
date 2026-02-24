@@ -33,7 +33,7 @@ Lifecycle commands (`redis:start`, `redis:stop`, `redis:restart`) control runtim
 
 ## Safety and Guardrails
 
-> [!INFO]
+> [!NOTE]
 > Record Redis credentials at install time and rotate if exposure is suspected.
 
 > [!IMPORTANT]

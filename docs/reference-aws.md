@@ -110,7 +110,7 @@ You can create an IAM policy in the [AWS IAM Console](https://console.aws.amazon
 }
 ```
 
-> [!INFO]
+> [!NOTE]
 > If you only need DNS management, you can scope IAM permissions to Route53 and STS only.
 
 <a name="at-a-glance"></a>
@@ -167,7 +167,7 @@ deployer aws:dns:delete
 
 ## Safety and Guardrails
 
-> [!INFO]
+> [!NOTE]
 > Confirm account, region, and hosted zone context before mutating DNS or provisioning resources.
 
 > [!IMPORTANT]
