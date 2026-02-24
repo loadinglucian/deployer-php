@@ -53,15 +53,17 @@ alias deployer="./vendor/bin/deployer"
 # Add your server to the inventory
 deployer server:add
 
-# Alternatively, provision a cloud instance and add it
-# to the inventory automatically with a single command
+# Alternatively, set up a cloud instance and add it to
+# the inventory automatically with a single command:
+#
 # $> deployer aws:provision
 # $> deployer do:provision
 
 # Install Nginx, PHP, Bun and generate a deploy key
 deployer server:install
 
-# Optionally, install your preferred database services
+# Optionally, install your preferred database service:
+#
 # $> deployer mariadb:install
 # $> deployer postgresql:install
 # $> deployer redis:install
@@ -70,7 +72,8 @@ deployer server:install
 # Create a site
 deployer site:create
 
-# Optionally scaffold deployment scripts and upload shared files
+# Optionally, create deployment scripts and upload shared files:
+#
 # $> deployer scaffold:scripts
 # $> deployer site:shared:push
 
