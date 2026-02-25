@@ -26,35 +26,6 @@ on:
     paths: *ci_paths
   schedule:
     - cron: "0 * * * *"
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: "Cleanup mode"
-        required: true
-        default: sweep
-        type: choice
-        options:
-          - sweep
-          - targeted
-      suffixes:
-        description: "Suffix list (required for targeted mode, comma-separated)"
-        required: false
-        type: string
-      providers:
-        description: "Providers (csv: aws,do,cf)"
-        required: false
-        default: "aws,do,cf"
-        type: string
-      min_age_minutes:
-        description: "Sweep protection window in minutes"
-        required: false
-        default: "30"
-        type: string
-      dry_run:
-        description: "Print actions without deleting"
-        required: false
-        default: false
-        type: boolean
 
 jobs:
   trust-context:
@@ -65,7 +36,6 @@ jobs:
       run_quality: ${{ steps.classify.outputs.run_quality }}
       run_secret_jobs: ${{ steps.classify.outputs.run_secret_jobs }}
       run_sweep: ${{ steps.classify.outputs.run_sweep }}
-      run_manual_janitor: ${{ steps.classify.outputs.run_manual_janitor }}
       cache_scope: ${{ steps.classify.outputs.cache_scope }}
       checkout_ref: ${{ steps.classify.outputs.checkout_ref }}
 
@@ -82,7 +52,6 @@ jobs:
           run_quality=false
           run_secret_jobs=false
           run_sweep=false
-          run_manual_janitor=false
           cache_scope=other
           checkout_ref="$GITHUB_SHA"
 
@@ -102,16 +71,12 @@ jobs:
           elif [[ "$EVENT_NAME" == "schedule" ]]; then
             run_sweep=true
             cache_scope=schedule
-          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            run_manual_janitor=true
-            cache_scope=manual
           fi
 
           {
             echo "run_quality=$run_quality"
             echo "run_secret_jobs=$run_secret_jobs"
             echo "run_sweep=$run_sweep"
-            echo "run_manual_janitor=$run_manual_janitor"
             echo "cache_scope=$cache_scope"
             echo "checkout_ref=$checkout_ref"
           } >> "$GITHUB_OUTPUT"
@@ -501,62 +466,3 @@ jobs:
             --mode=sweep \
             --providers="aws,do,cf" \
             --min-age-minutes=30
-
-  janitor-manual:
-    needs: trust-context
-    if: ${{ needs.trust-context.outputs.run_manual_janitor == 'true' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    concurrency:
-      group: bats-cloud-janitor
-      cancel-in-progress: false
-
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
-      MODE: ${{ inputs.mode }}
-      PROVIDERS: ${{ inputs.providers }}
-      MIN_AGE_MINUTES: ${{ inputs.min_age_minutes }}
-      SUFFIXES: ${{ inputs.suffixes }}
-      DRY_RUN: ${{ inputs.dry_run }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Setup PHP and Composer
-        uses: ./.github/actions/setup-php-composer
-
-      - name: Install janitor dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq curl
-          aws --version
-
-      - name: Setup environment file
-        run: |
-          cat <<'ENVEOF' > .env
-          ${{ secrets.DOTENV_FILE }}
-          ENVEOF
-
-      - name: Janitor manual run
-        run: |
-          set -a
-          # shellcheck disable=SC1091
-          source .env
-          set +a
-
-          ARGS=(
-            "--mode=${MODE}"
-            "--providers=${PROVIDERS}"
-            "--min-age-minutes=${MIN_AGE_MINUTES}"
-          )
-
-          if [[ -n "$SUFFIXES" ]]; then
-            ARGS+=("--suffixes=${SUFFIXES}")
-          fi
-
-          if [[ "$DRY_RUN" == "true" ]]; then
-            ARGS+=("--dry-run")
-          fi
-
-          tests/bats/lib/cloud-janitor.sh "${ARGS[@]}"
