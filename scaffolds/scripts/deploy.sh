@@ -41,11 +41,10 @@ set_group_writable_tree() {
 		return
 	fi
 
-	# chmod can only be performed by file owner (or root). During runtime some
-	# cache files may be owned by www-data, so normalize only deployer-owned
-	# entries and do not fail deployment if skipped files exist.
-	find "${path}" -type d -exec chmod 2775 {} + 2> /dev/null || true
-	find "${path}" -type f -exec chmod 664 {} + 2> /dev/null || true
+	# deploy.sh runs via sudo so chmod succeeds on all entries regardless of
+	# ownership (deployer or www-data).
+	find "${path}" -type d -exec chmod 2775 {} +
+	find "${path}" -type f -exec chmod 664 {} +
 }
 
 # ----
