@@ -84,7 +84,13 @@ run_script() {
 
 	echo "→ Running ${script_name} script..."
 
-	if ! run_as_deployer bash -c "cd $(printf '%q' "$DEPLOYER_RELEASE_PATH") && $(printf '%q' "$script_path")"; then
+	# Run project deploy scripts with elevated permissions so they can perform
+	# permission/ownership cleanup across framework-specific runtime paths.
+	if [[ $DEPLOYER_PERMS == 'sudo' ]]; then
+		if ! sudo -n --preserve-env="$PRESERVE_ENV_VARS" env HOME=/home/deployer USER=deployer LOGNAME=deployer COMPOSER_ALLOW_SUPERUSER=1 bash -c "cd $(printf '%q' "$DEPLOYER_RELEASE_PATH") && $(printf '%q' "$script_path")"; then
+			fail "${script_name} script failed"
+		fi
+	elif ! run_cmd env HOME=/home/deployer USER=deployer LOGNAME=deployer COMPOSER_ALLOW_SUPERUSER=1 bash -c "cd $(printf '%q' "$DEPLOYER_RELEASE_PATH") && $(printf '%q' "$script_path")"; then
 		fail "${script_name} script failed"
 	fi
 }
@@ -236,6 +242,18 @@ build_release() {
 	# Ensure strict ownership and permissions on the release directory after extraction
 	run_cmd chown -R deployer:deployer "$RELEASE_PATH" || fail "Failed to set release ownership"
 	run_cmd chmod -R 755 "$RELEASE_PATH" || fail "Failed to set release permissions"
+}
+
+#
+# Normalize deploy-managed ownership
+#
+# Reset ownership after project deploy scripts run as root/sudo so future
+# deployer-user git operations and script runs remain consistent.
+
+normalize_deployer_ownership() {
+	echo "→ Normalizing deploy ownership..."
+
+	run_cmd chown -R deployer:deployer "$SITE_ROOT" || fail "Failed to normalize site ownership"
 }
 
 #
@@ -431,6 +449,7 @@ run_scripts_sequence() {
 	build_release
 
 	run_script 'deploy.sh'
+	normalize_deployer_ownership
 
 	activate_release
 

@@ -88,6 +88,35 @@ install_composer() {
 # ----
 
 #
+# PHP-FPM UMask Configuration
+# ----
+#
+# Configure PHP-FPM service umask for cooperative deployer/www-data writes
+
+configure_php_fpm_umask() {
+	local override_dir="/etc/systemd/system/php${DEPLOYER_PHP_VERSION}-fpm.service.d"
+	local override_file="${override_dir}/deployer-umask.conf"
+
+	if ! run_cmd mkdir -p "$override_dir"; then
+		echo "Error: Failed to create PHP-FPM systemd override directory" >&2
+		exit 1
+	fi
+
+	if ! run_cmd tee "$override_file" > /dev/null <<- 'EOF'; then
+		[Service]
+		UMask=0002
+	EOF
+		echo "Error: Failed to write PHP-FPM umask override" >&2
+		exit 1
+	fi
+
+	if ! run_cmd systemctl daemon-reload; then
+		echo "Error: Failed to reload systemd daemon" >&2
+		exit 1
+	fi
+}
+
+#
 # Configure PHP-FPM for the installed version
 
 configure_php_fpm() {
@@ -122,6 +151,9 @@ configure_php_fpm() {
 			exit 1
 		fi
 	fi
+
+	# Ensure PHP-FPM creates group-writable files in SGID shared directories.
+	configure_php_fpm_umask
 
 	# Restart PHP-FPM to apply configuration changes (idempotent - starts if not running)
 	if ! run_cmd systemctl restart php${DEPLOYER_PHP_VERSION}-fpm; then

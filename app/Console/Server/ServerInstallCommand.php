@@ -261,10 +261,11 @@ class ServerInstallCommand extends BaseCommand
         $playbookVars = [];
 
         if ($deployKeyPath !== null) {
-            // Path already validated and expanded by promptDeployKeyPairPath()
+            // Path is validated by promptDeployKeyPairPath(); expand "~" before local file reads.
             try {
-                $privateKeyContent = $this->fs->readFile($deployKeyPath);
-                $publicKeyContent = $this->fs->readFile($deployKeyPath . '.pub');
+                $expandedDeployKeyPath = $this->fs->expandPath($deployKeyPath);
+                $privateKeyContent = $this->fs->readFile($expandedDeployKeyPath);
+                $publicKeyContent = $this->fs->readFile($expandedDeployKeyPath . '.pub');
             } catch (\RuntimeException $e) {
                 $this->nay($e->getMessage());
 

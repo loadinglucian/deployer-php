@@ -210,10 +210,10 @@ This creates `deploy.sh`, `cron.sh`, and `supervisor.sh` in your project's `.dep
 - The `deploy.sh` script handles your project's deployment workflow by installing dependencies, building assets, linking shared resources, running migrations, and optimizing caches.
 - The `cron.sh` and `supervisor.sh` scripts serve as starting points for scheduled tasks and long-running workers.
 
-Each script has access to several environment variables (see the scaffolded scripts for a complete reference) and runs in the release directory as the dedicated `deployer` user. Adding `set -e` at the top ensures that the deployment stops if any command fails, preventing a broken release from going live.
+Each script has access to several environment variables (see the scaffolded scripts for a complete reference) and runs in the release directory. After deploy scripts complete, DeployerPHP normalizes site ownership back to `deployer:deployer`. Adding `set -e` at the top ensures that the deployment stops if any command fails, preventing a broken release from going live.
 
 > [!NOTE]
-> The deploy script is the ideal place to create shared directories your application needs. For example, if your application stores user uploads, create the directory with `mkdir -p "$DEPLOYER_SHARED_PATH/uploads"` and symlink it into the release.
+> The deploy script is the ideal place to create the shared directories your application needs. For example, if your application stores user uploads, create the directory with `mkdir -p "$DEPLOYER_SHARED_PATH/uploads"` and symlink it into the release.
 
 ## Step 3: Deploy
 
