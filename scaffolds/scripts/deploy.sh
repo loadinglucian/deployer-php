@@ -36,19 +36,16 @@ set -euo pipefail
 
 set_group_writable_tree() {
 	local path="$1"
-	local current_user
 
 	if [[ ! -d "${path}" ]]; then
 		return
 	fi
 
-	current_user="$(id -un)"
-
 	# chmod can only be performed by file owner (or root). During runtime some
 	# cache files may be owned by www-data, so normalize only deployer-owned
 	# entries and do not fail deployment if skipped files exist.
-	find "${path}" -type d -user "${current_user}" -exec chmod 2775 {} + 2> /dev/null || true
-	find "${path}" -type f -user "${current_user}" -exec chmod 664 {} + 2> /dev/null || true
+	find "${path}" -type d -exec chmod 2775 {} + 2> /dev/null || true
+	find "${path}" -type f -exec chmod 664 {} + 2> /dev/null || true
 }
 
 # ----
