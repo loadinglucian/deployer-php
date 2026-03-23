@@ -9,6 +9,6 @@
     "lint:md:fix": "markdownlint-cli2 --fix '**/*.md' '#node_modules' '#vendor'"
   },
   "devDependencies": {
-    "markdownlint-cli2": "^0.21.0"
+    "markdownlint-cli2": "^0.22.0"
   }
 }
