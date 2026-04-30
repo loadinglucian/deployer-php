@@ -49,7 +49,7 @@ deployer cron:create
 
 The command will ask for the server and site this job belongs to, the path to the script that should run, and a cron expression defining the schedule. Once you've answered the prompts, the job is saved to your local inventory. Your server hasn't changed yet.
 
-### Syncing to the Server
+### Syncing Crons to the Server
 
 To apply your cron definitions to the server, run:
 
@@ -96,7 +96,7 @@ deployer supervisor:create
 
 The command will ask for the server and site this process belongs to and the path to the worker script. Like cron, this saves the definition to your local inventory without touching the server.
 
-### Syncing to the Server
+### Syncing Supervisors to the Server
 
 Apply your supervisor definitions with:
 

@@ -5,7 +5,6 @@
 - [Guides](#guides)
 - [References](#references)
 - [Cloud Providers](#cloud-providers)
-- [Images](#images)
 
 <!-- /toc -->
 
