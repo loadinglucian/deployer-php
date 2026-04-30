@@ -223,8 +223,24 @@ class ServerFirewallCommand extends BaseCommand
             return 'At least one port must be selected';
         }
 
+        $normalizedPorts = [];
+        foreach ($ports as $port) {
+            if (is_int($port)) {
+                $normalizedPorts[] = $port;
+
+                continue;
+            }
+
+            if (! is_string($port) || ! ctype_digit($port)) {
+                return 'Invalid port number';
+            }
+
+            $normalizedPorts[] = (int) $port;
+        }
+
+        $ports = $normalizedPorts;
+
         // Validate port range
-        /** @var int $port */
         foreach ($ports as $port) {
             if ($port < 1 || $port > 65535) {
                 return sprintf('Invalid port number: %d', $port);
@@ -232,14 +248,17 @@ class ServerFirewallCommand extends BaseCommand
         }
 
         // Validate ports are in selectable list
-        $validPorts = array_keys($selectablePorts);
+        $validPorts = array_map(
+            static fn (int|string $port): int => (int) $port,
+            array_keys($selectablePorts)
+        );
         $invalidPorts = array_diff($ports, $validPorts);
 
         if ([] !== $invalidPorts) {
             return sprintf(
                 'Ports not listening: %s. Available: %s',
-                implode(', ', $invalidPorts),
-                implode(', ', $validPorts)
+                implode(', ', array_map(strval(...), $invalidPorts)),
+                implode(', ', array_map(strval(...), $validPorts))
             );
         }
 

@@ -779,6 +779,20 @@ class ServerInstallCommand extends BaseCommand
             return 'Invalid PHP extensions selection';
         }
 
+        $normalizedExtensions = [];
+        foreach ($extensions as $extension) {
+            if (! is_scalar($extension) && ! $extension instanceof \Stringable) {
+                return 'Invalid PHP extensions selection';
+            }
+
+            $extension = trim((string) $extension);
+            if ($extension !== '') {
+                $normalizedExtensions[] = $extension;
+            }
+        }
+
+        $extensions = $normalizedExtensions;
+
         // Filter out required extensions (they're always installed, so ignore if user specifies them)
         $extensions = array_diff($extensions, $requiredExtensions);
         $extensions = array_diff($extensions, $builtInExtensions);

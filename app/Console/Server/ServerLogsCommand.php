@@ -591,6 +591,20 @@ class ServerLogsCommand extends BaseCommand
             return 'At least one service must be selected';
         }
 
+        $normalizedServices = [];
+        foreach ($services as $service) {
+            if (! is_scalar($service) && ! $service instanceof \Stringable) {
+                return 'Invalid service selection';
+            }
+
+            $service = trim((string) $service);
+            if ($service !== '') {
+                $normalizedServices[] = $service;
+            }
+        }
+
+        $services = $normalizedServices;
+
         $invalid = array_diff($services, array_keys($allowedOptions));
 
         if ([] !== $invalid) {
