@@ -18,10 +18,10 @@
     "require": {
         "php": "^8.2",
         "ext-pcntl": "*",
-        "aws/aws-sdk-php": "^3.373",
+        "aws/aws-sdk-php": "^3.379",
         "guzzlehttp/guzzle": "^7.10",
         "jeremykendall/php-domain-parser": "^6.4",
-        "laravel/prompts": "^0.3.15",
+        "laravel/prompts": "^0.3.17",
         "phpseclib/phpseclib": "^3.0",
         "symfony/console": "^7.4",
         "symfony/dotenv": "^7.4",
@@ -34,7 +34,7 @@
         "pestphp/pest": "^2.36",
         "pestphp/pest-plugin-arch": "^2.7",
         "phpstan/phpstan": "^2.1",
-        "rector/rector": "^2.3"
+        "rector/rector": "^2.4"
     },
     "autoload": {
         "psr-4": {
