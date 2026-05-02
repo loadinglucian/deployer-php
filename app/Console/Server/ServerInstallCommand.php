@@ -333,7 +333,7 @@ class ServerInstallCommand extends BaseCommand
     /**
      * Configure server timezone.
      *
-     * Prompts user to select from common timezones or enter a custom one.
+     * Prompts user to select from common timezones or the full IANA list.
      * Executes timezone-configure playbook to apply the setting.
      *
      * @return array{timezone: string}|int Returns array with timezone, or int on failure
@@ -343,7 +343,7 @@ class ServerInstallCommand extends BaseCommand
         try {
             $timezone = $this->io->getValidatedOptionOrPrompt(
                 'timezone',
-                fn ($validate) => $this->promptTimezoneSelection($server, $validate),
+                fn ($validate) => $this->promptTimezoneSelection($validate),
                 fn ($value) => $this->validateTimezoneInput($value)
             );
         } catch (ValidationException $e) {
@@ -379,12 +379,12 @@ class ServerInstallCommand extends BaseCommand
     /**
      * Prompt user to select a timezone.
      *
-     * Shows common timezones first, with "Other" option to fetch full list from server.
+     * Shows common timezones first, with "Other" option to show the full IANA list.
      *
      * @param callable|null $validate Validation callback
      * @return string Selected timezone
      */
-    private function promptTimezoneSelection(ServerDTO $server, ?callable $validate): string
+    private function promptTimezoneSelection(?callable $validate): string
     {
         /** @var string $choice */
         $choice = $this->io->promptSelect(
@@ -401,7 +401,7 @@ class ServerInstallCommand extends BaseCommand
                 if (null !== $error) {
                     $this->nay($error);
 
-                    return $this->promptTimezoneSelection($server, $validate);
+                    return $this->promptTimezoneSelection($validate);
                 }
             }
 
@@ -409,32 +409,11 @@ class ServerInstallCommand extends BaseCommand
         }
 
         //
-        // Fetch full timezone list from server
+        // Show full timezone list
         // ----
 
-        $this->info('Fetching available timezones from server...');
-
-        /** @var array{timezones?: array<int, string>}|int $result */
-        $result = $this->executePlaybook(
-            $server,
-            'timezone-list',
-            'Listing timezones...',
-        );
-
-        if (is_int($result)) {
-            $this->warn('Could not fetch timezone list, using common timezones only');
-
-            return $this->promptTimezoneSelection($server, $validate);
-        }
-
         /** @var array<int, string> $allTimezones */
-        $allTimezones = $result['timezones'] ?? [];
-
-        if ([] === $allTimezones) {
-            $this->warn('No timezones returned from server, using common timezones only');
-
-            return $this->promptTimezoneSelection($server, $validate);
-        }
+        $allTimezones = \DateTimeZone::listIdentifiers();
 
         $timezone = $this->io->promptSelect(
             label: 'Select timezone:',
