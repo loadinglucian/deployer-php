@@ -413,7 +413,7 @@ class ServerInstallCommand extends BaseCommand
         // ----
 
         /** @var array<int, string> $allTimezones */
-        $allTimezones = \DateTimeZone::listIdentifiers();
+        $allTimezones = $this->getTimezoneIdentifiers();
 
         $timezone = $this->io->promptSelect(
             label: 'Select timezone:',
@@ -425,6 +425,23 @@ class ServerInstallCommand extends BaseCommand
 
         /** @var string $timezone */
         return $timezone;
+    }
+
+    /**
+     * Get IANA timezone identifiers from PHP's timezone database.
+     *
+     * @return array<int, string>
+     */
+    private function getTimezoneIdentifiers(): array
+    {
+        /** @var array<int, string>|null $timezones */
+        static $timezones = null;
+
+        if (null === $timezones) {
+            $timezones = \DateTimeZone::listIdentifiers();
+        }
+
+        return $timezones;
     }
 
     //
@@ -700,10 +717,7 @@ class ServerInstallCommand extends BaseCommand
             return 'Timezone cannot be empty';
         }
 
-        // Check against PHP's timezone database (IANA timezones)
-        $validTimezones = \DateTimeZone::listIdentifiers();
-
-        if (! in_array($value, $validTimezones, true)) {
+        if (! in_array($value, $this->getTimezoneIdentifiers(), true)) {
             return "Invalid timezone '{$value}'. Use IANA format (e.g., America/New_York, UTC)";
         }
 
