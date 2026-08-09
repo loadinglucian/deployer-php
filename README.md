@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="https://deployerphp.com" target="_blank">
+    <a href="https://github.com/loadinglucian/deployer-php" target="_blank">
         <img src="https://raw.githubusercontent.com/loadinglucian/deployer-php/main/docs/images/logo-mark.svg" width="400" alt="DeployerPHP Logo">
     </a>
 </p>
@@ -8,10 +8,6 @@
     <a href="https://packagist.org/packages/loadinglucian/deployer-php"><img src="https://img.shields.io/badge/php-%5E8.2-blue.svg" alt="Supports PHP >= 8.2"></a>
     <a href="https://packagist.org/packages/loadinglucian/deployer-php"><img src="https://img.shields.io/packagist/v/loadinglucian/deployer-php" alt="Latest Stable Version"></a>
     <a href="https://packagist.org/packages/loadinglucian/deployer-php"><img src="https://img.shields.io/packagist/l/loadinglucian/deployer-php" alt="License"></a>
-</p>
-
-<p align="center">
-    <a href="https://deployerphp.com/">https://deployerphp.com</a>
 </p>
 
 # Meet DeployerPHP
@@ -28,6 +24,7 @@ Here it is in action:
 <!-- toc -->
 
 - [Crash Course](#crash-course)
+- [Documentation](#documentation)
 - [Benefits](#benefits)
     - [Unlimited Servers & Sites](#unlimited-servers--sites)
     - [No Vendor Lock-In](#no-vendor-lock-in)
@@ -83,6 +80,14 @@ deployer site:deploy
 # Enable HTTPS
 deployer site:https
 ```
+
+<a name="documentation"></a>
+
+## Documentation
+
+The full documentation lives in the [docs](/docs) folder of this repository.
+
+To browse it as a beautiful documentation website, clone the [deployerphp.com](https://github.com/loadinglucian/deployerphp.com) repository and run it locally — it renders the documentation from this package. See its README for setup instructions.
 
 <a name="benefits"></a>
 
