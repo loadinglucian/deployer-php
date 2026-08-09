@@ -24,8 +24,11 @@ on:
     branches:
       - main
     paths: *ci_paths
-  schedule:
-    - cron: "0 * * * *"
+  # NOTE: The hourly janitor-sweep schedule is disabled because the cloud
+  # provider accounts it swept (AWS, DigitalOcean, Cloudflare) have been
+  # spun down. Restore it together with the cloud jobs below if needed.
+  # schedule:
+  #   - cron: "0 * * * *"
 
 jobs:
   trust-context:
@@ -251,218 +254,224 @@ jobs:
           BATS_DISTRO: ubuntu24
         run: ./bats.sh ci vm ubuntu24
 
-  cloud-tests-do:
-    name: cloud-tests (do)
-    needs: [trust-context, vm-tests-ubuntu24]
-    if: ${{ needs.trust-context.outputs.run_secret_jobs == 'true' && needs.vm-tests-ubuntu24.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    concurrency:
-      group: bats-cloud-do-${{ needs.trust-context.outputs.checkout_ref }}
-      cancel-in-progress: true
+  # ----
+  # NOTE: The jobs below are disabled because the cloud provider accounts
+  # (AWS, DigitalOcean, Cloudflare) and test domains they depend on have
+  # been spun down. Uncomment them (and the schedule trigger above) to
+  # re-enable once active credentials are available again.
+  # ----
+  #   cloud-tests-do:
+  #     name: cloud-tests (do)
+  #     needs: [trust-context, vm-tests-ubuntu24]
+  #     if: ${{ needs.trust-context.outputs.run_secret_jobs == 'true' && needs.vm-tests-ubuntu24.result == 'success' }}
+  #     runs-on: ubuntu-24.04
+  #     timeout-minutes: 12
+  #     concurrency:
+  #       group: bats-cloud-do-${{ needs.trust-context.outputs.checkout_ref }}
+  #       cancel-in-progress: true
 
-    env:
-      CI: "true"
-      BATS_RUN_SUFFIX: ${{ github.run_id }}
+  #     env:
+  #       CI: "true"
+  #       BATS_RUN_SUFFIX: ${{ github.run_id }}
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          ref: ${{ needs.trust-context.outputs.checkout_ref }}
+  #     steps:
+  #       - name: Checkout repository
+  #         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+  #         with:
+  #           ref: ${{ needs.trust-context.outputs.checkout_ref }}
 
-      - name: Setup PHP and Composer
-        uses: ./.github/actions/setup-php-composer
+  #       - name: Setup PHP and Composer
+  #         uses: ./.github/actions/setup-php-composer
 
-      - name: Install BATS and dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bats jq curl
-          aws --version
+  #       - name: Install BATS and dependencies
+  #         run: |
+  #           sudo apt-get update
+  #           sudo apt-get install -y bats jq curl
+  #           aws --version
 
-      - name: Setup environment file
-        run: |
-          cat <<'EOF' > .env
-          ${{ secrets.DOTENV_FILE }}
-          EOF
+  #       - name: Setup environment file
+  #         run: |
+  #           cat <<'EOF' > .env
+  #           ${{ secrets.DOTENV_FILE }}
+  #           EOF
 
-      - name: Setup SSH key for cloud provisioning
-        run: |
-          mkdir -p ~/.ssh tests/bats/fixtures/keys
-          echo "${{ secrets.SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
-          cp ~/.ssh/id_ed25519.pub tests/bats/fixtures/keys/id_test.pub
+  #       - name: Setup SSH key for cloud provisioning
+  #         run: |
+  #           mkdir -p ~/.ssh tests/bats/fixtures/keys
+  #           echo "${{ secrets.SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/id_ed25519
+  #           chmod 600 ~/.ssh/id_ed25519
+  #           ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
+  #           cp ~/.ssh/id_ed25519.pub tests/bats/fixtures/keys/id_test.pub
 
-      - name: Run DO tests
-        run: |
-          set -a
-          # shellcheck disable=SC1091
-          source .env
-          set +a
-          ./bats.sh ci cloud do
+  #       - name: Run DO tests
+  #         run: |
+  #           set -a
+  #           # shellcheck disable=SC1091
+  #           source .env
+  #           set +a
+  #           ./bats.sh ci cloud do
 
-      - name: Cleanup cloud resources (backstop)
-        if: always()
-        run: |
-          set -a
-          # shellcheck disable=SC1091
-          source .env
-          set +a
-          tests/bats/lib/cloud-janitor.sh \
-            --mode=targeted \
-            --suffix="${BATS_RUN_SUFFIX}" \
-            --providers="do"
+  #       - name: Cleanup cloud resources (backstop)
+  #         if: always()
+  #         run: |
+  #           set -a
+  #           # shellcheck disable=SC1091
+  #           source .env
+  #           set +a
+  #           tests/bats/lib/cloud-janitor.sh \
+  #             --mode=targeted \
+  #             --suffix="${BATS_RUN_SUFFIX}" \
+  #             --providers="do"
 
-  cloud-tests-aws:
-    name: cloud-tests (aws)
-    needs: [trust-context, vm-tests-ubuntu24]
-    if: ${{ needs.trust-context.outputs.run_secret_jobs == 'true' && needs.vm-tests-ubuntu24.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    concurrency:
-      group: bats-cloud-aws-${{ needs.trust-context.outputs.checkout_ref }}
-      cancel-in-progress: true
+  #   cloud-tests-aws:
+  #     name: cloud-tests (aws)
+  #     needs: [trust-context, vm-tests-ubuntu24]
+  #     if: ${{ needs.trust-context.outputs.run_secret_jobs == 'true' && needs.vm-tests-ubuntu24.result == 'success' }}
+  #     runs-on: ubuntu-24.04
+  #     timeout-minutes: 12
+  #     concurrency:
+  #       group: bats-cloud-aws-${{ needs.trust-context.outputs.checkout_ref }}
+  #       cancel-in-progress: true
 
-    env:
-      CI: "true"
-      BATS_RUN_SUFFIX: ${{ github.run_id }}
+  #     env:
+  #       CI: "true"
+  #       BATS_RUN_SUFFIX: ${{ github.run_id }}
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          ref: ${{ needs.trust-context.outputs.checkout_ref }}
+  #     steps:
+  #       - name: Checkout repository
+  #         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+  #         with:
+  #           ref: ${{ needs.trust-context.outputs.checkout_ref }}
 
-      - name: Setup PHP and Composer
-        uses: ./.github/actions/setup-php-composer
+  #       - name: Setup PHP and Composer
+  #         uses: ./.github/actions/setup-php-composer
 
-      - name: Install BATS and dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bats jq curl
-          aws --version
+  #       - name: Install BATS and dependencies
+  #         run: |
+  #           sudo apt-get update
+  #           sudo apt-get install -y bats jq curl
+  #           aws --version
 
-      - name: Setup environment file
-        run: |
-          cat <<'EOF' > .env
-          ${{ secrets.DOTENV_FILE }}
-          EOF
+  #       - name: Setup environment file
+  #         run: |
+  #           cat <<'EOF' > .env
+  #           ${{ secrets.DOTENV_FILE }}
+  #           EOF
 
-      - name: Setup SSH key for cloud provisioning
-        run: |
-          mkdir -p ~/.ssh tests/bats/fixtures/keys
-          echo "${{ secrets.SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
-          cp ~/.ssh/id_ed25519.pub tests/bats/fixtures/keys/id_test.pub
+  #       - name: Setup SSH key for cloud provisioning
+  #         run: |
+  #           mkdir -p ~/.ssh tests/bats/fixtures/keys
+  #           echo "${{ secrets.SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/id_ed25519
+  #           chmod 600 ~/.ssh/id_ed25519
+  #           ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
+  #           cp ~/.ssh/id_ed25519.pub tests/bats/fixtures/keys/id_test.pub
 
-      - name: Run AWS tests
-        run: |
-          set -a
-          # shellcheck disable=SC1091
-          source .env
-          set +a
-          ./bats.sh ci cloud aws
+  #       - name: Run AWS tests
+  #         run: |
+  #           set -a
+  #           # shellcheck disable=SC1091
+  #           source .env
+  #           set +a
+  #           ./bats.sh ci cloud aws
 
-      - name: Cleanup cloud resources (backstop)
-        if: always()
-        run: |
-          set -a
-          # shellcheck disable=SC1091
-          source .env
-          set +a
-          tests/bats/lib/cloud-janitor.sh \
-            --mode=targeted \
-            --suffix="${BATS_RUN_SUFFIX}" \
-            --providers="aws"
+  #       - name: Cleanup cloud resources (backstop)
+  #         if: always()
+  #         run: |
+  #           set -a
+  #           # shellcheck disable=SC1091
+  #           source .env
+  #           set +a
+  #           tests/bats/lib/cloud-janitor.sh \
+  #             --mode=targeted \
+  #             --suffix="${BATS_RUN_SUFFIX}" \
+  #             --providers="aws"
 
-  janitor-targeted:
-    name: janitor-targeted
-    needs: [trust-context, cloud-tests-do, cloud-tests-aws]
-    if: >-
-      ${{
-        always() &&
-        needs.trust-context.outputs.run_secret_jobs == 'true' &&
-        (needs['cloud-tests-do'].result != 'skipped' || needs['cloud-tests-aws'].result != 'skipped')
-      }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    concurrency:
-      group: bats-cloud-janitor-targeted-${{ github.run_id }}
-      cancel-in-progress: false
+  #   janitor-targeted:
+  #     name: janitor-targeted
+  #     needs: [trust-context, cloud-tests-do, cloud-tests-aws]
+  #     if: >-
+  #       ${{
+  #         always() &&
+  #         needs.trust-context.outputs.run_secret_jobs == 'true' &&
+  #         (needs['cloud-tests-do'].result != 'skipped' || needs['cloud-tests-aws'].result != 'skipped')
+  #       }}
+  #     runs-on: ubuntu-24.04
+  #     timeout-minutes: 12
+  #     concurrency:
+  #       group: bats-cloud-janitor-targeted-${{ github.run_id }}
+  #       cancel-in-progress: false
 
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
+  #     env:
+  #       GITHUB_TOKEN: ${{ github.token }}
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+  #     steps:
+  #       - name: Checkout repository
+  #         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Setup PHP and Composer
-        uses: ./.github/actions/setup-php-composer
+  #       - name: Setup PHP and Composer
+  #         uses: ./.github/actions/setup-php-composer
 
-      - name: Install janitor dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq curl
-          aws --version
+  #       - name: Install janitor dependencies
+  #         run: |
+  #           sudo apt-get update
+  #           sudo apt-get install -y jq curl
+  #           aws --version
 
-      - name: Setup environment file
-        run: |
-          cat <<'ENVEOF' > .env
-          ${{ secrets.DOTENV_FILE }}
-          ENVEOF
+  #       - name: Setup environment file
+  #         run: |
+  #           cat <<'ENVEOF' > .env
+  #           ${{ secrets.DOTENV_FILE }}
+  #           ENVEOF
 
-      - name: Janitor cleanup after cloud jobs
-        run: |
-          set -a
-          # shellcheck disable=SC1091
-          source .env
-          set +a
-          tests/bats/lib/cloud-janitor.sh \
-            --mode=targeted \
-            --suffix="${{ github.run_id }}" \
-            --providers="aws,do,cf"
+  #       - name: Janitor cleanup after cloud jobs
+  #         run: |
+  #           set -a
+  #           # shellcheck disable=SC1091
+  #           source .env
+  #           set +a
+  #           tests/bats/lib/cloud-janitor.sh \
+  #             --mode=targeted \
+  #             --suffix="${{ github.run_id }}" \
+  #             --providers="aws,do,cf"
 
-  janitor-sweep:
-    needs: trust-context
-    if: ${{ needs.trust-context.outputs.run_sweep == 'true' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    concurrency:
-      group: bats-cloud-janitor
-      cancel-in-progress: false
+  #   janitor-sweep:
+  #     needs: trust-context
+  #     if: ${{ needs.trust-context.outputs.run_sweep == 'true' }}
+  #     runs-on: ubuntu-24.04
+  #     timeout-minutes: 12
+  #     concurrency:
+  #       group: bats-cloud-janitor
+  #       cancel-in-progress: false
 
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
+  #     env:
+  #       GITHUB_TOKEN: ${{ github.token }}
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+  #     steps:
+  #       - name: Checkout repository
+  #         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Setup PHP and Composer
-        uses: ./.github/actions/setup-php-composer
+  #       - name: Setup PHP and Composer
+  #         uses: ./.github/actions/setup-php-composer
 
-      - name: Install janitor dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq curl
-          aws --version
+  #       - name: Install janitor dependencies
+  #         run: |
+  #           sudo apt-get update
+  #           sudo apt-get install -y jq curl
+  #           aws --version
 
-      - name: Setup environment file
-        run: |
-          cat <<'ENVEOF' > .env
-          ${{ secrets.DOTENV_FILE }}
-          ENVEOF
+  #       - name: Setup environment file
+  #         run: |
+  #           cat <<'ENVEOF' > .env
+  #           ${{ secrets.DOTENV_FILE }}
+  #           ENVEOF
 
-      - name: Janitor scheduled sweep
-        run: |
-          set -a
-          # shellcheck disable=SC1091
-          source .env
-          set +a
-          tests/bats/lib/cloud-janitor.sh \
-            --mode=sweep \
-            --providers="aws,do,cf" \
-            --min-age-minutes=30
+  #       - name: Janitor scheduled sweep
+  #         run: |
+  #           set -a
+  #           # shellcheck disable=SC1091
+  #           source .env
+  #           set +a
+  #           tests/bats/lib/cloud-janitor.sh \
+  #             --mode=sweep \
+  #             --providers="aws,do,cf" \
+  #             --min-age-minutes=30
